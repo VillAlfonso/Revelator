@@ -1,11 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 
+// Top-level forgery groups. `backendCategory` matches the "category" field
+// returned by GET /api/categories, used to filter the leaf method list.
+const GROUPS = [
+  { id: 'traced',          code: 'TRC', icon: '📋', color: '#3b82f6', title: 'Traced Forgery',  description: 'Documents with traced signatures or content',  methods: 3, backendCategory: 'Traced' },
+  { id: 'alteration',      code: 'ALT', icon: '✏️', color: '#dc2626', title: 'Alteration',       description: 'Modified or changed document content',         methods: 4, backendCategory: 'Alteration' },
+  { id: 'digital',         code: 'DIG', icon: '💻', color: '#8b5cf6', title: 'Digital Forgery',  description: 'Computer-generated or manipulated documents',  methods: 3, backendCategory: 'Digital' },
+  { id: 'obliteration',    code: 'OBL', icon: '◼',  color: '#f97316', title: 'Obliteration',     description: 'Concealed or covered content',                 methods: 3, backendCategory: 'Obliteration' },
+  { id: 'sympathetic_ink', code: 'SYM', icon: '🔬', color: '#22c55e', title: 'Sympathetic Ink',  description: 'Invisible or special ink analysis',            methods: 2, backendCategory: 'Sympathetic Ink' },
+  { id: 'currency',        code: 'CUR', icon: '💵', color: '#eab308', title: 'Currency Forgery', description: 'Counterfeit money detection',                  methods: 1, backendCategory: 'Currency' },
+];
+
 export default function Scan() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryGroupId = searchParams.get('category');
+  const initialGroup = GROUPS.find(g => g.id === queryGroupId) || null;
+  const initialStep = queryGroupId === 'auto' ? 'upload' : (initialGroup ? 'upload' : 'select');
+
+  const [step, setStep] = useState(initialStep);
+  const [group, setGroup] = useState(initialGroup);
+  const [methodsByCategory, setMethodsByCategory] = useState({});
+  const [method, setMethod] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [category, setCategory] = useState('');
-  const [categories, setCategories] = useState({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -13,8 +32,33 @@ export default function Scan() {
   const canvasRef = useRef();
 
   useEffect(() => {
-    api.getCategories().then(data => setCategories(data.categories)).catch(() => {});
+    api.getCategories().then(data => setMethodsByCategory(data.categories)).catch(() => {});
   }, []);
+
+  function pickGroup(g) {
+    setGroup(g);
+    setMethod('');
+    setStep('upload');
+    setSearchParams({ category: g.id }, { replace: true });
+  }
+
+  function pickAutoDetect() {
+    setGroup(null);
+    setMethod('');
+    setStep('upload');
+    setSearchParams({ category: 'auto' }, { replace: true });
+  }
+
+  function backToSelect() {
+    setStep('select');
+    setGroup(null);
+    setMethod('');
+    setFile(null);
+    setPreview(null);
+    setResult(null);
+    setError('');
+    setSearchParams({}, { replace: true });
+  }
 
   function handleFileChange(e) {
     const f = e.target.files[0];
@@ -32,14 +76,12 @@ export default function Scan() {
     if (!canvas || !preview) return;
     const img = new Image();
     img.onload = () => {
-      // Fit to container
       const maxW = Math.min(canvas.parentElement.offsetWidth - 32, 800);
       const scale = maxW / imgW;
       canvas.width = imgW * scale;
       canvas.height = imgH * scale;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
       annotations.forEach((ann, idx) => {
         const c = ann.coordinates;
         const x = c.x_min * scale;
@@ -67,7 +109,7 @@ export default function Scan() {
     setError('');
     setResult(null);
     try {
-      const data = await api.analyze(file, category || null);
+      const data = await api.analyze(file, method || null);
       setResult(data);
       if (data.annotations?.length > 0) {
         setTimeout(() => drawAnnotations(data.annotations, data.original_image_dimensions.width, data.original_image_dimensions.height), 100);
@@ -79,16 +121,54 @@ export default function Scan() {
     }
   }
 
+  if (step === 'select') return <SelectForgeryType onPick={pickGroup} onAutoDetect={pickAutoDetect} />;
+
+  // ───── upload step ─────
+  const groupMethods = group ? (methodsByCategory[group.backendCategory] || []) : [];
   const verdictColors = { forged: '#dc2626', suspicious: '#f97316', genuine: '#22c55e' };
 
   return (
     <div>
-      <h1 className="oswald" style={{ fontSize: 26, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24 }}>
-        Document Scan
-      </h1>
+      <button
+        onClick={backToSelect}
+        style={{
+          background: 'transparent', border: 'none', color: '#a3a3a3', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: 0, fontSize: 14,
+        }}
+      >
+        ← Back to forgery types
+      </button>
+
+      <div style={{
+        background: '#151515',
+        borderLeft: `4px solid ${group?.color || '#f5c518'}`,
+        padding: 20, marginBottom: 24, borderRadius: 4,
+      }}>
+        <p className="mono" style={{ fontSize: 10, letterSpacing: 2, color: group?.color || '#f5c518', margin: 0 }}>
+          {group ? group.code : 'AUTO'}
+        </p>
+        <h2 className="oswald" style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1, margin: '4px 0 0' }}>
+          {group ? group.title : 'Auto-Detect Forgery'}
+        </h2>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
-        {/* Upload area */}
+        {group && (
+          <div className="card">
+            <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, color: '#a3a3a3' }}>
+              Method (optional — leave blank to scan all in this category)
+            </h3>
+            <select className="input" value={method} onChange={e => setMethod(e.target.value)} style={{ background: '#1a1a1a' }}>
+              <option value="">All {group.title.toLowerCase()} methods</option>
+              {groupMethods.map(item => (
+                <option key={item.api_key} value={item.api_key}>
+                  {item.title} {item.is_trained ? '' : '(limited data)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="card">
           <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16, color: '#a3a3a3' }}>
             Upload Document
@@ -99,8 +179,8 @@ export default function Scan() {
               border: '2px dashed #404040', borderRadius: 8, padding: 40, textAlign: 'center',
               cursor: 'pointer', transition: 'border-color 0.2s',
             }}
-            onMouseEnter={e => e.target.style.borderColor = '#f5c518'}
-            onMouseLeave={e => e.target.style.borderColor = '#404040'}
+            onMouseEnter={e => e.currentTarget.style.borderColor = '#f5c518'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#404040'}
           >
             <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
             {preview ? (
@@ -115,31 +195,6 @@ export default function Scan() {
           </div>
         </div>
 
-        {/* Category selector */}
-        <div className="card">
-          <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, color: '#a3a3a3' }}>
-            Category (optional)
-          </h3>
-          <select
-            className="input"
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            style={{ background: '#1a1a1a' }}
-          >
-            <option value="">Auto-detect (scan all)</option>
-            {Object.entries(categories).map(([catName, items]) => (
-              <optgroup key={catName} label={catName}>
-                {items.map(item => (
-                  <option key={item.api_key} value={item.api_key}>
-                    {item.title} {item.is_trained ? '' : '(limited data)'}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-
-        {/* Analyze button */}
         <button className="btn btn-primary" onClick={handleAnalyze} disabled={!file || loading} style={{ fontSize: 16, padding: '18px 0' }}>
           {loading ? 'Analyzing...' : 'Analyze Document'}
         </button>
@@ -150,7 +205,6 @@ export default function Scan() {
           </div>
         )}
 
-        {/* Results */}
         {result && (
           <div className="card" style={{ borderColor: verdictColors[result.verdict] || '#262626' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -160,7 +214,6 @@ export default function Scan() {
               <span className="mono" style={{ fontSize: 12, color: '#525252' }}>{result.scan_id}</span>
             </div>
 
-            {/* Verdict */}
             <div style={{
               textAlign: 'center', padding: 24, background: '#0a0a0a', borderRadius: 6, marginBottom: 20,
               border: `1px solid ${verdictColors[result.verdict]}`,
@@ -176,14 +229,12 @@ export default function Scan() {
               </div>
             </div>
 
-            {/* Warning */}
             {result.training_warning && (
               <div style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid #f97316', padding: 12, borderRadius: 4, marginBottom: 16, fontSize: 13, color: '#fb923c' }}>
                 {result.training_warning}
               </div>
             )}
 
-            {/* LLM Explanation */}
             <div style={{ marginBottom: 20 }}>
               <h4 className="oswald" style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: '#a3a3a3', marginBottom: 8 }}>
                 Forensic Analysis
@@ -191,7 +242,6 @@ export default function Scan() {
               <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d4d4d4' }}>{result.llm_explanation}</p>
             </div>
 
-            {/* Annotated image */}
             {result.annotations?.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h4 className="oswald" style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: '#a3a3a3', marginBottom: 8 }}>
@@ -201,7 +251,6 @@ export default function Scan() {
               </div>
             )}
 
-            {/* Annotations list */}
             {result.annotations?.length > 0 && (
               <div>
                 {result.annotations.map((ann, i) => (
@@ -224,5 +273,87 @@ export default function Scan() {
         )}
       </div>
     </div>
+  );
+}
+
+function SelectForgeryType({ onPick, onAutoDetect }) {
+  return (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <p className="mono" style={{ fontSize: 11, color: '#f5c518', letterSpacing: 4, marginBottom: 12 }}>
+          ◆ CASE FILE ANALYSIS ◆
+        </p>
+        <h2 className="oswald" style={{ fontSize: 'clamp(24px, 5vw, 38px)', fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}>
+          SELECT FORGERY TYPE
+        </h2>
+        <p style={{ color: '#a3a3a3', maxWidth: 500, margin: '0 auto', lineHeight: 1.6, fontSize: 14 }}>
+          Choose the category of document examination to begin forensic analysis
+        </p>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: 16, marginBottom: 40,
+      }}>
+        {GROUPS.map((g, i) => <CategoryCard key={g.id} cat={g} index={i + 1} onClick={() => onPick(g)} />)}
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 32 }}>
+        <p className="mono" style={{ fontSize: 10, color: '#525252', letterSpacing: 2, marginBottom: 12 }}>
+          OR PERFORM AUTOMATIC DETECTION
+        </p>
+        <button className="btn btn-secondary" onClick={onAutoDetect}>
+          🔍 AUTO-DETECT FORGERY
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CategoryCard({ cat, index, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: '#151515',
+        border: '1px solid #262626',
+        borderLeft: `4px solid ${cat.color}`,
+        padding: 0, textAlign: 'left', cursor: 'pointer',
+        transition: 'transform 0.2s', position: 'relative', overflow: 'hidden',
+        borderRadius: 4, color: 'inherit', font: 'inherit', width: '100%',
+      }}
+      onMouseEnter={e => e.currentTarget.style.transform = 'translateX(4px)'}
+      onMouseLeave={e => e.currentTarget.style.transform = 'translateX(0)'}
+    >
+      <div className="oswald" style={{
+        position: 'absolute', top: 12, right: 12, width: 26, height: 26,
+        color: '#000', fontWeight: 700, fontSize: 11,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: cat.color,
+        clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+      }}>{index}</div>
+
+      <div style={{ padding: '16px 16px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{ fontSize: 24 }}>{cat.icon}</span>
+          <div>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, margin: 0, color: cat.color }}>{cat.code}</p>
+            <h3 className="oswald" style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: 1 }}>{cat.title}</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: '#a3a3a3', margin: 0, lineHeight: 1.5 }}>{cat.description}</p>
+      </div>
+
+      <div style={{
+        borderTop: '1px solid #262626', padding: '10px 16px', background: '#1a1a1a',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <span className="mono" style={{ fontSize: 10, color: '#525252' }}>
+          {cat.methods} {cat.methods === 1 ? 'METHOD' : 'METHODS'}
+        </span>
+        <span style={{ color: cat.color, fontSize: 14 }}>→</span>
+      </div>
+    </button>
   );
 }

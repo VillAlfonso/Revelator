@@ -25,5 +25,20 @@ def get_db():
 
 
 def init_db():
-    """Create all tables."""
+    """Create all tables, then add new columns to existing tables for dev SQLite migrations."""
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()
+
+
+def _ensure_columns():
+    """Add columns introduced after the initial schema (SQLite-friendly, idempotent)."""
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("users")}
+    with engine.begin() as conn:
+        if "is_admin" not in existing:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
