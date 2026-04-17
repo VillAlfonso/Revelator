@@ -1,0 +1,24 @@
+# ForgeGuard - Erasure: Chemical
+# YOLO Training Configuration
+# Category: Alteration
+# 
+# This is a BINARY CLASSIFIER:
+#   Class 0: erasure_chemical_detected (forgery of this type found)
+#
+# Original text removed using chemical bleaching agents or solvents.
+
+# Dataset paths (relative to this file)
+path: ./dataset
+train: images/train
+val: images/val
+
+# Single class - binary detection
+nc: 1
+names:
+  0: erasure_chemical_detected
+
+# Training notes:
+# - Minimum 100 images recommended
+# - 80/20 train/val split
+# - Label format: YOLO (class x_center y_center width height)
+# - All coordinates normalized 0-1

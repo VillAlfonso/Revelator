@@ -1,0 +1,24 @@
+# ForgeGuard - Carbon Transfer Tracing
+# YOLO Training Configuration
+# Category: Traced
+# 
+# This is a BINARY CLASSIFIER:
+#   Class 0: traced_carbon_detected (forgery of this type found)
+#
+# Forgery created by placing carbon paper between original and blank document, then tracing.
+
+# Dataset paths (relative to this file)
+path: ./dataset
+train: images/train
+val: images/val
+
+# Single class - binary detection
+nc: 1
+names:
+  0: traced_carbon_detected
+
+# Training notes:
+# - Minimum 100 images recommended
+# - 80/20 train/val split
+# - Label format: YOLO (class x_center y_center width height)
+# - All coordinates normalized 0-1

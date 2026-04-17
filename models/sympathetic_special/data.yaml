@@ -1,0 +1,24 @@
+# ForgeGuard - Sympathetic: Special Ink (Invisible Ink)
+# YOLO Training Configuration
+# Category: Sympathetic Ink
+# 
+# This is a BINARY CLASSIFIER:
+#   Class 0: sympathetic_special_detected (forgery of this type found)
+#
+# Text written with invisible ink that requires special conditions to reveal.
+
+# Dataset paths (relative to this file)
+path: ./dataset
+train: images/train
+val: images/val
+
+# Single class - binary detection
+nc: 1
+names:
+  0: sympathetic_special_detected
+
+# Training notes:
+# - Minimum 100 images recommended
+# - 80/20 train/val split
+# - Label format: YOLO (class x_center y_center width height)
+# - All coordinates normalized 0-1

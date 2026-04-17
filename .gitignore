@@ -1,0 +1,41 @@
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# YOLO
+runs/
+*.pt
+!weights/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (large files)
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.bmp
+dataset/
+
+# Logs
+*.log
+logs/

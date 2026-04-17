@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ForgeGuard - Document Forensics Unit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-tertiary: #1a1a1a;
+      --bg-card: #151515;
+      --yellow-tape: #f5c518;
+      --yellow-dark: #c9a00c;
+      --red-alert: #dc2626;
+      --red-dark: #991b1b;
+      --green-clear: #22c55e;
+      --orange-warn: #f97316;
+      --blue-evidence: #3b82f6;
+      --purple: #8b5cf6;
+      --text-primary: #f5f5f5;
+      --text-secondary: #a3a3a3;
+      --text-muted: #525252;
+      --border-dark: #262626;
+      --border-light: #404040;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Source Sans Pro', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .tape-border {
+      background: repeating-linear-gradient(-45deg, var(--yellow-tape), var(--yellow-tape) 10px, #000 10px, #000 20px);
+      height: 6px;
+    }
+    
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .oswald { font-family: 'Oswald', sans-serif; }
+    
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+    
+    .btn {
+      font-family: 'Oswald', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .btn-primary {
+      background: var(--yellow-tape);
+      color: #000;
+      padding: 16px 32px;
+    }
+    
+    .btn-primary:hover { background: var(--yellow-dark); transform: translateY(-2px); }
+    .btn-primary:active { transform: translateY(0); }
+    
+    .btn-secondary {
+      background: transparent;
+      border: 2px solid var(--yellow-tape);
+      color: var(--yellow-tape);
+      padding: 14px 30px;
+    }
+    
+    .btn-secondary:hover { background: var(--yellow-tape); color: #000; }
+    
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    
+    .screen { display: none; }
+    .screen.active { display: block; }
+    
+    header {
+      background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+      border-bottom: 1px solid var(--border-dark);
+      padding: 12px 16px;
+    }
+    
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    
+    .logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: var(--yellow-tape);
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    
+    .status-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+    }
+    
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+    
+    .section-title {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-top: 16px;
+    }
+    
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    
+    .category-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dark);
+      border-left-width: 4px;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .category-card:hover { transform: translateX(4px); }
+    .category-card:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .evidence-marker {
+      position: absolute; top: 12px; right: 12px;
+      width: 26px; height: 26px;
+      color: #000;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+    
+    .card-content { padding: 16px 16px 12px; }
+    
+    .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .card-icon { font-size: 24px; }
+    .card-code { font-size: 9px; letter-spacing: 2px; margin: 0; }
+    .card-title { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 1px; }
+    .card-desc { font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+    
+    .card-footer {
+      border-top: 1px solid var(--border-dark);
+      padding: 10px 16px;
+      background: var(--bg-tertiary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .back-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 0;
+      font-size: 14px;
+    }
+    
+    .subcategory-header {
+      background: var(--bg-card);
+      border-left: 4px solid;
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    
+    .subcategory-list { display: flex; flex-direction: column; gap: 10px; }
+    
+    .subcategory-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dark);
+      padding: 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+    }
+    
+    .subcategory-item:hover {
+      background: var(--bg-tertiary);
+    }
+    
+    .sub-marker {
+      width: 32px; height: 32px; flex-shrink: 0;
+      color: #000;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+    
+    .sub-content { flex: 1; min-width: 0; }
+    .sub-title { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 1px; font-family: 'Oswald', sans-serif; }
+    .sub-desc { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
+    
+    .sub-lighting { text-align: right; flex-shrink: 0; }
+    
+    .lighting-box {
+      background: var(--bg-card);
+      border: 2px solid var(--yellow-tape);
+      padding: 28px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    
+    .tip-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 12px;
+      padding: 14px;
+      background: var(--bg-tertiary);
+      border-left: 3px solid var(--yellow-tape);
+    }
+    
+    .tip-num {
+      width: 22px; height: 22px; flex-shrink: 0;
+      background: var(--yellow-tape);
+      color: #000;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    
+    .camera-view {
+      position: relative;
+      background: #000;
+      aspect-ratio: 4/3;
+      margin-bottom: 20px;
+      border: 2px solid var(--border-dark);
+      overflow: hidden;
+    }
+    
+    .camera-view video { width: 100%; height: 100%; object-fit: cover; }
+    
+    .camera-overlay { position: absolute; inset: 0; pointer-events: none; }
+    
+    .corner { position: absolute; width: 32px; height: 32px; }
+    .corner.tl { top: 16px; left: 16px; border-top: 3px solid var(--yellow-tape); border-left: 3px solid var(--yellow-tape); }
+    .corner.tr { top: 16px; right: 16px; border-top: 3px solid var(--yellow-tape); border-right: 3px solid var(--yellow-tape); }
+    .corner.bl { bottom: 16px; left: 16px; border-bottom: 3px solid var(--yellow-tape); border-left: 3px solid var(--yellow-tape); }
+    .corner.br { bottom: 16px; right: 16px; border-bottom: 3px solid var(--yellow-tape); border-right: 3px solid var(--yellow-tape); }
+    
+    .camera-topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.7);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .rec-indicator { animation: blink 1s infinite; }
+    
+    .capture-btn {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--yellow-tape);
+      border: 4px solid var(--yellow-dark);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+    }
+    
+    .capture-btn-inner {
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      background: var(--yellow-tape);
+      border: 3px solid #000;
+    }
+    
+    .upload-box {
+      background: var(--bg-card);
+      border: 2px dashed var(--border-light);
+      padding: 24px;
+      text-align: center;
+    }
+    
+    .processing-box {
+      width: 160px; height: 160px;
+      margin: 0 auto 40px;
+      position: relative;
+      border: 3px solid var(--yellow-tape);
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--yellow-tape), transparent);
+      animation: scan 2s linear infinite;
+    }
+    
+    .processing-icon {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 56px;
+    }
+    
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    
+    .verdict-box {
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 20px;
+      border: 2px solid;
+    }
+    
+    .verdict-icon { font-size: 40px; display: block; margin-bottom: 12px; }
+    
+    .confidence-bar {
+      height: 6px;
+      background: var(--bg-tertiary);
+      overflow: hidden;
+    }
+    
+    .confidence-fill {
+      height: 100%;
+      transition: width 0.5s;
+    }
+    
+    .evidence-image {
+      position: relative;
+      background: #000;
+      border: 2px solid var(--border-dark);
+      margin-bottom: 12px;
+    }
+    
+    .evidence-image img { width: 100%; display: block; }
+    
+    .annotation-box {
+      position: absolute;
+      border: 2px solid;
+      cursor: pointer;
+    }
+    
+    .annotation-marker {
+      position: absolute;
+      top: -12px; left: 4px;
+      width: 20px; height: 20px;
+      color: #000;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+    
+    .finding-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dark);
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .finding-item:hover { background: var(--bg-tertiary); }
+    
+    .finding-marker {
+      width: 24px; height: 24px; flex-shrink: 0;
+      color: #000;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+    
+    .info-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dark);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .error-icon {
+      width: 80px; height: 80px;
+      margin: 0 auto 24px;
+      background: rgba(220, 38, 38, 0.1);
+      border: 2px solid var(--red-alert);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+    }
+    
+    .offline-banner {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid var(--red-alert);
+      padding: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .group-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      padding-left: 4px;
+    }
+    
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .actions .btn { flex: 1; min-width: 140px; }
+    
+    @media (max-width: 768px) {
+      .btn-primary, .btn-secondary { padding: 14px 24px; font-size: 13px; }
+      .category-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top tape -->
+  <div class="tape-border"></div>
+  
+  <!-- Header -->
+  <header>
+    <div class="header-inner">
+      <div class="logo" onclick="goHome()">
+        <div class="logo-icon">🔍</div>
+        <div>
+          <h1 class="oswald" style="font-size: clamp(18px, 4vw, 24px); font-weight: 700; letter-spacing: 3px; color: var(--yellow-tape); margin: 0;">FORGEGUARD</h1>
+          <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin: 0;">DOCUMENT FORENSICS UNIT</p>
+        </div>
+      </div>
+      <div class="status-badge" id="statusBadge" style="border: 1px solid var(--red-alert);">
+        <div class="status-dot" id="statusDot" style="background: var(--red-alert);"></div>
+        <span class="mono" id="statusText" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">OFFLINE</span>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Main -->
+  <main>
+    <!-- HOME SCREEN -->
+    <div id="homeScreen" class="screen active">
+      <div class="section-title">
+        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 4px; margin-bottom: 12px;">◆ CASE FILE ANALYSIS ◆</p>
+        <h2 class="oswald" style="font-size: clamp(24px, 5vw, 38px); font-weight: 700; letter-spacing: 2px; margin-bottom: 12px;">SELECT FORGERY TYPE</h2>
+        <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto; line-height: 1.6; font-size: 14px;">Choose the category of document examination to begin forensic analysis</p>
+      </div>
+      
+      <div id="offlineBanner" class="offline-banner" style="display: none;">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+          <p class="mono" style="color: var(--red-alert); font-size: 11px; letter-spacing: 1px; margin: 0;">BACKEND OFFLINE</p>
+          <p style="color: var(--text-secondary); font-size: 12px; margin: 4px 0 0;">Start server at localhost:8000</p>
+        </div>
+      </div>
+      
+      <div id="categoryGrid" class="category-grid"></div>
+      
+      <div style="text-align: center; margin-top: 32px;">
+        <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px;">OR PERFORM AUTOMATIC DETECTION</p>
+        <button class="btn btn-secondary" onclick="selectCategory(null)" id="autoDetectBtn">🔎 AUTO-DETECT FORGERY</button>
+      </div>
+    </div>
+    
+    <!-- SUBCATEGORY SCREEN -->
+    <div id="subcategoryScreen" class="screen">
+      <button class="back-btn" onclick="goHome()">
+        <span>←</span>
+        <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK TO CATEGORIES</span>
+      </button>
+      <div id="subcategoryHeader" class="subcategory-header"></div>
+      <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 16px;">◆ SELECT EXAMINATION METHOD ◆</p>
+      <div id="subcategoryList"></div>
+    </div>
+    
+    <!-- LIGHTING SCREEN -->
+    <div id="lightingScreen" class="screen">
+      <button class="back-btn" onclick="showScreen('subcategoryScreen')">
+        <span>←</span>
+        <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK</span>
+      </button>
+      <div id="lightingContent" style="max-width: 600px; margin: 0 auto;"></div>
+    </div>
+    
+    <!-- CAMERA SCREEN -->
+    <div id="cameraScreen" class="screen">
+      <button class="back-btn" onclick="showScreen('lightingScreen')">
+        <span>←</span>
+        <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK</span>
+      </button>
+      <div style="max-width: 800px; margin: 0 auto;">
+        <div class="camera-view" id="cameraView">
+          <video id="videoFeed" autoplay playsinline muted></video>
+          <div class="camera-overlay">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="camera-topbar">
+              <span class="mono rec-indicator" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">● REC</span>
+              <span class="mono" id="cameraLighting" style="font-size: 10px; color: var(--text-secondary);">STANDARD REQUIRED</span>
+            </div>
+          </div>
+        </div>
+        <canvas id="captureCanvas" style="display: none;"></canvas>
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 24px;">
+          <button class="capture-btn" onclick="captureImage()" id="captureBtn">
+            <div class="capture-btn-inner" id="captureBtnInner"></div>
+          </button>
+          <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 1px;">CAPTURE</p>
+        </div>
+        <div class="upload-box">
+          <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px;">OR UPLOAD EVIDENCE FILE</p>
+          <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+          <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="padding: 12px 24px;">📁 SELECT FILE</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- PROCESSING SCREEN -->
+    <div id="processingScreen" class="screen">
+      <div style="text-align: center; padding: 60px 20px;">
+        <div class="processing-box">
+          <div class="scan-line"></div>
+          <div class="processing-icon">🔍</div>
+        </div>
+        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">◆ ANALYSIS IN PROGRESS ◆</p>
+        <h2 class="oswald" id="processingStatus" style="font-size: 20px; letter-spacing: 2px; margin-bottom: 8px;">Uploading evidence...</h2>
+        <p style="color: var(--text-muted); font-size: 13px;">Do not close this window</p>
+      </div>
+    </div>
+    
+    <!-- ERROR SCREEN -->
+    <div id="errorScreen" class="screen">
+      <div style="text-align: center; padding: 50px 20px; max-width: 450px; margin: 0 auto;">
+        <div class="error-icon">⚠️</div>
+        <p class="mono" style="font-size: 11px; color: var(--red-alert); letter-spacing: 3px; margin-bottom: 10px;">◆ ERROR ◆</p>
+        <h2 class="oswald" style="font-size: 20px; letter-spacing: 2px; margin-bottom: 14px;">ANALYSIS FAILED</h2>
+        <p id="errorMessage" style="color: var(--text-secondary); margin-bottom: 32px; line-height: 1.6; font-size: 14px;"></p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="showScreen('cameraScreen')">🔄 RETRY</button>
+          <button class="btn btn-secondary" onclick="goHome()">← HOME</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RESULTS SCREEN -->
+    <div id="resultsScreen" class="screen">
+      <button class="back-btn" onclick="goHome()">
+        <span>←</span>
+        <span class="mono" style="font-size: 11px; letter-spacing: 1px;">NEW EXAMINATION</span>
+      </button>
+      <div id="resultsContent" class="results-grid"></div>
+    </div>
+  </main>
+  
+  <!-- Bottom tape -->
+  <div class="tape-border" style="position: fixed; bottom: 0; left: 0; right: 0;"></div>
+  
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const API_URL = 'http://localhost:8000';
+    
+    // ============================================
+    // CATEGORIES DATA
+    // ============================================
+    const CATEGORIES = [
+      {
+        id: 'traced', title: 'Traced Forgery', code: 'TRC', icon: '📋', color: '#3b82f6',
+        description: 'Documents with traced signatures or content',
+        subcategories: [
+          { id: 'traced_carbon', title: 'Carbon Transfer', apiKey: 'traced_carbon', description: 'Carbon paper traced signatures', lighting: 'OBLIQUE', tips: ['Use 45° angled lighting', 'Look for carbon residue', 'Check for pressure marks'] },
+          { id: 'traced_indentation', title: 'Indentation / Canal Light', apiKey: 'traced_indentation', description: 'Indented grooves from tracing pressure', lighting: 'OBLIQUE', tips: ['Shine light at low angle', 'Look for groove shadows', 'Check for embossing'] },
+          { id: 'traced_projection', title: 'Projection Process', apiKey: 'traced_projection', description: 'Light box or projector tracing', lighting: 'TRANSMITTED', tips: ['Use backlight examination', 'Check line consistency', 'Look for hesitation marks'] },
+        ]
+      },
+      {
+        id: 'alteration', title: 'Alteration', code: 'ALT', icon: '✏️', color: '#dc2626',
+        description: 'Modified or changed document content',
+        groups: [
+          { name: 'Addition', subcategories: [
+            { id: 'addition_insertion', title: 'Insertion', apiKey: 'addition_insertion', description: 'Text inserted between existing content', lighting: 'MACRO', tips: ['Check ink consistency', 'Look for spacing anomalies', 'Examine baseline alignment'] },
+            { id: 'addition_interlineation', title: 'Interlineation', apiKey: 'addition_interlineation', description: 'Text added between lines', lighting: 'MACRO', tips: ['Check line spacing', 'Compare ink colors', 'Look for cramped writing'] },
+          ]},
+          { name: 'Erasure', subcategories: [
+            { id: 'erasure_chemical', title: 'Chemical Erasure', apiKey: 'erasure_chemical', description: 'Chemical bleaching or solvent removal', lighting: 'UV', tips: ['UV reveals chemical damage', 'Check for paper discoloration', 'Look for fiber disturbance'] },
+            { id: 'erasure_mechanical', title: 'Mechanical Erasure', apiKey: 'erasure_mechanical', description: 'Physical scraping or rubber erasure', lighting: 'OBLIQUE', tips: ['Look for disturbed fibers', 'Check paper thickness', 'Examine under magnification'] },
+          ]}
+        ]
+      },
+      {
+        id: 'digital', title: 'Digital Forgery', code: 'DIG', icon: '💻', color: '#8b5cf6',
+        description: 'Computer-generated or manipulated documents',
+        subcategories: [
+          { id: 'digital_cut_paste', title: 'Cut and Paste', apiKey: 'digital_cut_paste', description: 'Digitally spliced image elements', lighting: 'MACRO', tips: ['Check edge artifacts', 'Look for noise inconsistency', 'Examine compression patterns'] },
+          { id: 'digital_desktop', title: 'Desktop Publishing', apiKey: 'digital_desktop', description: 'Software-created fake documents', lighting: 'MACRO', tips: ['Check font consistency', 'Look for printing anomalies', 'Examine paper quality'] },
+          { id: 'digital_scanned', title: 'Scanned Documents', apiKey: 'digital_scanned', description: 'Manipulated scanned images', lighting: 'MACRO', tips: ['Check resolution uniformity', 'Look for scan artifacts', 'Examine metadata if available'] },
+        ]
+      },
+      {
+        id: 'obliteration', title: 'Obliteration', code: 'OBL', icon: '🖤', color: '#f97316',
+        description: 'Concealed or covered content',
+        subcategories: [
+          { id: 'obliteration_ink', title: 'Ink Stroke', apiKey: 'obliteration_ink', description: 'Content covered with ink strokes', lighting: 'INFRARED', tips: ['IR may reveal underlying text', 'Check ink layer density', 'Look for stroke patterns'] },
+          { id: 'obliteration_whiteout', title: 'White Out', apiKey: 'obliteration_whiteout', description: 'Correction fluid coverage', lighting: 'TRANSMITTED', tips: ['Backlight reveals coverage area', 'Check surface texture', 'UV may show fluorescence'] },
+          { id: 'obliteration_pigment', title: 'Opaque Pigment', apiKey: 'obliteration_pigment', description: 'Paint or heavy pigment coverage', lighting: 'TRANSMITTED', tips: ['Use strong transmitted light', 'Check for pigment edges', 'Examine layer thickness'] },
+        ]
+      },
+      {
+        id: 'sympathetic_ink', title: 'Sympathetic Ink', code: 'SYM', icon: '🔬', color: '#22c55e',
+        description: 'Invisible or special ink analysis',
+        subcategories: [
+          { id: 'sympathetic_indented', title: 'Indented Writing', apiKey: 'sympathetic_indented', description: 'Hidden impressions from writing', lighting: 'ESDA', tips: ['Use electrostatic detection', 'Check for pressure marks', 'Examine at oblique angles'] },
+          { id: 'sympathetic_special', title: 'Special Ink (Identify Type)', apiKey: 'sympathetic_special', description: 'Invisible ink or special formulations', lighting: 'UV_MULTI', tips: ['Try multiple UV wavelengths', 'Check for fluorescence', 'Heat may reveal some inks'] },
+        ]
+      },
+      {
+        id: 'currency', title: 'Currency Forgery', code: 'CUR', icon: '💵', color: '#eab308',
+        description: 'Counterfeit money detection',
+        subcategories: [
+          { id: 'currency_analysis', title: 'Currency Analysis', apiKey: 'currency_analysis', description: 'Full counterfeit currency examination', lighting: 'UV_MULTI', tips: ['Check security features', 'UV reveals security threads', 'Examine microprinting', 'Check paper quality'] },
+        ]
+      },
+    ];
+    
+    // ============================================
+    // STATE
+    // ============================================
+    let serverOnline = false;
+    let selectedCategory = null;
+    let selectedSubcategory = null;
+    let videoStream = null;
+    let capturedImageUrl = null;
+    let analysisResult = null;
+    
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCategories();
+      checkServerStatus();
+      setInterval(checkServerStatus, 8000);
+    });
+    
+    // ============================================
+    // SERVER STATUS
+    // ============================================
+    async function checkServerStatus() {
+      try {
+        const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
+        serverOnline = res.ok;
+      } catch {
+        serverOnline = false;
+      }
+      updateStatusUI();
+    }
+    
+    function updateStatusUI() {
+      const badge = document.getElementById('statusBadge');
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const banner = document.getElementById('offlineBanner');
+      const autoBtn = document.getElementById('autoDetectBtn');
+      
+      if (serverOnline) {
+        badge.style.borderColor = 'var(--green-clear)';
+        dot.style.background = 'var(--green-clear)';
+        text.style.color = 'var(--green-clear)';
+        text.textContent = 'ONLINE';
+        banner.style.display = 'none';
+        autoBtn.disabled = false;
+        autoBtn.style.opacity = '1';
+      } else {
+        badge.style.borderColor = 'var(--red-alert)';
+        dot.style.background = 'var(--red-alert)';
+        text.style.color = 'var(--red-alert)';
+        text.textContent = 'OFFLINE';
+        banner.style.display = 'flex';
+        autoBtn.disabled = true;
+        autoBtn.style.opacity = '0.5';
+      }
+      
+      document.querySelectorAll('.category-card').forEach(card => {
+        card.disabled = !serverOnline;
+        card.style.opacity = serverOnline ? '1' : '0.5';
+        card.style.cursor = serverOnline ? 'pointer' : 'not-allowed';
+      });
+    }
+    
+    // ============================================
+    // SCREEN NAVIGATION
+    // ============================================
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      
+      if (screenId === 'cameraScreen') {
+        startCamera();
+      } else {
+        stopCamera();
+      }
+    }
+    
+    function goHome() {
+      selectedCategory = null;
+      selectedSubcategory = null;
+      capturedImageUrl = null;
+      analysisResult = null;
+      showScreen('homeScreen');
+    }
+    
+    // ============================================
+    // RENDER CATEGORIES
+    // ============================================
+    function renderCategories() {
+      const grid = document.getElementById('categoryGrid');
+      grid.innerHTML = CATEGORIES.map((cat, i) => {
+        const subCount = cat.subcategories?.length || cat.groups?.reduce((s, g) => s + g.subcategories.length, 0) || 0;
+        return `
+          <button class="category-card" style="border-left-color: ${cat.color};" onclick="selectCategory('${cat.id}')" disabled>
+            <div class="evidence-marker" style="background: ${cat.color};">${i + 1}</div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">${cat.icon}</span>
+                <div>
+                  <p class="mono card-code" style="color: ${cat.color};">${cat.code}</p>
+                  <h3 class="oswald card-title">${cat.title}</h3>
+                </div>
+              </div>
+              <p class="card-desc">${cat.description}</p>
+            </div>
+            <div class="card-footer">
+              <span class="mono" style="font-size: 10px; color: var(--text-muted);">${subCount} ${subCount === 1 ? 'METHOD' : 'METHODS'}</span>
+              <span style="color: ${cat.color}; font-size: 14px;">→</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+    
+    // ============================================
+    // SELECT CATEGORY
+    // ============================================
+    function selectCategory(catId) {
+      if (!serverOnline) return;
+      
+      if (!catId) {
+        // Auto-detect mode
+        selectedCategory = null;
+        selectedSubcategory = null;
+        showScreen('cameraScreen');
+        return;
+      }
+      
+      selectedCategory = CATEGORIES.find(c => c.id === catId);
+      renderSubcategories();
+      showScreen('subcategoryScreen');
+    }
+    
+    // ============================================
+    // RENDER SUBCATEGORIES
+    // ============================================
+    function renderSubcategories() {
+      const cat = selectedCategory;
+      
+      document.getElementById('subcategoryHeader').innerHTML = `
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="font-size: 36px;">${cat.icon}</span>
+          <div>
+            <p class="mono" style="font-size: 10px; color: ${cat.color}; letter-spacing: 2px; margin-bottom: 4px;">${cat.code}</p>
+            <h2 class="oswald" style="font-size: clamp(22px, 4vw, 28px); font-weight: 700; letter-spacing: 2px; margin: 0;">${cat.title}</h2>
+            <p style="color: var(--text-secondary); margin: 6px 0 0; font-size: 13px;">${cat.description}</p>
+          </div>
+        </div>
+      `;
+      document.getElementById('subcategoryHeader').style.borderLeftColor = cat.color;
+      
+      let html = '';
+      let idx = 0;
+      
+      if (cat.subcategories) {
+        html += '<div class="subcategory-list">';
+        cat.subcategories.forEach(sub => {
+          html += renderSubItem(sub, idx++, cat.color);
+        });
+        html += '</div>';
+      }
+      
+      if (cat.groups) {
+        cat.groups.forEach(group => {
+          html += `<p class="group-label mono">▸ ${group.name.toUpperCase()}</p>`;
+          html += '<div class="subcategory-list" style="margin-bottom: 24px;">';
+          group.subcategories.forEach(sub => {
+            html += renderSubItem(sub, idx++, cat.color);
+          });
+          html += '</div>';
+        });
+      }
+      
+      document.getElementById('subcategoryList').innerHTML = html;
+    }
+    
+    function renderSubItem(sub, idx, color) {
+      return `
+        <button class="subcategory-item" onclick="selectSubcategory('${sub.id}')">
+          <div class="sub-marker" style="background: ${color};">${idx + 1}</div>
+          <div class="sub-content">
+            <h3 class="sub-title">${sub.title}</h3>
+            <p class="sub-desc">${sub.description}</p>
+          </div>
+          <div class="sub-lighting">
+            <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 2px;">LIGHTING</p>
+            <p class="mono" style="font-size: 11px; color: var(--yellow-tape); font-weight: 600;">${sub.lighting}</p>
+          </div>
+          <span style="color: ${color}; font-size: 16px; flex-shrink: 0;">→</span>
+        </button>
+      `;
+    }
+    
+    // ============================================
+    // SELECT SUBCATEGORY
+    // ============================================
+    function selectSubcategory(subId) {
+      const cat = selectedCategory;
+      let found = null;
+      
+      if (cat.subcategories) {
+        found = cat.subcategories.find(s => s.id === subId);
+      }
+      if (!found && cat.groups) {
+        cat.groups.forEach(g => {
+          const f = g.subcategories.find(s => s.id === subId);
+          if (f) found = f;
+        });
+      }
+      
+      selectedSubcategory = found;
+      renderLightingScreen();
+      showScreen('lightingScreen');
+    }
+    
+    // ============================================
+    // RENDER LIGHTING SCREEN
+    // ============================================
+    function renderLightingScreen() {
+      const sub = selectedSubcategory;
+      
+      document.getElementById('lightingContent').innerHTML = `
+        <div style="text-align: center; margin-bottom: 32px;">
+          <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">◆ EXAMINATION PROTOCOL ◆</p>
+          <h2 class="oswald" style="font-size: clamp(22px, 4vw, 28px); font-weight: 700; letter-spacing: 2px; margin-bottom: 8px;">${sub.title}</h2>
+          <p style="color: var(--text-secondary); font-size: 14px;">${sub.description}</p>
+        </div>
+        
+        <div class="lighting-box">
+          <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 8px;">REQUIRED LIGHTING</p>
+          <p class="oswald" style="font-size: clamp(28px, 6vw, 36px); font-weight: 700; color: var(--yellow-tape); letter-spacing: 4px;">${sub.lighting}</p>
+        </div>
+        
+        <div style="margin-bottom: 32px;">
+          <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 14px;">GUIDELINES</p>
+          ${sub.tips.map((tip, i) => `
+            <div class="tip-item">
+              <div class="tip-num">${i + 1}</div>
+              <p style="color: var(--text-primary); margin: 0; font-size: 13px; line-height: 1.5;">${tip}</p>
+            </div>
+          `).join('')}
+        </div>
+        
+        <button class="btn btn-primary" onclick="showScreen('cameraScreen')" style="width: 100%; padding: 18px;">📷 PROCEED TO CAPTURE</button>
+      `;
+    }
+    
+    // ============================================
+    // CAMERA
+    // ============================================
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        videoStream = stream;
+        document.getElementById('videoFeed').srcObject = stream;
+        document.getElementById('cameraLighting').textContent = (selectedSubcategory?.lighting || 'STANDARD') + ' REQUIRED';
+      } catch (err) {
+        console.error('Camera error:', err);
+      }
+    }
+    
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+        videoStream = null;
+      }
+    }
+    
+    function captureImage() {
+      const video = document.getElementById('videoFeed');
+      const canvas = document.getElementById('captureCanvas');
+      
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      
+      canvas.toBlob(blob => {
+        if (blob) {
+          const file = new File([blob], 'evidence.jpg', { type: 'image/jpeg' });
+          capturedImageUrl = URL.createObjectURL(blob);
+          analyzeImage(file);
+        }
+      }, 'image/jpeg', 0.92);
+    }
+    
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        capturedImageUrl = URL.createObjectURL(file);
+        analyzeImage(file);
+      }
+    }
+    
+    // ============================================
+    // ANALYZE
+    // ============================================
+    async function analyzeImage(file) {
+      showScreen('processingScreen');
+      updateProcessingStatus('Uploading evidence...');
+      
+      try {
+        setTimeout(() => updateProcessingStatus('AI analysis in progress...'), 800);
+        setTimeout(() => updateProcessingStatus('Detecting anomalies...'), 2000);
+        
+        const formData = new FormData();
+        formData.append('imageFile', file);
+        if (selectedSubcategory) {
+          formData.append('category', selectedSubcategory.apiKey);
+        }
+        
+        const res = await fetch(`${API_URL}/analyze`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        
+        analysisResult = await res.json();
+        updateProcessingStatus('Analysis complete');
+        
+        setTimeout(() => {
+          renderResults();
+          showScreen('resultsScreen');
+        }, 500);
+        
+      } catch (err) {
+        document.getElementById('errorMessage').textContent = err.message;
+        showScreen('errorScreen');
+      }
+    }
+    
+    function updateProcessingStatus(text) {
+      document.getElementById('processingStatus').textContent = text;
+    }
+    
+    // ============================================
+    // RENDER RESULTS
+    // ============================================
+    function renderResults() {
+      const result = analysisResult;
+      
+      const verdictConfig = {
+        forged: { color: 'var(--red-alert)', bg: 'rgba(220, 38, 38, 0.15)', label: 'FORGERY DETECTED', icon: '🚨' },
+        suspicious: { color: 'var(--orange-warn)', bg: 'rgba(249, 115, 22, 0.15)', label: 'SUSPICIOUS', icon: '⚠️' },
+        genuine: { color: 'var(--green-clear)', bg: 'rgba(34, 197, 94, 0.15)', label: 'APPEARS GENUINE', icon: '✓' },
+      };
+      
+      const verdict = verdictConfig[result.verdict] || verdictConfig.forged;
+      const confidence = Math.round((result.confidence_score || 0) * 100);
+      
+      document.getElementById('resultsContent').innerHTML = `
+        <!-- Left Column -->
+        <div>
+          <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">◆ EVIDENCE ◆</p>
+          <div class="evidence-image" id="evidenceImage">
+            <img src="${capturedImageUrl}" alt="Evidence" onload="renderAnnotations()">
+          </div>
+          <div class="info-box">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 1px;">CASE ID</p>
+                <p class="mono" style="font-size: 12px; color: var(--yellow-tape);">${result.scan_id || 'FG-' + Date.now()}</p>
+              </div>
+              <div>
+                <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 1px;">TYPE</p>
+                <p class="mono" style="font-size: 12px;">${result.category_analyzed || selectedSubcategory?.apiKey || 'AUTO'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div>
+          <div class="verdict-box" style="background: ${verdict.bg}; border-color: ${verdict.color};">
+            <span class="verdict-icon">${verdict.icon}</span>
+            <p class="oswald" style="font-size: clamp(20px, 4vw, 26px); font-weight: 700; color: ${verdict.color}; letter-spacing: 3px; margin: 0;">${verdict.label}</p>
+          </div>
+          
+          <div class="info-box">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 1px;">CONFIDENCE</span>
+              <span class="oswald" style="font-size: 22px; font-weight: 700; color: ${verdict.color};">${confidence}%</span>
+            </div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" style="width: ${confidence}%; background: ${verdict.color};"></div>
+            </div>
+          </div>
+          
+          <div class="info-box">
+            <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">◆ AI ANALYSIS ◆</p>
+            <p style="color: var(--text-primary); line-height: 1.6; font-size: 13px;">${result.llm_explanation || 'Analysis complete. Review annotated evidence for details.'}</p>
+          </div>
+          
+          ${result.annotations?.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+              <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 10px;">ANOMALIES (${result.annotations.length})</p>
+              ${result.annotations.map(ann => `
+                <div class="finding-item" onmouseenter="highlightAnnotation(${ann.id})" onmouseleave="unhighlightAnnotation(${ann.id})">
+                  <div class="finding-marker" style="background: ${ann.color || 'var(--red-alert)'};">${ann.id}</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <p class="oswald" style="font-size: 13px; font-weight: 600; margin: 0;">${ann.title}</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div class="actions">
+            <button class="btn btn-primary" onclick="goHome()">🔍 NEW SCAN</button>
+            <button class="btn btn-secondary" onclick="exportReport()">📄 EXPORT</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderAnnotations() {
+      const result = analysisResult;
+      if (!result.annotations?.length) return;
+      
+      const container = document.getElementById('evidenceImage');
+      const img = container.querySelector('img');
+      
+      const origW = result.original_image_dimensions?.width || 1920;
+      const origH = result.original_image_dimensions?.height || 1080;
+      const scaleX = img.clientWidth / origW;
+      const scaleY = img.clientHeight / origH;
+      
+      result.annotations.forEach(ann => {
+        const c = ann.coordinates;
+        const div = document.createElement('div');
+        div.className = 'annotation-box';
+        div.id = `annotation-${ann.id}`;
+        div.style.cssText = `
+          left: ${c.x_min * scaleX}px;
+          top: ${c.y_min * scaleY}px;
+          width: ${(c.x_max - c.x_min) * scaleX}px;
+          height: ${(c.y_max - c.y_min) * scaleY}px;
+          border-color: ${ann.color || 'var(--red-alert)'};
+        `;
+        div.innerHTML = `<div class="annotation-marker" style="background: ${ann.color || 'var(--red-alert)'};">${ann.id}</div>`;
+        container.appendChild(div);
+      });
+    }
+    
+    function highlightAnnotation(id) {
+      const el = document.getElementById(`annotation-${id}`);
+      if (el) el.style.background = 'rgba(220, 38, 38, 0.3)';
+    }
+    
+    function unhighlightAnnotation(id) {
+      const el = document.getElementById(`annotation-${id}`);
+      if (el) el.style.background = 'transparent';
+    }
+    
+    function exportReport() {
+      const blob = new Blob([JSON.stringify(analysisResult, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `case-${analysisResult.scan_id || Date.now()}.json`;
+      a.click();
+    }
+  </script>
+</body>
+</html>
