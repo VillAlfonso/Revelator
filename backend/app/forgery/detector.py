@@ -1,0 +1,205 @@
+"""
+YOLO-based forgery detection logic (extracted from original main.py).
+"""
+
+from pathlib import Path
+from typing import Optional, List, Dict
+from PIL import Image
+
+from ..config import CONFIDENCE_THRESHOLD
+
+# ============================================
+# CLASS LABELS - Map YOLO class indices to labels
+# ============================================
+
+CLASS_LABELS = {
+    0: {"name": "traced_carbon", "title": "Carbon Transfer", "category": "Traced", "color": "#3b82f6"},
+    1: {"name": "traced_indentation", "title": "Indentation/Canal Light", "category": "Traced", "color": "#3b82f6"},
+    2: {"name": "traced_projection", "title": "Projection Process", "category": "Traced", "color": "#3b82f6"},
+    3: {"name": "addition_insertion", "title": "Addition: Insertion", "category": "Alteration", "color": "#dc2626"},
+    4: {"name": "addition_interlineation", "title": "Addition: Interlineation", "category": "Alteration", "color": "#dc2626"},
+    5: {"name": "erasure_chemical", "title": "Erasure: Chemical", "category": "Alteration", "color": "#dc2626"},
+    6: {"name": "erasure_mechanical", "title": "Erasure: Mechanical", "category": "Alteration", "color": "#dc2626"},
+    7: {"name": "digital_cut_paste", "title": "Cut and Paste", "category": "Digital", "color": "#8b5cf6"},
+    8: {"name": "digital_desktop", "title": "Desktop Publishing", "category": "Digital", "color": "#8b5cf6"},
+    9: {"name": "digital_scanned", "title": "Scanned Documents", "category": "Digital", "color": "#8b5cf6"},
+    10: {"name": "obliteration_ink", "title": "Ink Stroke", "category": "Obliteration", "color": "#f97316"},
+    11: {"name": "obliteration_whiteout", "title": "White Out", "category": "Obliteration", "color": "#f97316"},
+    12: {"name": "obliteration_pigment", "title": "Opaque Pigment", "category": "Obliteration", "color": "#f97316"},
+    13: {"name": "sympathetic_indented", "title": "Indented Writing", "category": "Sympathetic Ink", "color": "#22c55e"},
+    14: {"name": "sympathetic_special", "title": "Special Ink", "category": "Sympathetic Ink", "color": "#22c55e"},
+    15: {"name": "currency_analysis", "title": "Currency Forgery", "category": "Currency", "color": "#eab308"},
+}
+
+NAME_TO_CLASS = {v["name"]: k for k, v in CLASS_LABELS.items()}
+VALID_CATEGORIES = list(NAME_TO_CLASS.keys())
+
+TRAINING_STATUS = {
+    "traced_carbon": False,
+    "traced_indentation": False,
+    "traced_projection": False,
+    "addition_insertion": False,
+    "addition_interlineation": False,
+    "erasure_chemical": False,
+    "erasure_mechanical": False,
+    "digital_cut_paste": True,
+    "digital_desktop": False,
+    "digital_scanned": False,
+    "obliteration_ink": False,
+    "obliteration_whiteout": False,
+    "obliteration_pigment": False,
+    "sympathetic_indented": False,
+    "sympathetic_special": False,
+    "currency_analysis": False,
+}
+
+CONFIDENCE_THRESHOLDS = {
+    "high": 0.75,
+    "medium": 0.50,
+    "low": 0.25,
+}
+
+# Loaded YOLO models
+yolo_models: Dict = {}
+
+MODELS_DIR = Path(__file__).parent.parent.parent.parent / "models"
+
+
+def load_yolo_models() -> bool:
+    global yolo_models
+
+    try:
+        from ultralytics import YOLO
+    except ImportError:
+        print("ultralytics not installed. Run: pip install ultralytics")
+        return False
+
+    loaded_count = 0
+    for type_name in TRAINING_STATUS.keys():
+        weights_path = MODELS_DIR / type_name / "weights" / "best.pt"
+        if weights_path.exists():
+            try:
+                yolo_models[type_name] = YOLO(str(weights_path))
+                TRAINING_STATUS[type_name] = True
+                loaded_count += 1
+                print(f"  Loaded: {type_name}")
+            except Exception as e:
+                print(f"  Failed: {type_name} - {e}")
+
+    print(f"\n  Models loaded: {loaded_count}/{len(TRAINING_STATUS)}")
+
+    if loaded_count == 0:
+        print("  No trained models found. Loading base yolov8n for demo.")
+        try:
+            yolo_models["_default"] = YOLO("yolov8n.pt")
+        except Exception as e:
+            print(f"  Could not load default model: {e}")
+            return False
+
+    return True
+
+
+def get_model_for_category(category: Optional[str] = None):
+    if category and category in yolo_models:
+        return yolo_models[category]
+    return yolo_models.get("_default")
+
+
+def run_yolo_inference(image: Image.Image, category: Optional[str] = None) -> List[Dict]:
+    detections = []
+
+    if category:
+        models_to_run = {category: yolo_models.get(category)}
+        if models_to_run[category] is None:
+            default_model = yolo_models.get("_default")
+            if default_model:
+                models_to_run = {"_default": default_model}
+            else:
+                return []
+    else:
+        models_to_run = {k: v for k, v in yolo_models.items() if k != "_default"}
+        if not models_to_run:
+            default_model = yolo_models.get("_default")
+            if default_model:
+                models_to_run = {"_default": default_model}
+            else:
+                return []
+
+    for model_name, model in models_to_run.items():
+        if model is None:
+            continue
+        try:
+            results = model(image, conf=CONFIDENCE_THRESHOLD, verbose=False)
+            for result in results:
+                boxes = result.boxes
+                for i, box in enumerate(boxes):
+                    class_id = int(box.cls[0])
+                    confidence = float(box.conf[0])
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+
+                    if model_name != "_default":
+                        type_name = model_name
+                        class_info = CLASS_LABELS.get(NAME_TO_CLASS.get(type_name, -1), {
+                            "name": type_name, "title": type_name.replace("_", " ").title(),
+                            "category": "Unknown", "color": "#dc2626"
+                        })
+                    else:
+                        class_info = CLASS_LABELS.get(class_id, {
+                            "name": f"class_{class_id}", "title": f"Detection {class_id}",
+                            "category": "Unknown", "color": "#dc2626"
+                        })
+
+                    detections.append({
+                        "id": len(detections) + 1,
+                        "class_id": NAME_TO_CLASS.get(class_info["name"], class_id),
+                        "confidence": confidence,
+                        "title": class_info["title"],
+                        "category": class_info["category"],
+                        "color": class_info["color"],
+                        "model_used": model_name,
+                        "coordinates": {"x_min": x1, "y_min": y1, "x_max": x2, "y_max": y2},
+                    })
+        except Exception as e:
+            print(f"YOLO inference error ({model_name}): {e}")
+            continue
+
+    detections.sort(key=lambda x: x["confidence"], reverse=True)
+    return detections
+
+
+def determine_verdict(detections: List[Dict]) -> tuple:
+    if not detections:
+        return "genuine", 0.15
+    max_conf = max(d["confidence"] for d in detections)
+    avg_conf = sum(d["confidence"] for d in detections) / len(detections)
+    confidence = (max_conf * 0.7) + (avg_conf * 0.3)
+    if confidence >= 0.75:
+        return "forged", confidence
+    elif confidence >= 0.50:
+        return "suspicious", confidence
+    else:
+        return "genuine", confidence
+
+
+def get_training_warning(category: Optional[str], detections: List[Dict]) -> Optional[str]:
+    warnings = []
+    if category:
+        is_trained = TRAINING_STATUS.get(category, False)
+        if not is_trained:
+            warnings.append(
+                f"LIMITED TRAINING DATA: The '{category}' category has not been "
+                f"trained with sufficient real-world samples. Results may be unreliable."
+            )
+    trained_categories = sum(1 for v in TRAINING_STATUS.values() if v)
+    total_categories = len(TRAINING_STATUS)
+    if trained_categories == 0:
+        warnings.append("MODEL NOT TRAINED: All results are placeholder/demo only.")
+    elif trained_categories < total_categories:
+        untrained = [k for k, v in TRAINING_STATUS.items() if not v]
+        if len(untrained) <= 5:
+            warnings.append(f"PARTIAL TRAINING: Lacking data for: {', '.join(untrained[:5])}")
+    if detections:
+        avg_conf = sum(d["confidence"] for d in detections) / len(detections)
+        if avg_conf < CONFIDENCE_THRESHOLDS["medium"]:
+            warnings.append(f"LOW CONFIDENCE: Average {avg_conf:.1%}. Consider physical examination.")
+    return " | ".join(warnings) if warnings else None

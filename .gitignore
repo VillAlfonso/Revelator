@@ -11,8 +11,6 @@ __pycache__/
 *.so
 .Python
 *.egg-info/
-dist/
-build/
 
 # YOLO
 runs/
@@ -39,3 +37,17 @@ dataset/
 # Logs
 *.log
 logs/
+
+# Database
+*.db
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.capacitor/
+frontend/android/
+frontend/ios/
+
+# Android build artifacts
+*.apk
+*.aab

@@ -26,9 +26,9 @@
       --border-dark: #262626;
       --border-light: #404040;
     }
-    
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+
     body {
       font-family: 'Source Sans Pro', sans-serif;
       background: var(--bg-primary);
@@ -36,19 +36,22 @@
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
-    
+
     .tape-border {
       background: repeating-linear-gradient(-45deg, var(--yellow-tape), var(--yellow-tape) 10px, #000 10px, #000 20px);
       height: 6px;
     }
-    
+
     .mono { font-family: 'JetBrains Mono', monospace; }
     .oswald { font-family: 'Oswald', sans-serif; }
-    
+
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg-secondary); }
     ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
-    
+
+    a { color: var(--yellow-tape); text-decoration: none; cursor: pointer; }
+    a:hover { text-decoration: underline; }
+
     .btn {
       font-family: 'Oswald', sans-serif;
       text-transform: uppercase;
@@ -58,39 +61,56 @@
       transition: all 0.2s;
       font-size: 14px;
       font-weight: 600;
+      border-radius: 4px;
     }
-    
+
     .btn-primary {
       background: var(--yellow-tape);
       color: #000;
       padding: 16px 32px;
     }
-    
+
     .btn-primary:hover { background: var(--yellow-dark); transform: translateY(-2px); }
     .btn-primary:active { transform: translateY(0); }
-    
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
     .btn-secondary {
       background: transparent;
       border: 2px solid var(--yellow-tape);
       color: var(--yellow-tape);
       padding: 14px 30px;
     }
-    
+
     .btn-secondary:hover { background: var(--yellow-tape); color: #000; }
-    
+
+    .btn-danger { background: var(--red-alert); color: #fff; padding: 14px 30px; }
+
+    .input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-dark);
+      color: var(--text-primary);
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+    .input:focus { outline: none; border-color: var(--yellow-tape); }
+    .input::placeholder { color: var(--text-muted); }
+
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-    
+
     .screen { display: none; }
     .screen.active { display: block; }
-    
+
     header {
       background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
       border-bottom: 1px solid var(--border-dark);
       padding: 12px 16px;
     }
-    
+
     .header-inner {
       max-width: 1200px;
       margin: 0 auto;
@@ -100,9 +120,9 @@
       flex-wrap: wrap;
       gap: 12px;
     }
-    
+
     .logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-    
+
     .logo-icon {
       width: 44px; height: 44px;
       background: var(--yellow-tape);
@@ -111,38 +131,73 @@
       font-size: 22px;
       flex-shrink: 0;
     }
-    
+
+    .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .nav-bar {
+      display: flex; gap: 4px; align-items: center;
+    }
+    .nav-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: 'Oswald', sans-serif; text-transform: uppercase;
+      letter-spacing: 1.5px; font-size: 12px; color: var(--text-secondary);
+      padding: 8px 14px; border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover { color: var(--yellow-tape); }
+    .nav-btn.active { color: var(--yellow-tape); border-bottom-color: var(--yellow-tape); }
+
     .status-badge {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 12px;
       background: var(--bg-tertiary);
     }
-    
+
     .status-dot {
       width: 8px; height: 8px;
       border-radius: 50%;
       animation: pulse 2s infinite;
     }
-    
+
+    .user-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; background: var(--bg-tertiary);
+      border: 1px solid var(--border-dark); border-radius: 4px;
+    }
+
+    .plan-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 3px;
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; font-family: 'Oswald', sans-serif;
+      background: rgba(245, 197, 24, 0.15); color: var(--yellow-tape);
+    }
+
+    .logout-btn {
+      background: none; border: 1px solid var(--border-light); color: var(--text-secondary);
+      padding: 6px 12px; cursor: pointer; font-size: 11px; border-radius: 3px;
+      font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .logout-btn:hover { border-color: var(--red-alert); color: var(--red-alert); }
+
     main {
       max-width: 1200px;
       margin: 0 auto;
       padding: 24px 16px 80px;
     }
-    
+
     .section-title {
       text-align: center;
       margin-bottom: 40px;
       padding-top: 16px;
     }
-    
+
     .category-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
       margin-bottom: 40px;
     }
-    
+
     .category-card {
       background: var(--bg-card);
       border: 1px solid var(--border-dark);
@@ -154,10 +209,10 @@
       position: relative;
       overflow: hidden;
     }
-    
+
     .category-card:hover { transform: translateX(4px); }
     .category-card:disabled { opacity: 0.5; cursor: not-allowed; }
-    
+
     .evidence-marker {
       position: absolute; top: 12px; right: 12px;
       width: 26px; height: 26px;
@@ -168,15 +223,14 @@
       display: flex; align-items: center; justify-content: center;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
-    
+
     .card-content { padding: 16px 16px 12px; }
-    
     .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .card-icon { font-size: 24px; }
     .card-code { font-size: 9px; letter-spacing: 2px; margin: 0; }
     .card-title { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 1px; }
     .card-desc { font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
-    
+
     .card-footer {
       border-top: 1px solid var(--border-dark);
       padding: 10px 16px;
@@ -185,7 +239,7 @@
       justify-content: space-between;
       align-items: center;
     }
-    
+
     .back-btn {
       background: transparent;
       border: none;
@@ -198,16 +252,16 @@
       padding: 0;
       font-size: 14px;
     }
-    
+
     .subcategory-header {
       background: var(--bg-card);
       border-left: 4px solid;
       padding: 20px;
       margin-bottom: 28px;
     }
-    
+
     .subcategory-list { display: flex; flex-direction: column; gap: 10px; }
-    
+
     .subcategory-item {
       background: var(--bg-card);
       border: 1px solid var(--border-dark);
@@ -220,11 +274,9 @@
       gap: 16px;
       width: 100%;
     }
-    
-    .subcategory-item:hover {
-      background: var(--bg-tertiary);
-    }
-    
+
+    .subcategory-item:hover { background: var(--bg-tertiary); }
+
     .sub-marker {
       width: 32px; height: 32px; flex-shrink: 0;
       color: #000;
@@ -234,13 +286,12 @@
       display: flex; align-items: center; justify-content: center;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
-    
+
     .sub-content { flex: 1; min-width: 0; }
     .sub-title { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 1px; font-family: 'Oswald', sans-serif; }
     .sub-desc { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
-    
     .sub-lighting { text-align: right; flex-shrink: 0; }
-    
+
     .lighting-box {
       background: var(--bg-card);
       border: 2px solid var(--yellow-tape);
@@ -248,297 +299,409 @@
       text-align: center;
       margin-bottom: 28px;
     }
-    
+
     .tip-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      margin-bottom: 12px;
-      padding: 14px;
+      display: flex; align-items: flex-start; gap: 14px;
+      margin-bottom: 12px; padding: 14px;
       background: var(--bg-tertiary);
       border-left: 3px solid var(--yellow-tape);
     }
-    
+
     .tip-num {
       width: 22px; height: 22px; flex-shrink: 0;
-      background: var(--yellow-tape);
-      color: #000;
-      font-family: 'Oswald', sans-serif;
-      font-weight: 700;
-      font-size: 11px;
+      background: var(--yellow-tape); color: #000;
+      font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 11px;
       display: flex; align-items: center; justify-content: center;
     }
-    
+
     .camera-view {
-      position: relative;
-      background: #000;
-      aspect-ratio: 4/3;
-      margin-bottom: 20px;
-      border: 2px solid var(--border-dark);
-      overflow: hidden;
+      position: relative; background: #000;
+      aspect-ratio: 4/3; margin-bottom: 20px;
+      border: 2px solid var(--border-dark); overflow: hidden;
     }
-    
     .camera-view video { width: 100%; height: 100%; object-fit: cover; }
-    
     .camera-overlay { position: absolute; inset: 0; pointer-events: none; }
-    
     .corner { position: absolute; width: 32px; height: 32px; }
     .corner.tl { top: 16px; left: 16px; border-top: 3px solid var(--yellow-tape); border-left: 3px solid var(--yellow-tape); }
     .corner.tr { top: 16px; right: 16px; border-top: 3px solid var(--yellow-tape); border-right: 3px solid var(--yellow-tape); }
     .corner.bl { bottom: 16px; left: 16px; border-bottom: 3px solid var(--yellow-tape); border-left: 3px solid var(--yellow-tape); }
     .corner.br { bottom: 16px; right: 16px; border-bottom: 3px solid var(--yellow-tape); border-right: 3px solid var(--yellow-tape); }
-    
+
     .camera-topbar {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.7);
-      padding: 10px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      position: absolute; top: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.7); padding: 10px 16px;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    
+
     .rec-indicator { animation: blink 1s infinite; }
-    
+
     .capture-btn {
-      width: 72px; height: 72px;
-      border-radius: 50%;
-      background: var(--yellow-tape);
-      border: 4px solid var(--yellow-dark);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--yellow-tape); border: 4px solid var(--yellow-dark);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
       margin-bottom: 10px;
     }
-    
     .capture-btn-inner {
-      width: 54px; height: 54px;
-      border-radius: 50%;
-      background: var(--yellow-tape);
-      border: 3px solid #000;
+      width: 54px; height: 54px; border-radius: 50%;
+      background: var(--yellow-tape); border: 3px solid #000;
     }
-    
+
     .upload-box {
       background: var(--bg-card);
       border: 2px dashed var(--border-light);
-      padding: 24px;
-      text-align: center;
+      padding: 24px; text-align: center;
     }
-    
+
     .processing-box {
-      width: 160px; height: 160px;
-      margin: 0 auto 40px;
-      position: relative;
-      border: 3px solid var(--yellow-tape);
-      background: var(--bg-card);
-      overflow: hidden;
+      width: 160px; height: 160px; margin: 0 auto 40px;
+      position: relative; border: 3px solid var(--yellow-tape);
+      background: var(--bg-card); overflow: hidden;
     }
-    
     .scan-line {
-      position: absolute;
-      left: 0; right: 0;
-      height: 4px;
+      position: absolute; left: 0; right: 0; height: 4px;
       background: linear-gradient(90deg, transparent, var(--yellow-tape), transparent);
       animation: scan 2s linear infinite;
     }
-    
     .processing-icon {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 56px;
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); font-size: 56px;
     }
-    
+
     .results-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 20px;
     }
-    
+
     .verdict-box {
-      padding: 24px;
-      text-align: center;
-      margin-bottom: 20px;
-      border: 2px solid;
+      padding: 24px; text-align: center;
+      margin-bottom: 20px; border: 2px solid;
     }
-    
     .verdict-icon { font-size: 40px; display: block; margin-bottom: 12px; }
-    
-    .confidence-bar {
-      height: 6px;
-      background: var(--bg-tertiary);
-      overflow: hidden;
-    }
-    
-    .confidence-fill {
-      height: 100%;
-      transition: width 0.5s;
-    }
-    
+
+    .confidence-bar { height: 6px; background: var(--bg-tertiary); overflow: hidden; }
+    .confidence-fill { height: 100%; transition: width 0.5s; }
+
     .evidence-image {
-      position: relative;
-      background: #000;
-      border: 2px solid var(--border-dark);
-      margin-bottom: 12px;
+      position: relative; background: #000;
+      border: 2px solid var(--border-dark); margin-bottom: 12px;
     }
-    
     .evidence-image img { width: 100%; display: block; }
-    
-    .annotation-box {
-      position: absolute;
-      border: 2px solid;
-      cursor: pointer;
-    }
-    
+
+    .annotation-box { position: absolute; border: 2px solid; cursor: pointer; }
     .annotation-marker {
-      position: absolute;
-      top: -12px; left: 4px;
-      width: 20px; height: 20px;
-      color: #000;
-      font-family: 'Oswald', sans-serif;
-      font-weight: 700;
-      font-size: 10px;
+      position: absolute; top: -12px; left: 4px;
+      width: 20px; height: 20px; color: #000;
+      font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 10px;
       display: flex; align-items: center; justify-content: center;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
-    
+
     .finding-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-dark);
-      margin-bottom: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
+      display: flex; align-items: center; gap: 10px; padding: 10px;
+      background: var(--bg-card); border: 1px solid var(--border-dark);
+      margin-bottom: 6px; cursor: pointer; transition: background 0.2s;
     }
-    
     .finding-item:hover { background: var(--bg-tertiary); }
-    
+
     .finding-marker {
-      width: 24px; height: 24px; flex-shrink: 0;
-      color: #000;
-      font-family: 'Oswald', sans-serif;
-      font-weight: 700;
-      font-size: 11px;
+      width: 24px; height: 24px; flex-shrink: 0; color: #000;
+      font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 11px;
       display: flex; align-items: center; justify-content: center;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
-    
+
     .info-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border-dark);
-      padding: 16px;
-      margin-bottom: 20px;
+      background: var(--bg-card); border: 1px solid var(--border-dark);
+      padding: 16px; margin-bottom: 20px;
     }
-    
+
     .error-icon {
-      width: 80px; height: 80px;
-      margin: 0 auto 24px;
-      background: rgba(220, 38, 38, 0.1);
-      border: 2px solid var(--red-alert);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 40px;
+      width: 80px; height: 80px; margin: 0 auto 24px;
+      background: rgba(220, 38, 38, 0.1); border: 2px solid var(--red-alert);
+      display: flex; align-items: center; justify-content: center; font-size: 40px;
     }
-    
+
+    .warning-box {
+      background: rgba(249,115,22,0.1); border: 1px solid var(--orange-warn);
+      padding: 12px; border-radius: 4px; margin-bottom: 16px;
+      font-size: 13px; color: #fb923c;
+    }
+
     .offline-banner {
-      background: rgba(220, 38, 38, 0.1);
-      border: 1px solid var(--red-alert);
-      padding: 16px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      background: rgba(220, 38, 38, 0.1); border: 1px solid var(--red-alert);
+      padding: 16px; margin-bottom: 24px;
+      display: flex; align-items: center; gap: 12px;
     }
-    
+
+    .success-box {
+      background: rgba(34,197,94,0.15); border: 1px solid var(--green-clear);
+      padding: 12px; border-radius: 4px; margin-bottom: 16px;
+      font-size: 13px; color: #4ade80;
+    }
+
+    .error-box {
+      background: rgba(220,38,38,0.15); border: 1px solid var(--red-alert);
+      padding: 12px; border-radius: 4px; margin-bottom: 16px;
+      font-size: 13px; color: #f87171;
+    }
+
     .group-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      letter-spacing: 2px;
-      margin-bottom: 12px;
-      padding-left: 4px;
+      font-size: 10px; color: var(--text-muted);
+      letter-spacing: 2px; margin-bottom: 12px; padding-left: 4px;
     }
-    
+
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .actions .btn { flex: 1; min-width: 140px; }
-    
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border-dark);
+      border-radius: 8px; padding: 20px; text-align: center;
+    }
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    /* Usage bar */
+    .usage-bar-outer { background: var(--bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden; }
+    .usage-bar-inner { height: 100%; border-radius: 4px; transition: width 0.5s; }
+
+    /* History table */
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th {
+      padding: 10px 8px; text-align: left; font-size: 11px;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;
+      font-family: 'Oswald', sans-serif; border-bottom: 1px solid var(--border-dark);
+    }
+    .history-table td { padding: 12px 8px; font-size: 13px; border-bottom: 1px solid #1a1a1a; }
+
+    .verdict-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; font-family: 'JetBrains Mono', monospace;
+    }
+    .verdict-forged { background: rgba(220,38,38,0.2); color: var(--red-alert); }
+    .verdict-suspicious { background: rgba(249,115,22,0.2); color: var(--orange-warn); }
+    .verdict-genuine { background: rgba(34,197,94,0.2); color: var(--green-clear); }
+
+    /* Plan cards */
+    .plans-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
+    }
+    .plan-card {
+      background: var(--bg-card); border: 1px solid var(--border-dark);
+      border-radius: 8px; padding: 24px;
+    }
+    .plan-card.current { border-color: var(--yellow-tape); opacity: 0.6; }
+    .plan-features { list-style: none; padding: 0; margin: 16px 0; }
+    .plan-features li { padding: 4px 0; font-size: 13px; color: var(--text-secondary); }
+
+    /* Auth form */
+    .auth-container { max-width: 420px; margin: 60px auto; }
+    .auth-card { background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: 8px; padding: 24px; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: block; }
+
     @media (max-width: 768px) {
       .btn-primary, .btn-secondary { padding: 14px 24px; font-size: 13px; }
       .category-grid { grid-template-columns: 1fr; }
+      .nav-bar { gap: 0; }
+      .nav-btn { padding: 6px 8px; font-size: 10px; }
+      .header-right { gap: 6px; }
+      .user-badge { display: none; }
     }
   </style>
 </head>
 <body>
   <!-- Top tape -->
   <div class="tape-border"></div>
-  
+
   <!-- Header -->
   <header>
     <div class="header-inner">
-      <div class="logo" onclick="goHome()">
-        <div class="logo-icon">🔍</div>
+      <div class="logo" onclick="navigate('scan')">
+        <div class="logo-icon">&#128269;</div>
         <div>
           <h1 class="oswald" style="font-size: clamp(18px, 4vw, 24px); font-weight: 700; letter-spacing: 3px; color: var(--yellow-tape); margin: 0;">FORGEGUARD</h1>
           <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin: 0;">DOCUMENT FORENSICS UNIT</p>
         </div>
       </div>
-      <div class="status-badge" id="statusBadge" style="border: 1px solid var(--red-alert);">
-        <div class="status-dot" id="statusDot" style="background: var(--red-alert);"></div>
-        <span class="mono" id="statusText" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">OFFLINE</span>
+      <div class="header-right">
+        <!-- Nav (hidden when logged out) -->
+        <nav class="nav-bar" id="mainNav" style="display:none;">
+          <button class="nav-btn active" data-nav="dashboard" onclick="navigate('dashboard')">Dashboard</button>
+          <button class="nav-btn" data-nav="scan" onclick="navigate('scan')">Scan</button>
+          <button class="nav-btn" data-nav="history" onclick="navigate('history')">History</button>
+          <button class="nav-btn" data-nav="account" onclick="navigate('account')">Account</button>
+        </nav>
+        <!-- User info -->
+        <div class="user-badge" id="userBadge" style="display:none;">
+          <span class="mono" style="font-size: 11px;" id="userNameDisplay"></span>
+          <span class="plan-badge" id="userPlanDisplay"></span>
+        </div>
+        <!-- Status -->
+        <div class="status-badge" id="statusBadge" style="border: 1px solid var(--red-alert);">
+          <div class="status-dot" id="statusDot" style="background: var(--red-alert);"></div>
+          <span class="mono" id="statusText" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">OFFLINE</span>
+        </div>
+        <!-- Logout -->
+        <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
       </div>
     </div>
   </header>
-  
+
   <!-- Main -->
   <main>
-    <!-- HOME SCREEN -->
-    <div id="homeScreen" class="screen active">
+    <!-- ===== LOGIN SCREEN ===== -->
+    <div id="loginScreen" class="screen">
+      <div class="auth-container">
+        <div style="text-align:center; margin-bottom:32px;">
+          <h1 class="oswald" style="font-size:28px; color:var(--yellow-tape); letter-spacing:4px;">FORGEGUARD</h1>
+          <p style="color:var(--text-secondary); margin-top:8px; font-size:14px;">Document Forensics Unit</p>
+        </div>
+        <div class="auth-card">
+          <h2 class="oswald" style="font-size:20px; margin-bottom:20px; letter-spacing:2px; text-transform:uppercase;">Sign In</h2>
+          <div id="loginError" class="error-box" style="display:none;"></div>
+          <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="input" type="email" id="loginEmail" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group" style="margin-bottom:24px;">
+              <label class="form-label">Password</label>
+              <input class="input" type="password" id="loginPassword" placeholder="Your password" required>
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%;" id="loginBtn">Sign In</button>
+          </form>
+          <p style="text-align:center; margin-top:20px; font-size:14px; color:var(--text-secondary);">
+            Don't have an account? <a onclick="showScreen('registerScreen')">Create one</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== REGISTER SCREEN ===== -->
+    <div id="registerScreen" class="screen">
+      <div class="auth-container">
+        <div style="text-align:center; margin-bottom:32px;">
+          <h1 class="oswald" style="font-size:28px; color:var(--yellow-tape); letter-spacing:4px;">FORGEGUARD</h1>
+          <p style="color:var(--text-secondary); margin-top:8px; font-size:14px;">Create your account</p>
+        </div>
+        <div class="auth-card">
+          <h2 class="oswald" style="font-size:20px; margin-bottom:20px; letter-spacing:2px; text-transform:uppercase;">Register</h2>
+          <div id="registerError" class="error-box" style="display:none;"></div>
+          <form onsubmit="handleRegister(event)">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input class="input" id="regName" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input class="input" id="regUsername" placeholder="johndoe" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="input" type="email" id="regEmail" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group" style="margin-bottom:24px;">
+              <label class="form-label">Password</label>
+              <input class="input" type="password" id="regPassword" placeholder="Min 6 characters" required minlength="6">
+            </div>
+            <button class="btn btn-primary" type="submit" style="width:100%;" id="registerBtn">Create Account</button>
+          </form>
+          <p style="text-align:center; margin-top:20px; font-size:14px; color:var(--text-secondary);">
+            Already have an account? <a onclick="showScreen('loginScreen')">Sign in</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD SCREEN ===== -->
+    <div id="dashboardScreen" class="screen">
+      <div style="margin-bottom:32px;">
+        <h1 class="oswald" style="font-size:26px; letter-spacing:2px; text-transform:uppercase;">Dashboard</h1>
+        <p style="color:var(--text-secondary); margin-top:4px;">Welcome back, <span style="color:var(--yellow-tape);" id="dashWelcomeName"></span></p>
+      </div>
+      <!-- Stats -->
+      <div class="stats-grid" id="dashStats"></div>
+      <!-- Usage bar -->
+      <div class="info-box" style="margin-bottom:32px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span class="oswald" style="text-transform:uppercase; letter-spacing:1.5px; font-size:14px;">Monthly Usage</span>
+          <span class="mono" style="font-size:13px; color:var(--text-secondary);" id="dashUsageText"></span>
+        </div>
+        <div class="usage-bar-outer"><div class="usage-bar-inner" id="dashUsageBar" style="width:0%;background:var(--yellow-tape);"></div></div>
+      </div>
+      <!-- Quick scan -->
+      <div style="text-align:center; margin-bottom:32px;">
+        <button class="btn btn-primary" onclick="navigate('scan')" style="font-size:16px; padding:18px 48px;">New Scan</button>
+      </div>
+      <!-- Recent scans -->
+      <div class="info-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2 class="oswald" style="font-size:16px; letter-spacing:2px; text-transform:uppercase;">Recent Scans</h2>
+          <a onclick="navigate('history')" style="font-size:13px;">View all</a>
+        </div>
+        <div id="dashRecentScans"></div>
+      </div>
+    </div>
+
+    <!-- ===== SCAN / HOME SCREEN ===== -->
+    <div id="homeScreen" class="screen">
       <div class="section-title">
-        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 4px; margin-bottom: 12px;">◆ CASE FILE ANALYSIS ◆</p>
+        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 4px; margin-bottom: 12px;">&#9670; CASE FILE ANALYSIS &#9670;</p>
         <h2 class="oswald" style="font-size: clamp(24px, 5vw, 38px); font-weight: 700; letter-spacing: 2px; margin-bottom: 12px;">SELECT FORGERY TYPE</h2>
         <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto; line-height: 1.6; font-size: 14px;">Choose the category of document examination to begin forensic analysis</p>
       </div>
-      
+
       <div id="offlineBanner" class="offline-banner" style="display: none;">
-        <span style="font-size: 20px;">⚠️</span>
+        <span style="font-size: 20px;">&#9888;&#65039;</span>
         <div>
           <p class="mono" style="color: var(--red-alert); font-size: 11px; letter-spacing: 1px; margin: 0;">BACKEND OFFLINE</p>
-          <p style="color: var(--text-secondary); font-size: 12px; margin: 4px 0 0;">Start server at localhost:8000</p>
+          <p style="color: var(--text-secondary); font-size: 12px; margin: 4px 0 0;">Start server: cd backend && python run.py</p>
         </div>
       </div>
-      
+
+      <!-- Scan limit warning -->
+      <div id="scanLimitWarning" class="warning-box" style="display:none;"></div>
+
       <div id="categoryGrid" class="category-grid"></div>
-      
+
       <div style="text-align: center; margin-top: 32px;">
         <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px;">OR PERFORM AUTOMATIC DETECTION</p>
-        <button class="btn btn-secondary" onclick="selectCategory(null)" id="autoDetectBtn">🔎 AUTO-DETECT FORGERY</button>
+        <button class="btn btn-secondary" onclick="selectCategory(null)" id="autoDetectBtn">&#128270; AUTO-DETECT FORGERY</button>
       </div>
     </div>
-    
-    <!-- SUBCATEGORY SCREEN -->
+
+    <!-- ===== SUBCATEGORY SCREEN ===== -->
     <div id="subcategoryScreen" class="screen">
-      <button class="back-btn" onclick="goHome()">
-        <span>←</span>
+      <button class="back-btn" onclick="navigate('scan')">
+        <span>&larr;</span>
         <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK TO CATEGORIES</span>
       </button>
       <div id="subcategoryHeader" class="subcategory-header"></div>
-      <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 16px;">◆ SELECT EXAMINATION METHOD ◆</p>
+      <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 16px;">&#9670; SELECT EXAMINATION METHOD &#9670;</p>
       <div id="subcategoryList"></div>
     </div>
-    
-    <!-- LIGHTING SCREEN -->
+
+    <!-- ===== LIGHTING SCREEN ===== -->
     <div id="lightingScreen" class="screen">
       <button class="back-btn" onclick="showScreen('subcategoryScreen')">
-        <span>←</span>
+        <span>&larr;</span>
         <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK</span>
       </button>
       <div id="lightingContent" style="max-width: 600px; margin: 0 auto;"></div>
     </div>
-    
-    <!-- CAMERA SCREEN -->
+
+    <!-- ===== CAMERA SCREEN ===== -->
     <div id="cameraScreen" class="screen">
       <button class="back-btn" onclick="showScreen('lightingScreen')">
-        <span>←</span>
+        <span>&larr;</span>
         <span class="mono" style="font-size: 11px; letter-spacing: 1px;">BACK</span>
       </button>
       <div style="max-width: 800px; margin: 0 auto;">
@@ -550,7 +713,7 @@
             <div class="corner bl"></div>
             <div class="corner br"></div>
             <div class="camera-topbar">
-              <span class="mono rec-indicator" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">● REC</span>
+              <span class="mono rec-indicator" style="font-size: 10px; color: var(--red-alert); letter-spacing: 1px;">&#9679; REC</span>
               <span class="mono" id="cameraLighting" style="font-size: 10px; color: var(--text-secondary);">STANDARD REQUIRED</span>
             </div>
           </div>
@@ -565,72 +728,235 @@
         <div class="upload-box">
           <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px;">OR UPLOAD EVIDENCE FILE</p>
           <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
-          <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="padding: 12px 24px;">📁 SELECT FILE</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()" style="padding: 12px 24px;">&#128193; SELECT FILE</button>
         </div>
       </div>
     </div>
-    
-    <!-- PROCESSING SCREEN -->
+
+    <!-- ===== PROCESSING SCREEN ===== -->
     <div id="processingScreen" class="screen">
       <div style="text-align: center; padding: 60px 20px;">
         <div class="processing-box">
           <div class="scan-line"></div>
-          <div class="processing-icon">🔍</div>
+          <div class="processing-icon">&#128269;</div>
         </div>
-        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">◆ ANALYSIS IN PROGRESS ◆</p>
+        <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">&#9670; ANALYSIS IN PROGRESS &#9670;</p>
         <h2 class="oswald" id="processingStatus" style="font-size: 20px; letter-spacing: 2px; margin-bottom: 8px;">Uploading evidence...</h2>
         <p style="color: var(--text-muted); font-size: 13px;">Do not close this window</p>
       </div>
     </div>
-    
-    <!-- ERROR SCREEN -->
+
+    <!-- ===== ERROR SCREEN ===== -->
     <div id="errorScreen" class="screen">
       <div style="text-align: center; padding: 50px 20px; max-width: 450px; margin: 0 auto;">
-        <div class="error-icon">⚠️</div>
-        <p class="mono" style="font-size: 11px; color: var(--red-alert); letter-spacing: 3px; margin-bottom: 10px;">◆ ERROR ◆</p>
+        <div class="error-icon">&#9888;&#65039;</div>
+        <p class="mono" style="font-size: 11px; color: var(--red-alert); letter-spacing: 3px; margin-bottom: 10px;">&#9670; ERROR &#9670;</p>
         <h2 class="oswald" style="font-size: 20px; letter-spacing: 2px; margin-bottom: 14px;">ANALYSIS FAILED</h2>
         <p id="errorMessage" style="color: var(--text-secondary); margin-bottom: 32px; line-height: 1.6; font-size: 14px;"></p>
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="showScreen('cameraScreen')">🔄 RETRY</button>
-          <button class="btn btn-secondary" onclick="goHome()">← HOME</button>
+          <button class="btn btn-primary" onclick="showScreen('cameraScreen')">&#128260; RETRY</button>
+          <button class="btn btn-secondary" onclick="navigate('scan')">&larr; HOME</button>
         </div>
       </div>
     </div>
-    
-    <!-- RESULTS SCREEN -->
+
+    <!-- ===== RESULTS SCREEN ===== -->
     <div id="resultsScreen" class="screen">
-      <button class="back-btn" onclick="goHome()">
-        <span>←</span>
+      <button class="back-btn" onclick="navigate('scan')">
+        <span>&larr;</span>
         <span class="mono" style="font-size: 11px; letter-spacing: 1px;">NEW EXAMINATION</span>
       </button>
       <div id="resultsContent" class="results-grid"></div>
     </div>
+
+    <!-- ===== HISTORY SCREEN ===== -->
+    <div id="historyScreen" class="screen">
+      <h1 class="oswald" style="font-size:26px; letter-spacing:2px; text-transform:uppercase; margin-bottom:24px;">Scan History</h1>
+      <div class="info-box" id="historyContent"><p style="color:var(--text-muted); text-align:center; padding:32px;">Loading...</p></div>
+    </div>
+
+    <!-- ===== HISTORY DETAIL SCREEN ===== -->
+    <div id="historyDetailScreen" class="screen">
+      <button class="back-btn" onclick="navigate('history')">
+        <span>&larr;</span>
+        <span class="mono" style="font-size:11px; letter-spacing:1px;">BACK TO HISTORY</span>
+      </button>
+      <div id="historyDetailContent"></div>
+    </div>
+
+    <!-- ===== ACCOUNT SCREEN ===== -->
+    <div id="accountScreen" class="screen">
+      <h1 class="oswald" style="font-size:26px; letter-spacing:2px; text-transform:uppercase; margin-bottom:24px;">Account</h1>
+      <div id="accountMsg"></div>
+      <div id="accountContent"></div>
+    </div>
   </main>
-  
+
   <!-- Bottom tape -->
   <div class="tape-border" style="position: fixed; bottom: 0; left: 0; right: 0;"></div>
-  
+
   <script>
     // ============================================
     // CONFIGURATION
     // ============================================
     const API_URL = 'http://localhost:8000';
-    
+
     // ============================================
-    // CATEGORIES DATA
+    // AUTH STATE
+    // ============================================
+    let currentUser = null;
+    let accessToken = localStorage.getItem('fg_access_token');
+    let refreshToken = localStorage.getItem('fg_refresh_token');
+
+    function saveAuth(data) {
+      accessToken = data.access_token;
+      refreshToken = data.refresh_token;
+      currentUser = data.user;
+      localStorage.setItem('fg_access_token', accessToken);
+      localStorage.setItem('fg_refresh_token', refreshToken);
+      localStorage.setItem('fg_user', JSON.stringify(currentUser));
+    }
+
+    function clearAuth() {
+      accessToken = null;
+      refreshToken = null;
+      currentUser = null;
+      localStorage.removeItem('fg_access_token');
+      localStorage.removeItem('fg_refresh_token');
+      localStorage.removeItem('fg_user');
+    }
+
+    // Authenticated fetch wrapper
+    async function apiFetch(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+      if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+
+      let res = await fetch(API_URL + path, { ...options, headers });
+
+      // Token expired - try refresh
+      if (res.status === 401 && refreshToken && !options._retried) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          headers['Authorization'] = 'Bearer ' + accessToken;
+          res = await fetch(API_URL + path, { ...options, headers, _retried: true });
+        } else {
+          clearAuth();
+          updateAuthUI();
+          showScreen('loginScreen');
+          throw new Error('Session expired. Please sign in again.');
+        }
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || 'Request failed');
+      }
+      return res.json();
+    }
+
+    async function tryRefreshToken() {
+      try {
+        const res = await fetch(API_URL + '/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        saveAuth(data);
+        return true;
+      } catch { return false; }
+    }
+
+    // ============================================
+    // AUTH HANDLERS
+    // ============================================
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const errEl = document.getElementById('loginError');
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Signing in...';
+      try {
+        const data = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: document.getElementById('loginEmail').value,
+            password: document.getElementById('loginPassword').value,
+          }),
+        });
+        saveAuth(data);
+        updateAuthUI();
+        navigate('dashboard');
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Sign In';
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const btn = document.getElementById('registerBtn');
+      const errEl = document.getElementById('registerError');
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Creating account...';
+      try {
+        const data = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: document.getElementById('regEmail').value,
+            username: document.getElementById('regUsername').value,
+            password: document.getElementById('regPassword').value,
+            full_name: document.getElementById('regName').value,
+          }),
+        });
+        saveAuth(data);
+        updateAuthUI();
+        navigate('dashboard');
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Create Account';
+      }
+    }
+
+    function logout() {
+      clearAuth();
+      updateAuthUI();
+      showScreen('loginScreen');
+    }
+
+    function updateAuthUI() {
+      const loggedIn = !!currentUser;
+      document.getElementById('mainNav').style.display = loggedIn ? 'flex' : 'none';
+      document.getElementById('userBadge').style.display = loggedIn ? 'flex' : 'none';
+      document.getElementById('logoutBtn').style.display = loggedIn ? 'block' : 'none';
+
+      if (currentUser) {
+        document.getElementById('userNameDisplay').textContent = currentUser.username;
+        document.getElementById('userPlanDisplay').textContent = currentUser.plan || 'free';
+      }
+    }
+
+    // ============================================
+    // CATEGORIES DATA (same as before)
     // ============================================
     const CATEGORIES = [
       {
-        id: 'traced', title: 'Traced Forgery', code: 'TRC', icon: '📋', color: '#3b82f6',
+        id: 'traced', title: 'Traced Forgery', code: 'TRC', icon: '&#128203;', color: '#3b82f6',
         description: 'Documents with traced signatures or content',
         subcategories: [
-          { id: 'traced_carbon', title: 'Carbon Transfer', apiKey: 'traced_carbon', description: 'Carbon paper traced signatures', lighting: 'OBLIQUE', tips: ['Use 45° angled lighting', 'Look for carbon residue', 'Check for pressure marks'] },
+          { id: 'traced_carbon', title: 'Carbon Transfer', apiKey: 'traced_carbon', description: 'Carbon paper traced signatures', lighting: 'OBLIQUE', tips: ['Use 45 degree angled lighting', 'Look for carbon residue', 'Check for pressure marks'] },
           { id: 'traced_indentation', title: 'Indentation / Canal Light', apiKey: 'traced_indentation', description: 'Indented grooves from tracing pressure', lighting: 'OBLIQUE', tips: ['Shine light at low angle', 'Look for groove shadows', 'Check for embossing'] },
           { id: 'traced_projection', title: 'Projection Process', apiKey: 'traced_projection', description: 'Light box or projector tracing', lighting: 'TRANSMITTED', tips: ['Use backlight examination', 'Check line consistency', 'Look for hesitation marks'] },
         ]
       },
       {
-        id: 'alteration', title: 'Alteration', code: 'ALT', icon: '✏️', color: '#dc2626',
+        id: 'alteration', title: 'Alteration', code: 'ALT', icon: '&#9999;&#65039;', color: '#dc2626',
         description: 'Modified or changed document content',
         groups: [
           { name: 'Addition', subcategories: [
@@ -644,7 +970,7 @@
         ]
       },
       {
-        id: 'digital', title: 'Digital Forgery', code: 'DIG', icon: '💻', color: '#8b5cf6',
+        id: 'digital', title: 'Digital Forgery', code: 'DIG', icon: '&#128187;', color: '#8b5cf6',
         description: 'Computer-generated or manipulated documents',
         subcategories: [
           { id: 'digital_cut_paste', title: 'Cut and Paste', apiKey: 'digital_cut_paste', description: 'Digitally spliced image elements', lighting: 'MACRO', tips: ['Check edge artifacts', 'Look for noise inconsistency', 'Examine compression patterns'] },
@@ -653,7 +979,7 @@
         ]
       },
       {
-        id: 'obliteration', title: 'Obliteration', code: 'OBL', icon: '🖤', color: '#f97316',
+        id: 'obliteration', title: 'Obliteration', code: 'OBL', icon: '&#9724;', color: '#f97316',
         description: 'Concealed or covered content',
         subcategories: [
           { id: 'obliteration_ink', title: 'Ink Stroke', apiKey: 'obliteration_ink', description: 'Content covered with ink strokes', lighting: 'INFRARED', tips: ['IR may reveal underlying text', 'Check ink layer density', 'Look for stroke patterns'] },
@@ -662,7 +988,7 @@
         ]
       },
       {
-        id: 'sympathetic_ink', title: 'Sympathetic Ink', code: 'SYM', icon: '🔬', color: '#22c55e',
+        id: 'sympathetic_ink', title: 'Sympathetic Ink', code: 'SYM', icon: '&#128300;', color: '#22c55e',
         description: 'Invisible or special ink analysis',
         subcategories: [
           { id: 'sympathetic_indented', title: 'Indented Writing', apiKey: 'sympathetic_indented', description: 'Hidden impressions from writing', lighting: 'ESDA', tips: ['Use electrostatic detection', 'Check for pressure marks', 'Examine at oblique angles'] },
@@ -670,14 +996,14 @@
         ]
       },
       {
-        id: 'currency', title: 'Currency Forgery', code: 'CUR', icon: '💵', color: '#eab308',
+        id: 'currency', title: 'Currency Forgery', code: 'CUR', icon: '&#128181;', color: '#eab308',
         description: 'Counterfeit money detection',
         subcategories: [
           { id: 'currency_analysis', title: 'Currency Analysis', apiKey: 'currency_analysis', description: 'Full counterfeit currency examination', lighting: 'UV_MULTI', tips: ['Check security features', 'UV reveals security threads', 'Examine microprinting', 'Check paper quality'] },
         ]
       },
     ];
-    
+
     // ============================================
     // STATE
     // ============================================
@@ -687,83 +1013,382 @@
     let videoStream = null;
     let capturedImageUrl = null;
     let analysisResult = null;
-    
+    let currentNav = 'dashboard';
+
     // ============================================
     // INITIALIZATION
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
+      // Restore user from localStorage
+      const savedUser = localStorage.getItem('fg_user');
+      if (savedUser) {
+        try { currentUser = JSON.parse(savedUser); } catch {}
+      }
+
       renderCategories();
       checkServerStatus();
       setInterval(checkServerStatus, 8000);
+
+      if (currentUser && accessToken) {
+        updateAuthUI();
+        // Verify token is still valid
+        apiFetch('/api/auth/me').then(u => {
+          currentUser = u;
+          localStorage.setItem('fg_user', JSON.stringify(u));
+          updateAuthUI();
+          navigate('dashboard');
+        }).catch(() => {
+          clearAuth();
+          updateAuthUI();
+          showScreen('loginScreen');
+        });
+      } else {
+        showScreen('loginScreen');
+      }
     });
-    
+
+    // ============================================
+    // NAVIGATION
+    // ============================================
+    function navigate(page) {
+      currentNav = page;
+      // Update nav buttons
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.nav === page);
+      });
+
+      selectedCategory = null;
+      selectedSubcategory = null;
+      capturedImageUrl = null;
+      analysisResult = null;
+      stopCamera();
+
+      switch (page) {
+        case 'dashboard': showScreen('dashboardScreen'); loadDashboard(); break;
+        case 'scan': showScreen('homeScreen'); updateScanLimitWarning(); break;
+        case 'history': showScreen('historyScreen'); loadHistory(); break;
+        case 'account': showScreen('accountScreen'); loadAccount(); break;
+        default: showScreen('homeScreen');
+      }
+    }
+
     // ============================================
     // SERVER STATUS
     // ============================================
     async function checkServerStatus() {
       try {
-        const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`${API_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
         serverOnline = res.ok;
       } catch {
         serverOnline = false;
       }
       updateStatusUI();
     }
-    
+
     function updateStatusUI() {
       const badge = document.getElementById('statusBadge');
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
       const banner = document.getElementById('offlineBanner');
       const autoBtn = document.getElementById('autoDetectBtn');
-      
+
       if (serverOnline) {
         badge.style.borderColor = 'var(--green-clear)';
         dot.style.background = 'var(--green-clear)';
         text.style.color = 'var(--green-clear)';
         text.textContent = 'ONLINE';
-        banner.style.display = 'none';
-        autoBtn.disabled = false;
-        autoBtn.style.opacity = '1';
+        if (banner) banner.style.display = 'none';
+        if (autoBtn) { autoBtn.disabled = false; autoBtn.style.opacity = '1'; }
       } else {
         badge.style.borderColor = 'var(--red-alert)';
         dot.style.background = 'var(--red-alert)';
         text.style.color = 'var(--red-alert)';
         text.textContent = 'OFFLINE';
-        banner.style.display = 'flex';
-        autoBtn.disabled = true;
-        autoBtn.style.opacity = '0.5';
+        if (banner) banner.style.display = 'flex';
+        if (autoBtn) { autoBtn.disabled = true; autoBtn.style.opacity = '0.5'; }
       }
-      
+
       document.querySelectorAll('.category-card').forEach(card => {
         card.disabled = !serverOnline;
         card.style.opacity = serverOnline ? '1' : '0.5';
         card.style.cursor = serverOnline ? 'pointer' : 'not-allowed';
       });
     }
-    
+
     // ============================================
     // SCREEN NAVIGATION
     // ============================================
     function showScreen(screenId) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
-      
-      if (screenId === 'cameraScreen') {
-        startCamera();
-      } else {
-        stopCamera();
+      if (screenId === 'cameraScreen') startCamera();
+      else stopCamera();
+    }
+
+    // ============================================
+    // DASHBOARD
+    // ============================================
+    async function loadDashboard() {
+      if (!currentUser) return;
+      document.getElementById('dashWelcomeName').textContent = currentUser.full_name || currentUser.username;
+
+      const planLimits = { free: 10, basic: 100, pro: 1000 };
+      const limit = planLimits[currentUser.plan] || 10;
+      const used = currentUser.scans_this_month || 0;
+      const pct = Math.min((used / limit) * 100, 100);
+
+      document.getElementById('dashUsageText').textContent = `${used} / ${limit} scans (${currentUser.plan} plan)`;
+      const bar = document.getElementById('dashUsageBar');
+      bar.style.width = pct + '%';
+      bar.style.background = pct > 90 ? 'var(--red-alert)' : pct > 70 ? 'var(--orange-warn)' : 'var(--yellow-tape)';
+
+      // Load history for stats
+      try {
+        const data = await apiFetch('/api/history?limit=1000&offset=0');
+        const stats = { total: data.total, forged: 0, suspicious: 0, genuine: 0 };
+        data.scans.forEach(s => { if (stats[s.verdict] !== undefined) stats[s.verdict]++; });
+
+        document.getElementById('dashStats').innerHTML = `
+          <div class="stat-card"><div class="stat-value mono" style="color:var(--yellow-tape);">${stats.total}</div><div class="stat-label">Total Scans</div></div>
+          <div class="stat-card"><div class="stat-value mono" style="color:var(--red-alert);">${stats.forged}</div><div class="stat-label">Forged</div></div>
+          <div class="stat-card"><div class="stat-value mono" style="color:var(--orange-warn);">${stats.suspicious}</div><div class="stat-label">Suspicious</div></div>
+          <div class="stat-card"><div class="stat-value mono" style="color:var(--green-clear);">${stats.genuine}</div><div class="stat-label">Genuine</div></div>
+        `;
+
+        // Recent scans
+        const recent = data.scans.slice(0, 5);
+        if (recent.length === 0) {
+          document.getElementById('dashRecentScans').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:24px;">No scans yet. Start by scanning a document.</p>';
+        } else {
+          document.getElementById('dashRecentScans').innerHTML = recent.map(s => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #262626;">
+              <div>
+                <span class="mono" style="font-size:13px; color:var(--text-secondary);">${s.scan_id}</span>
+                <span style="margin-left:12px; font-size:14px;">${s.filename}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span class="verdict-badge verdict-${s.verdict}">${s.verdict}</span>
+                <span class="mono" style="font-size:12px; color:var(--text-muted);">${new Date(s.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        document.getElementById('dashStats').innerHTML = '';
+        document.getElementById('dashRecentScans').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:24px;">Could not load data.</p>';
       }
     }
-    
-    function goHome() {
-      selectedCategory = null;
-      selectedSubcategory = null;
-      capturedImageUrl = null;
-      analysisResult = null;
-      showScreen('homeScreen');
+
+    // ============================================
+    // SCAN LIMIT WARNING
+    // ============================================
+    function updateScanLimitWarning() {
+      const el = document.getElementById('scanLimitWarning');
+      if (!currentUser) { el.style.display = 'none'; return; }
+      const planLimits = { free: 10, basic: 100, pro: 1000 };
+      const limit = planLimits[currentUser.plan] || 10;
+      const used = currentUser.scans_this_month || 0;
+      if (used >= limit) {
+        el.textContent = `Monthly scan limit reached (${used}/${limit} on ${currentUser.plan} plan). Upgrade your plan for more scans.`;
+        el.style.display = 'block';
+      } else if (used >= limit * 0.8) {
+        el.textContent = `${limit - used} scans remaining this month (${currentUser.plan} plan).`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
     }
-    
+
+    // ============================================
+    // HISTORY
+    // ============================================
+    async function loadHistory() {
+      const container = document.getElementById('historyContent');
+      try {
+        const data = await apiFetch('/api/history?limit=50&offset=0');
+        if (data.scans.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:32px;">No scans yet.</p>';
+          return;
+        }
+        container.innerHTML = `
+          <div style="overflow-x:auto;">
+            <table class="history-table">
+              <thead><tr>
+                <th>Scan ID</th><th>File</th><th>Category</th><th>Verdict</th><th>Confidence</th><th>Date</th><th></th>
+              </tr></thead>
+              <tbody>
+                ${data.scans.map(s => `
+                  <tr>
+                    <td class="mono" style="font-size:12px; color:var(--text-secondary);">${s.scan_id}</td>
+                    <td>${s.filename}</td>
+                    <td style="color:var(--text-secondary);">${s.category_analyzed || 'Auto'}</td>
+                    <td><span class="verdict-badge verdict-${s.verdict}">${s.verdict}</span></td>
+                    <td class="mono" style="font-size:12px;">${(s.confidence_score * 100).toFixed(0)}%</td>
+                    <td class="mono" style="font-size:12px; color:var(--text-muted);">${new Date(s.created_at).toLocaleDateString()}</td>
+                    <td><button onclick="viewScanDetail('${s.scan_id}')" style="background:none; border:1px solid var(--border-light); color:var(--text-secondary); padding:4px 12px; cursor:pointer; font-size:11px; border-radius:3px; font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px;">View</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <p class="mono" style="text-align:center; margin-top:16px; font-size:12px; color:var(--text-muted);">${data.total} total scans</p>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p style="color:var(--red-alert); text-align:center; padding:32px;">${err.message}</p>`;
+      }
+    }
+
+    async function viewScanDetail(scanId) {
+      showScreen('historyDetailScreen');
+      const container = document.getElementById('historyDetailContent');
+      try {
+        const d = await apiFetch('/api/history/' + scanId);
+        const verdictColors = { forged: 'var(--red-alert)', suspicious: 'var(--orange-warn)', genuine: 'var(--green-clear)' };
+        const vc = verdictColors[d.verdict] || verdictColors.forged;
+        container.innerHTML = `
+          <div class="info-box">
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; margin-bottom:16px;">
+              <h2 class="oswald" style="font-size:20px; letter-spacing:2px; text-transform:uppercase;">Scan Detail</h2>
+              <span class="mono" style="color:var(--text-muted); font-size:13px;">${d.scan_id}</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px;">
+              <div style="background:#0a0a0a; padding:14px; border-radius:6px; text-align:center;">
+                <div class="oswald" style="color:${vc}; font-size:18px; text-transform:uppercase;">${d.verdict}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Verdict</div>
+              </div>
+              <div style="background:#0a0a0a; padding:14px; border-radius:6px; text-align:center;">
+                <div class="mono" style="color:var(--yellow-tape); font-size:18px;">${(d.confidence_score * 100).toFixed(1)}%</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Confidence</div>
+              </div>
+              <div style="background:#0a0a0a; padding:14px; border-radius:6px; text-align:center;">
+                <div class="mono" style="font-size:14px; color:var(--text-secondary);">${d.filename}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">File</div>
+              </div>
+            </div>
+            ${d.llm_explanation ? `
+              <h4 class="oswald" style="font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px;">Analysis</h4>
+              <p style="line-height:1.7; font-size:14px; color:#d4d4d4; margin-bottom:16px;">${d.llm_explanation}</p>
+            ` : ''}
+            ${d.training_warning ? `<div class="warning-box">${d.training_warning}</div>` : ''}
+            ${d.annotations && d.annotations.length > 0 ? `
+              <h4 class="oswald" style="font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px;">Detections</h4>
+              ${d.annotations.map((ann, i) => `
+                <div style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #1a1a1a;">
+                  <span style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:${ann.color || 'var(--red-alert)'}; color:#fff; font-size:10px; font-weight:700;">${i+1}</span>
+                  <span style="flex:1; font-size:14px;">${ann.title}</span>
+                  <span class="mono" style="font-size:12px; color:var(--text-secondary);">${(ann.confidence * 100).toFixed(0)}%</span>
+                </div>
+              `).join('')}
+            ` : ''}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p style="color:var(--red-alert);">${err.message}</p>`;
+      }
+    }
+
+    // ============================================
+    // ACCOUNT
+    // ============================================
+    async function loadAccount() {
+      if (!currentUser) return;
+      // Refresh user data
+      try {
+        currentUser = await apiFetch('/api/auth/me');
+        localStorage.setItem('fg_user', JSON.stringify(currentUser));
+        updateAuthUI();
+      } catch {}
+
+      const planLimits = { free: 10, basic: 100, pro: 1000 };
+      const container = document.getElementById('accountContent');
+
+      // Check for payment redirect
+      const params = new URLSearchParams(window.location.search);
+      const msgEl = document.getElementById('accountMsg');
+      if (params.get('payment') === 'success') {
+        msgEl.innerHTML = '<div class="success-box">Payment successful! Your plan will update shortly.</div>';
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (params.get('payment') === 'cancelled') {
+        msgEl.innerHTML = '<div class="error-box">Payment was cancelled.</div>';
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        msgEl.innerHTML = '';
+      }
+
+      let plansHtml = '';
+      try {
+        const planData = await apiFetch('/api/payments/plans');
+        plansHtml = `
+          <h2 class="oswald" style="font-size:16px; letter-spacing:2px; text-transform:uppercase; margin-bottom:16px;">Plans</h2>
+          <div class="plans-grid">
+            ${planData.plans.map(p => {
+              const isCurrent = currentUser.plan === p.id;
+              return `
+                <div class="plan-card ${isCurrent ? 'current' : ''}">
+                  <h3 class="oswald" style="font-size:18px; text-transform:uppercase; letter-spacing:2px;">${p.name}</h3>
+                  <div style="margin:12px 0;">
+                    <span class="mono" style="font-size:28px; font-weight:700; color:var(--yellow-tape);">$${p.price}</span>
+                    ${p.price > 0 ? '<span style="color:var(--text-muted); font-size:13px;">/mo</span>' : ''}
+                  </div>
+                  <ul class="plan-features">${p.features.map(f => '<li>' + f + '</li>').join('')}</ul>
+                  ${isCurrent ? '<div class="mono" style="text-align:center; color:var(--yellow-tape); font-size:12px; text-transform:uppercase;">Current Plan</div>' :
+                    p.price > 0 ? `<button class="btn btn-primary" onclick="upgradePlan('${p.id}')" style="width:100%; padding:10px;">Upgrade</button>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } catch {}
+
+      container.innerHTML = `
+        <!-- Profile -->
+        <div class="info-box" style="margin-bottom:24px;">
+          <h2 class="oswald" style="font-size:16px; letter-spacing:2px; text-transform:uppercase; margin-bottom:16px;">Profile</h2>
+          <div style="display:grid; gap:10px;">
+            <div><span style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:1px;">Email:</span> <span class="mono" style="font-size:14px;">${currentUser.email}</span></div>
+            <div><span style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:1px;">Username:</span> <span style="font-size:14px;">${currentUser.username}</span></div>
+            <div><span style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:1px;">Name:</span> <span style="font-size:14px;">${currentUser.full_name || '-'}</span></div>
+            <div><span style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:1px;">Member since:</span> <span class="mono" style="font-size:14px;">${currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : '-'}</span></div>
+          </div>
+        </div>
+
+        <!-- Current Plan -->
+        <div class="info-box" style="margin-bottom:24px; border-color:var(--yellow-tape);">
+          <h2 class="oswald" style="font-size:16px; letter-spacing:2px; text-transform:uppercase; margin-bottom:12px;">Current Plan</h2>
+          <div style="display:flex; align-items:center; gap:16px;">
+            <span class="oswald" style="font-size:24px; color:var(--yellow-tape); text-transform:uppercase;">${currentUser.plan}</span>
+            <span class="mono" style="color:var(--text-secondary); font-size:13px;">${currentUser.scans_this_month || 0} / ${planLimits[currentUser.plan] || 10} scans used this month</span>
+          </div>
+          ${currentUser.plan !== 'free' ? '<button class="btn-danger btn" onclick="cancelSubscription()" style="margin-top:12px; padding:8px 20px; font-size:12px;">Cancel Subscription</button>' : ''}
+        </div>
+
+        ${plansHtml}
+      `;
+    }
+
+    async function upgradePlan(planId) {
+      try {
+        const data = await apiFetch('/api/payments/create-checkout', {
+          method: 'POST',
+          body: JSON.stringify({ plan: planId }),
+        });
+        if (data.checkout_url) window.location.href = data.checkout_url;
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function cancelSubscription() {
+      if (!confirm('Cancel your subscription? You will keep access until the end of your billing period.')) return;
+      try {
+        await apiFetch('/api/payments/cancel', { method: 'POST' });
+        document.getElementById('accountMsg').innerHTML = '<div class="success-box">Subscription cancelled. Access continues until end of billing period.</div>';
+        loadAccount();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
     // ============================================
     // RENDER CATEGORIES
     // ============================================
@@ -786,38 +1411,37 @@
             </div>
             <div class="card-footer">
               <span class="mono" style="font-size: 10px; color: var(--text-muted);">${subCount} ${subCount === 1 ? 'METHOD' : 'METHODS'}</span>
-              <span style="color: ${cat.color}; font-size: 14px;">→</span>
+              <span style="color: ${cat.color}; font-size: 14px;">&rarr;</span>
             </div>
           </button>
         `;
       }).join('');
     }
-    
+
     // ============================================
     // SELECT CATEGORY
     // ============================================
     function selectCategory(catId) {
       if (!serverOnline) return;
-      
+
       if (!catId) {
-        // Auto-detect mode
         selectedCategory = null;
         selectedSubcategory = null;
         showScreen('cameraScreen');
         return;
       }
-      
+
       selectedCategory = CATEGORIES.find(c => c.id === catId);
       renderSubcategories();
       showScreen('subcategoryScreen');
     }
-    
+
     // ============================================
     // RENDER SUBCATEGORIES
     // ============================================
     function renderSubcategories() {
       const cat = selectedCategory;
-      
+
       document.getElementById('subcategoryHeader').innerHTML = `
         <div style="display: flex; align-items: center; gap: 14px;">
           <span style="font-size: 36px;">${cat.icon}</span>
@@ -829,32 +1453,28 @@
         </div>
       `;
       document.getElementById('subcategoryHeader').style.borderLeftColor = cat.color;
-      
+
       let html = '';
       let idx = 0;
-      
+
       if (cat.subcategories) {
         html += '<div class="subcategory-list">';
-        cat.subcategories.forEach(sub => {
-          html += renderSubItem(sub, idx++, cat.color);
-        });
+        cat.subcategories.forEach(sub => { html += renderSubItem(sub, idx++, cat.color); });
         html += '</div>';
       }
-      
+
       if (cat.groups) {
         cat.groups.forEach(group => {
-          html += `<p class="group-label mono">▸ ${group.name.toUpperCase()}</p>`;
+          html += `<p class="group-label mono">&#9656; ${group.name.toUpperCase()}</p>`;
           html += '<div class="subcategory-list" style="margin-bottom: 24px;">';
-          group.subcategories.forEach(sub => {
-            html += renderSubItem(sub, idx++, cat.color);
-          });
+          group.subcategories.forEach(sub => { html += renderSubItem(sub, idx++, cat.color); });
           html += '</div>';
         });
       }
-      
+
       document.getElementById('subcategoryList').innerHTML = html;
     }
-    
+
     function renderSubItem(sub, idx, color) {
       return `
         <button class="subcategory-item" onclick="selectSubcategory('${sub.id}')">
@@ -867,51 +1487,39 @@
             <p class="mono" style="font-size: 9px; color: var(--text-muted); letter-spacing: 1px; margin-bottom: 2px;">LIGHTING</p>
             <p class="mono" style="font-size: 11px; color: var(--yellow-tape); font-weight: 600;">${sub.lighting}</p>
           </div>
-          <span style="color: ${color}; font-size: 16px; flex-shrink: 0;">→</span>
+          <span style="color: ${color}; font-size: 16px; flex-shrink: 0;">&rarr;</span>
         </button>
       `;
     }
-    
+
     // ============================================
     // SELECT SUBCATEGORY
     // ============================================
     function selectSubcategory(subId) {
       const cat = selectedCategory;
       let found = null;
-      
-      if (cat.subcategories) {
-        found = cat.subcategories.find(s => s.id === subId);
-      }
-      if (!found && cat.groups) {
-        cat.groups.forEach(g => {
-          const f = g.subcategories.find(s => s.id === subId);
-          if (f) found = f;
-        });
-      }
-      
+      if (cat.subcategories) found = cat.subcategories.find(s => s.id === subId);
+      if (!found && cat.groups) cat.groups.forEach(g => { const f = g.subcategories.find(s => s.id === subId); if (f) found = f; });
       selectedSubcategory = found;
       renderLightingScreen();
       showScreen('lightingScreen');
     }
-    
+
     // ============================================
     // RENDER LIGHTING SCREEN
     // ============================================
     function renderLightingScreen() {
       const sub = selectedSubcategory;
-      
       document.getElementById('lightingContent').innerHTML = `
         <div style="text-align: center; margin-bottom: 32px;">
-          <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">◆ EXAMINATION PROTOCOL ◆</p>
+          <p class="mono" style="font-size: 11px; color: var(--yellow-tape); letter-spacing: 3px; margin-bottom: 10px;">&#9670; EXAMINATION PROTOCOL &#9670;</p>
           <h2 class="oswald" style="font-size: clamp(22px, 4vw, 28px); font-weight: 700; letter-spacing: 2px; margin-bottom: 8px;">${sub.title}</h2>
           <p style="color: var(--text-secondary); font-size: 14px;">${sub.description}</p>
         </div>
-        
         <div class="lighting-box">
           <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 8px;">REQUIRED LIGHTING</p>
           <p class="oswald" style="font-size: clamp(28px, 6vw, 36px); font-weight: 700; color: var(--yellow-tape); letter-spacing: 4px;">${sub.lighting}</p>
         </div>
-        
         <div style="margin-bottom: 32px;">
           <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 14px;">GUIDELINES</p>
           ${sub.tips.map((tip, i) => `
@@ -921,11 +1529,10 @@
             </div>
           `).join('')}
         </div>
-        
-        <button class="btn btn-primary" onclick="showScreen('cameraScreen')" style="width: 100%; padding: 18px;">📷 PROCEED TO CAPTURE</button>
+        <button class="btn btn-primary" onclick="showScreen('cameraScreen')" style="width: 100%; padding: 18px;">&#128247; PROCEED TO CAPTURE</button>
       `;
     }
-    
+
     // ============================================
     // CAMERA
     // ============================================
@@ -941,22 +1548,20 @@
         console.error('Camera error:', err);
       }
     }
-    
+
     function stopCamera() {
       if (videoStream) {
         videoStream.getTracks().forEach(t => t.stop());
         videoStream = null;
       }
     }
-    
+
     function captureImage() {
       const video = document.getElementById('videoFeed');
       const canvas = document.getElementById('captureCanvas');
-      
       canvas.width = video.videoWidth || 1280;
       canvas.height = video.videoHeight || 720;
       canvas.getContext('2d').drawImage(video, 0, 0);
-      
       canvas.toBlob(blob => {
         if (blob) {
           const file = new File([blob], 'evidence.jpg', { type: 'image/jpeg' });
@@ -965,7 +1570,7 @@
         }
       }, 'image/jpeg', 0.92);
     }
-    
+
     function handleFileUpload(event) {
       const file = event.target.files[0];
       if (file) {
@@ -973,68 +1578,64 @@
         analyzeImage(file);
       }
     }
-    
+
     // ============================================
-    // ANALYZE
+    // ANALYZE (now uses authenticated API)
     // ============================================
     async function analyzeImage(file) {
       showScreen('processingScreen');
       updateProcessingStatus('Uploading evidence...');
-      
+
       try {
         setTimeout(() => updateProcessingStatus('AI analysis in progress...'), 800);
         setTimeout(() => updateProcessingStatus('Detecting anomalies...'), 2000);
-        
+
         const formData = new FormData();
         formData.append('imageFile', file);
-        if (selectedSubcategory) {
-          formData.append('category', selectedSubcategory.apiKey);
+        if (selectedSubcategory) formData.append('category', selectedSubcategory.apiKey);
+
+        // Use authenticated fetch
+        analysisResult = await apiFetch('/api/analyze', { method: 'POST', body: formData });
+
+        // Update user scan count locally
+        if (currentUser) {
+          currentUser.scans_this_month = (currentUser.scans_this_month || 0) + 1;
+          localStorage.setItem('fg_user', JSON.stringify(currentUser));
+          updateAuthUI();
         }
-        
-        const res = await fetch(`${API_URL}/analyze`, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-        
-        analysisResult = await res.json();
+
         updateProcessingStatus('Analysis complete');
-        
-        setTimeout(() => {
-          renderResults();
-          showScreen('resultsScreen');
-        }, 500);
-        
+        setTimeout(() => { renderResults(); showScreen('resultsScreen'); }, 500);
+
       } catch (err) {
         document.getElementById('errorMessage').textContent = err.message;
         showScreen('errorScreen');
       }
     }
-    
+
     function updateProcessingStatus(text) {
       document.getElementById('processingStatus').textContent = text;
     }
-    
+
     // ============================================
-    // RENDER RESULTS
+    // RENDER RESULTS (with training warning)
     // ============================================
     function renderResults() {
       const result = analysisResult;
-      
+
       const verdictConfig = {
-        forged: { color: 'var(--red-alert)', bg: 'rgba(220, 38, 38, 0.15)', label: 'FORGERY DETECTED', icon: '🚨' },
-        suspicious: { color: 'var(--orange-warn)', bg: 'rgba(249, 115, 22, 0.15)', label: 'SUSPICIOUS', icon: '⚠️' },
-        genuine: { color: 'var(--green-clear)', bg: 'rgba(34, 197, 94, 0.15)', label: 'APPEARS GENUINE', icon: '✓' },
+        forged: { color: 'var(--red-alert)', bg: 'rgba(220, 38, 38, 0.15)', label: 'FORGERY DETECTED', icon: '&#128680;' },
+        suspicious: { color: 'var(--orange-warn)', bg: 'rgba(249, 115, 22, 0.15)', label: 'SUSPICIOUS', icon: '&#9888;&#65039;' },
+        genuine: { color: 'var(--green-clear)', bg: 'rgba(34, 197, 94, 0.15)', label: 'APPEARS GENUINE', icon: '&#10003;' },
       };
-      
+
       const verdict = verdictConfig[result.verdict] || verdictConfig.forged;
       const confidence = Math.round((result.confidence_score || 0) * 100);
-      
+
       document.getElementById('resultsContent').innerHTML = `
         <!-- Left Column -->
         <div>
-          <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">◆ EVIDENCE ◆</p>
+          <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">&#9670; EVIDENCE &#9670;</p>
           <div class="evidence-image" id="evidenceImage">
             <img src="${capturedImageUrl}" alt="Evidence" onload="renderAnnotations()">
           </div>
@@ -1051,14 +1652,14 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Right Column -->
         <div>
           <div class="verdict-box" style="background: ${verdict.bg}; border-color: ${verdict.color};">
             <span class="verdict-icon">${verdict.icon}</span>
             <p class="oswald" style="font-size: clamp(20px, 4vw, 26px); font-weight: 700; color: ${verdict.color}; letter-spacing: 3px; margin: 0;">${verdict.label}</p>
           </div>
-          
+
           <div class="info-box">
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
               <span class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 1px;">CONFIDENCE</span>
@@ -1068,12 +1669,14 @@
               <div class="confidence-fill" style="width: ${confidence}%; background: ${verdict.color};"></div>
             </div>
           </div>
-          
+
+          ${result.training_warning ? `<div class="warning-box">${result.training_warning}</div>` : ''}
+
           <div class="info-box">
-            <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">◆ AI ANALYSIS ◆</p>
+            <p class="mono" style="font-size: 10px; color: var(--yellow-tape); letter-spacing: 2px; margin-bottom: 10px;">&#9670; AI ANALYSIS &#9670;</p>
             <p style="color: var(--text-primary); line-height: 1.6; font-size: 13px;">${result.llm_explanation || 'Analysis complete. Review annotated evidence for details.'}</p>
           </div>
-          
+
           ${result.annotations?.length > 0 ? `
             <div style="margin-bottom: 20px;">
               <p class="mono" style="font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 10px;">ANOMALIES (${result.annotations.length})</p>
@@ -1082,59 +1685,58 @@
                   <div class="finding-marker" style="background: ${ann.color || 'var(--red-alert)'};">${ann.id}</div>
                   <div style="flex: 1; min-width: 0;">
                     <p class="oswald" style="font-size: 13px; font-weight: 600; margin: 0;">${ann.title}</p>
+                    <p class="mono" style="font-size: 10px; color: var(--text-muted); margin: 2px 0 0;">${(ann.confidence * 100).toFixed(0)}% confidence</p>
                   </div>
                 </div>
               `).join('')}
             </div>
           ` : ''}
-          
+
           <div class="actions">
-            <button class="btn btn-primary" onclick="goHome()">🔍 NEW SCAN</button>
-            <button class="btn btn-secondary" onclick="exportReport()">📄 EXPORT</button>
+            <button class="btn btn-primary" onclick="navigate('scan')">&#128270; NEW SCAN</button>
+            <button class="btn btn-secondary" onclick="exportReport()">&#128196; EXPORT</button>
           </div>
         </div>
       `;
     }
-    
+
     function renderAnnotations() {
       const result = analysisResult;
       if (!result.annotations?.length) return;
-      
+
       const container = document.getElementById('evidenceImage');
       const img = container.querySelector('img');
-      
+
       const origW = result.original_image_dimensions?.width || 1920;
       const origH = result.original_image_dimensions?.height || 1080;
       const scaleX = img.clientWidth / origW;
       const scaleY = img.clientHeight / origH;
-      
+
       result.annotations.forEach(ann => {
         const c = ann.coordinates;
         const div = document.createElement('div');
         div.className = 'annotation-box';
         div.id = `annotation-${ann.id}`;
         div.style.cssText = `
-          left: ${c.x_min * scaleX}px;
-          top: ${c.y_min * scaleY}px;
-          width: ${(c.x_max - c.x_min) * scaleX}px;
-          height: ${(c.y_max - c.y_min) * scaleY}px;
+          left: ${c.x_min * scaleX}px; top: ${c.y_min * scaleY}px;
+          width: ${(c.x_max - c.x_min) * scaleX}px; height: ${(c.y_max - c.y_min) * scaleY}px;
           border-color: ${ann.color || 'var(--red-alert)'};
         `;
         div.innerHTML = `<div class="annotation-marker" style="background: ${ann.color || 'var(--red-alert)'};">${ann.id}</div>`;
         container.appendChild(div);
       });
     }
-    
+
     function highlightAnnotation(id) {
       const el = document.getElementById(`annotation-${id}`);
       if (el) el.style.background = 'rgba(220, 38, 38, 0.3)';
     }
-    
+
     function unhighlightAnnotation(id) {
       const el = document.getElementById(`annotation-${id}`);
       if (el) el.style.background = 'transparent';
     }
-    
+
     function exportReport() {
       const blob = new Blob([JSON.stringify(analysisResult, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
