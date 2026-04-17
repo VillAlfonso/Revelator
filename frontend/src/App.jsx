@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Scan from './pages/Scan';
 import History from './pages/History';
 import Account from './pages/Account';
+import Admin from './pages/Admin';
 
 // ── Auth Context ────────────────────────────────────
 
@@ -67,6 +68,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#a3a3a3' }}>Loading...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_admin) return <Navigate to="/" replace />;
+  return children;
+}
+
 // ── Layout ──────────────────────────────────────────
 
 function Layout({ children }) {
@@ -74,10 +83,10 @@ function Layout({ children }) {
   const location = useLocation();
 
   const navItems = [
-    { path: '/', label: 'Dashboard' },
     { path: '/scan', label: 'Scan' },
     { path: '/history', label: 'History' },
     { path: '/account', label: 'Account' },
+    ...(user?.is_admin ? [{ path: '/admin', label: 'Admin Panel' }] : []),
   ];
 
   return (
@@ -152,6 +161,7 @@ export default function App() {
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

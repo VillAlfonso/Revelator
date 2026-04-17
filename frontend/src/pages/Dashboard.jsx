@@ -11,7 +11,6 @@ export default function Dashboard() {
   useEffect(() => {
     api.getHistory(5).then(data => {
       setHistory(data.scans);
-      // Compute quick stats from recent scans
       api.getHistory(1000, 0).then(all => {
         const s = { total: all.total, forged: 0, suspicious: 0, genuine: 0 };
         all.scans.forEach(scan => { if (s[scan.verdict] !== undefined) s[scan.verdict]++; });
@@ -36,7 +35,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="mono" style={{ fontSize: 32, fontWeight: 700, color: '#f5c518' }}>{stats.total}</div>
@@ -56,7 +54,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Usage bar */}
       <div className="card" style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span className="oswald" style={{ textTransform: 'uppercase', letterSpacing: 1.5, fontSize: 14 }}>Monthly Usage</span>
@@ -78,7 +75,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Quick scan button */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <Link to="/scan">
           <button className="btn btn-primary" style={{ fontSize: 16, padding: '18px 48px' }}>
@@ -87,7 +83,6 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Recent scans */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase' }}>Recent Scans</h2>

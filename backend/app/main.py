@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import APP_NAME, APP_VERSION, FRONTEND_URL
 from .database import init_db
 from .forgery.detector import load_yolo_models, TRAINING_STATUS, yolo_models
-from .routes import auth, analyze, payments
+from .routes import auth, analyze, payments, admin
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
 
@@ -27,6 +27,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(analyze.router)
 app.include_router(payments.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")

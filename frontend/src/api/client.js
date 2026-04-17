@@ -3,7 +3,7 @@
  * Handles auth tokens automatically.
  */
 
-const API_BASE = '/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 function getToken() {
   return localStorage.getItem('fg_access_token');
@@ -144,6 +144,32 @@ export const api = {
 
   cancelSubscription() {
     return request('/payments/cancel', { method: 'POST' });
+  },
+
+  // Admin
+  adminListUsers({ q = '', plan = '', limit = 50, offset = 0 } = {}) {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (plan) params.set('plan', plan);
+    params.set('limit', limit);
+    params.set('offset', offset);
+    return request(`/admin/users?${params.toString()}`);
+  },
+
+  adminGetUser(userId) {
+    return request(`/admin/users/${userId}`);
+  },
+
+  adminUpdateUser(userId, patch) {
+    return request(`/admin/users/${userId}`, { method: 'PUT', body: JSON.stringify(patch) });
+  },
+
+  adminDeleteUser(userId) {
+    return request(`/admin/users/${userId}`, { method: 'DELETE' });
+  },
+
+  adminStats() {
+    return request('/admin/stats');
   },
 
   // Health
