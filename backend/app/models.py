@@ -54,6 +54,7 @@ class Scan(Base):
     annotations_json = Column(Text, nullable=True)  # JSON string of annotations
     image_width = Column(Integer, nullable=True)
     image_height = Column(Integer, nullable=True)
+    image_path = Column(String, nullable=True)  # relative path under UPLOAD_DIR
     training_warning = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

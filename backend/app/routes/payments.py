@@ -11,7 +11,8 @@ from ..database import get_db
 from ..models import User
 from ..config import (
     STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET,
-    STRIPE_PRICE_ID_BASIC, STRIPE_PRICE_ID_PRO, FRONTEND_URL,
+    STRIPE_PRICE_ID_PRO, STRIPE_PRICE_ID_PREMIUM, FRONTEND_URL,
+    PRO_PRICE_USD, PREMIUM_PRICE_USD,
 )
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -30,25 +31,49 @@ def get_stripe():
 
 
 PLAN_PRICE_MAP = {
-    "basic": STRIPE_PRICE_ID_BASIC,
     "pro": STRIPE_PRICE_ID_PRO,
+    "premium": STRIPE_PRICE_ID_PREMIUM,
 }
 
 
 class CheckoutRequest(BaseModel):
-    plan: str  # "basic" or "pro"
+    plan: str  # "pro" or "premium"
 
 
 @router.get("/plans")
 def get_plans():
     return {
         "plans": [
-            {"id": "free", "name": "Free", "price": 0, "scans_per_month": 10,
-             "features": ["10 scans/month", "Basic analysis", "Community support"]},
-            {"id": "basic", "name": "Basic", "price": 9.99, "scans_per_month": 100,
-             "features": ["100 scans/month", "Full analysis", "History export", "Email support"]},
-            {"id": "pro", "name": "Pro", "price": 29.99, "scans_per_month": 1000,
-             "features": ["1000 scans/month", "Full analysis", "Priority processing", "API access", "Priority support"]},
+            {
+                "id": "free", "name": "Free", "price": 0,
+                "scans_per_month": 10, "unlimited": False, "llm_included": False,
+                "features": [
+                    "10 scans / month",
+                    "Verdict + bounding boxes",
+                    "Scan history with images",
+                    "Community support",
+                ],
+            },
+            {
+                "id": "pro", "name": "Pro", "price": PRO_PRICE_USD,
+                "scans_per_month": -1, "unlimited": True, "llm_included": False,
+                "features": [
+                    "Unlimited scans",
+                    "Verdict + bounding boxes",
+                    "Scan history with images",
+                    "Email support",
+                ],
+            },
+            {
+                "id": "premium", "name": "Premium", "price": PREMIUM_PRICE_USD,
+                "scans_per_month": -1, "unlimited": True, "llm_included": True,
+                "features": [
+                    "Unlimited scans",
+                    "AI forensic explanation on every scan",
+                    "Priority processing",
+                    "Priority support",
+                ],
+            },
         ]
     }
 
@@ -63,7 +88,7 @@ def create_checkout(
 
     price_id = PLAN_PRICE_MAP.get(body.plan)
     if not price_id:
-        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'basic' or 'pro'.")
+        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'pro' or 'premium'.")
 
     # Create or reuse Stripe customer
     if not current_user.stripe_customer_id:

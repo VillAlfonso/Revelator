@@ -53,6 +53,30 @@ TRAINING_STATUS = {
     "currency_analysis": False,
 }
 
+# Dataset image counts per class (training set size).
+# UPDATE THESE NUMBERS as datasets are gathered. Keep the keys aligned with TRAINING_STATUS.
+DATASET_COUNTS = {
+    "traced_carbon": 0,
+    "traced_indentation": 0,
+    "traced_projection": 0,
+    "addition_insertion": 0,
+    "addition_interlineation": 0,
+    "erasure_chemical": 0,
+    "erasure_mechanical": 0,
+    "digital_cut_paste": 0,
+    "digital_desktop": 0,
+    "digital_scanned": 0,
+    "obliteration_ink": 0,
+    "obliteration_whiteout": 0,
+    "obliteration_pigment": 0,
+    "sympathetic_indented": 0,
+    "sympathetic_special": 0,
+    "currency_analysis": 0,
+}
+
+# Threshold for what counts as "limited" data — surfaced as a warning to users.
+LIMITED_DATA_THRESHOLD = 200
+
 CONFIDENCE_THRESHOLDS = {
     "high": 0.75,
     "medium": 0.50,

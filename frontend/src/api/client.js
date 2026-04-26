@@ -109,6 +109,10 @@ export const api = {
     return request('/categories');
   },
 
+  getAbout() {
+    return request('/about', { noAuth: true });
+  },
+
   analyze(file, category) {
     const form = new FormData();
     form.append('imageFile', file);
@@ -129,6 +133,11 @@ export const api = {
 
   getScanDetail(scanId) {
     return request(`/history/${scanId}`);
+  },
+
+  getScanImageUrl(scanId) {
+    const token = getToken();
+    return `${API_BASE}/history/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
   },
 
   // Payments

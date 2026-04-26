@@ -4,9 +4,11 @@ import { api } from './api/client';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Scan from './pages/Scan';
+import SampleGallery from './pages/SampleGallery';
 import History from './pages/History';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import About from './pages/About';
 
 // ── Auth Context ────────────────────────────────────
 
@@ -98,6 +100,7 @@ function Layout({ children }) {
   const navItems = [
     { path: '/scan', label: 'Scan' },
     { path: '/history', label: 'History' },
+    { path: '/about', label: 'About' },
     { path: '/account', label: 'Account' },
     ...(user?.is_admin ? [{ path: '/admin', label: 'Admin' }] : []),
   ];
@@ -215,6 +218,8 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/" element={<Navigate to="/scan" replace />} />
             <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
+            <Route path="/samples/:categoryId" element={<ProtectedRoute><SampleGallery /></ProtectedRoute>} />
+            <Route path="/about" element={<About />} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
