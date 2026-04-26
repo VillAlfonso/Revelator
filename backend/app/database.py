@@ -35,10 +35,21 @@ def _ensure_columns():
     from sqlalchemy import text, inspect
 
     inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
-        return
+    table_names = inspector.get_table_names()
 
-    existing = {col["name"] for col in inspector.get_columns("users")}
     with engine.begin() as conn:
-        if "is_admin" not in existing:
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+        if "users" in table_names:
+            user_cols = {col["name"] for col in inspector.get_columns("users")}
+            if "is_admin" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+
+            # Plan rename migration: legacy 'basic' -> new 'pro' ($5 unlimited);
+            # legacy 'pro' (1000-scan tier) -> new 'premium' ($10 unlimited + AI).
+            # Existing 'free' and already-migrated rows are left alone.
+            conn.execute(text("UPDATE users SET plan = 'premium' WHERE plan = 'pro'"))
+            conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'basic'"))
+
+        if "scans" in table_names:
+            scan_cols = {col["name"] for col in inspector.get_columns("scans")}
+            if "image_path" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN image_path VARCHAR"))

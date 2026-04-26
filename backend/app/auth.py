@@ -83,3 +83,18 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
+
+
+def get_user_from_token(token: str, db: Session) -> User:
+    """Resolve a user from a raw access token string.
+
+    Used by endpoints that accept the token as a query parameter (e.g. <img src>
+    can't set Authorization headers). Owner-level access only; keep use narrow.
+    """
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = db.query(User).filter(User.id == payload["sub"]).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    return user

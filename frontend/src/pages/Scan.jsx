@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { api } from '../api/client';
 
@@ -23,6 +23,7 @@ export default function Scan() {
   const [step, setStep] = useState(initialStep);
   const [group, setGroup] = useState(initialGroup);
   const [methodsByCategory, setMethodsByCategory] = useState({});
+  const [datasetTotals, setDatasetTotals] = useState({});
   const [method, setMethod] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -33,7 +34,10 @@ export default function Scan() {
   const canvasRef = useRef();
 
   useEffect(() => {
-    api.getCategories().then(data => setMethodsByCategory(data.categories)).catch(() => {});
+    api.getCategories().then(data => {
+      setMethodsByCategory(data.categories || {});
+      setDatasetTotals(data.category_dataset_totals || {});
+    }).catch(() => {});
   }, []);
 
   function pickGroup(g) {
@@ -162,7 +166,7 @@ export default function Scan() {
     }
   }
 
-  if (step === 'select') return <SelectForgeryType onPick={pickGroup} onAutoDetect={pickAutoDetect} />;
+  if (step === 'select') return <SelectForgeryType onPick={pickGroup} onAutoDetect={pickAutoDetect} datasetTotals={datasetTotals} />;
 
   // ───── upload step ─────
   const groupMethods = group ? (methodsByCategory[group.backendCategory] || []) : [];
@@ -184,13 +188,28 @@ export default function Scan() {
         background: '#151515',
         borderLeft: `4px solid ${group?.color || '#f5c518'}`,
         padding: 20, marginBottom: 24, borderRadius: 4,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
       }}>
-        <p className="mono" style={{ fontSize: 10, letterSpacing: 2, color: group?.color || '#f5c518', margin: 0 }}>
-          {group ? group.code : 'AUTO'}
-        </p>
-        <h2 className="oswald" style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1, margin: '4px 0 0' }}>
-          {group ? group.title : 'Auto-Detect Forgery'}
-        </h2>
+        <div>
+          <p className="mono" style={{ fontSize: 10, letterSpacing: 2, color: group?.color || '#f5c518', margin: 0 }}>
+            {group ? group.code : 'AUTO'}
+          </p>
+          <h2 className="oswald" style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1, margin: '4px 0 0' }}>
+            {group ? group.title : 'Auto-Detect Forgery'}
+          </h2>
+        </div>
+        {group && (
+          <Link
+            to={`/samples/${group.id}`}
+            style={{
+              fontSize: 12, fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+              letterSpacing: 1.5, color: group.color, textDecoration: 'none',
+              border: `1px solid ${group.color}`, padding: '6px 12px', borderRadius: 4,
+            }}
+          >
+            See examples →
+          </Link>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
@@ -291,7 +310,11 @@ export default function Scan() {
               <h4 className="oswald" style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.5, color: '#a3a3a3', marginBottom: 8 }}>
                 Forensic Analysis
               </h4>
-              <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d4d4d4' }}>{result.llm_explanation}</p>
+              {result.llm_explanation ? (
+                <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d4d4d4' }}>{result.llm_explanation}</p>
+              ) : result.llm_locked ? (
+                <LlmUpgradePrompt requiredPlan={result.llm_required_plan} />
+              ) : null}
             </div>
 
             {result.annotations?.length > 0 && (
@@ -328,7 +351,7 @@ export default function Scan() {
   );
 }
 
-function SelectForgeryType({ onPick, onAutoDetect }) {
+function SelectForgeryType({ onPick, onAutoDetect, datasetTotals = {} }) {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -348,7 +371,13 @@ function SelectForgeryType({ onPick, onAutoDetect }) {
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
         gap: 16, marginBottom: 40,
       }}>
-        {GROUPS.map((g, i) => <CategoryCard key={g.id} cat={g} index={i + 1} onClick={() => onPick(g)} />)}
+        {GROUPS.map((g, i) => (
+          <CategoryCard
+            key={g.id} cat={g} index={i + 1}
+            datasetCount={datasetTotals[g.backendCategory] || 0}
+            onClick={() => onPick(g)}
+          />
+        ))}
       </div>
 
       <div style={{ textAlign: 'center', marginTop: 32 }}>
@@ -363,10 +392,41 @@ function SelectForgeryType({ onPick, onAutoDetect }) {
   );
 }
 
-function CategoryCard({ cat, index, onClick }) {
+function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
   return (
-    <button
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.02) 100%)',
+      border: '1px solid rgba(139,92,246,0.4)', borderRadius: 6, padding: 14,
+      display: 'flex', gap: 12, alignItems: 'flex-start',
+    }}>
+      <span style={{ fontSize: 22, lineHeight: 1 }}>✨</span>
+      <div style={{ flex: 1 }}>
+        <div className="oswald" style={{ fontSize: 13, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>
+          AI Forensic Explanation
+        </div>
+        <p style={{ fontSize: 13, color: '#a3a3a3', lineHeight: 1.6, margin: 0, marginBottom: 10 }}>
+          Upgrade to <strong style={{ color: '#a78bfa', textTransform: 'capitalize' }}>{requiredPlan}</strong> to
+          get a plain-language breakdown of every detection — what was flagged, where, and why it matters.
+        </p>
+        <Link to="/account" style={{
+          display: 'inline-block', padding: '6px 14px', borderRadius: 4,
+          background: '#8b5cf6', color: '#fff', textDecoration: 'none',
+          fontSize: 12, fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1.5,
+        }}>
+          See plans →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function CategoryCard({ cat, index, onClick, datasetCount = 0 }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       style={{
         background: '#151515',
         border: '1px solid #262626',
@@ -399,13 +459,28 @@ function CategoryCard({ cat, index, onClick }) {
 
       <div style={{
         borderTop: '1px solid #262626', padding: '10px 16px', background: '#1a1a1a',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
       }}>
-        <span className="mono" style={{ fontSize: 10, color: '#525252' }}>
-          {cat.methods} {cat.methods === 1 ? 'METHOD' : 'METHODS'}
-        </span>
-        <span style={{ color: cat.color, fontSize: 14 }}>→</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="mono" style={{ fontSize: 10, color: '#525252' }}>
+            {cat.methods} {cat.methods === 1 ? 'METHOD' : 'METHODS'}
+          </span>
+          <span className="mono" style={{ fontSize: 10, color: datasetCount > 0 ? cat.color : '#525252' }}>
+            {datasetCount.toLocaleString()} TRAINING IMAGES
+          </span>
+        </div>
+        <Link
+          to={`/samples/${cat.id}`}
+          onClick={e => e.stopPropagation()}
+          style={{
+            fontSize: 10, color: cat.color, textDecoration: 'none',
+            fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1.5,
+            padding: '2px 6px', border: `1px solid ${cat.color}33`, borderRadius: 3,
+          }}
+        >
+          Examples
+        </Link>
       </div>
-    </button>
+    </div>
   );
 }

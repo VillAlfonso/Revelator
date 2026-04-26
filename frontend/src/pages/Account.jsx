@@ -63,7 +63,11 @@ export default function Account() {
     }
   }
 
-  const planLimits = { free: 10, basic: 100, pro: 1000 };
+  const planLimits = { free: 10, pro: -1, premium: -1 };
+  const userLimit = planLimits[user?.plan] ?? 10;
+  const usageDisplay = userLimit === -1
+    ? `${user?.scans_this_month || 0} scans this month · unlimited`
+    : `${user?.scans_this_month || 0} / ${userLimit} scans used this month`;
 
   return (
     <div style={{ maxWidth: 700 }}>
@@ -121,10 +125,10 @@ export default function Account() {
       {/* Current Plan */}
       <div className="card" style={{ marginBottom: 24, borderColor: '#f5c518' }}>
         <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Current Plan</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <span className="oswald" style={{ fontSize: 24, color: '#f5c518', textTransform: 'uppercase' }}>{user?.plan}</span>
           <span className="mono" style={{ color: '#a3a3a3', fontSize: 13 }}>
-            {user?.scans_this_month || 0} / {planLimits[user?.plan] || 10} scans used this month
+            {usageDisplay}
           </span>
         </div>
         {user?.plan !== 'free' && (
@@ -137,15 +141,24 @@ export default function Account() {
       </div>
 
       {/* Plans */}
-      <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Upgrade Plan</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Plans</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
         {plans.map(plan => {
           const isCurrent = user?.plan === plan.id;
+          const isPremium = plan.id === 'premium';
           return (
             <div key={plan.id} className="card" style={{
-              borderColor: isCurrent ? '#f5c518' : '#262626',
-              opacity: isCurrent ? 0.6 : 1,
+              borderColor: isCurrent ? '#f5c518' : (isPremium ? '#8b5cf6' : '#262626'),
+              opacity: isCurrent ? 0.7 : 1,
+              position: 'relative',
             }}>
+              {isPremium && !isCurrent && (
+                <span className="mono" style={{
+                  position: 'absolute', top: -10, right: 14,
+                  background: '#8b5cf6', color: '#fff', fontSize: 9,
+                  padding: '3px 8px', borderRadius: 3, letterSpacing: 1.5,
+                }}>BEST VALUE</span>
+              )}
               <h3 className="oswald" style={{ fontSize: 18, textTransform: 'uppercase', letterSpacing: 2 }}>{plan.name}</h3>
               <div style={{ margin: '12px 0' }}>
                 <span className="mono" style={{ fontSize: 28, fontWeight: 700, color: '#f5c518' }}>
@@ -153,20 +166,39 @@ export default function Account() {
                 </span>
                 {plan.price > 0 && <span style={{ color: '#525252', fontSize: 13 }}>/mo</span>}
               </div>
+              <div className="mono" style={{
+                fontSize: 11, color: plan.unlimited ? '#22c55e' : '#a3a3a3',
+                marginBottom: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+              }}>
+                {plan.unlimited ? '∞ Unlimited scans' : `${plan.scans_per_month} scans / month`}
+              </div>
+              {plan.llm_included && (
+                <div className="mono" style={{
+                  display: 'inline-block', fontSize: 10, padding: '3px 8px',
+                  background: 'rgba(139,92,246,0.2)', color: '#a78bfa',
+                  borderRadius: 3, letterSpacing: 1.5, marginBottom: 10,
+                }}>
+                  ✨ AI EXPLANATION
+                </div>
+              )}
               <ul style={{ listStyle: 'none', padding: 0, marginBottom: 16 }}>
                 {plan.features.map(f => (
-                  <li key={f} style={{ padding: '4px 0', fontSize: 13, color: '#a3a3a3' }}>
-                    {f}
+                  <li key={f} style={{ padding: '4px 0', fontSize: 13, color: '#d4d4d4', display: 'flex', gap: 6 }}>
+                    <span style={{ color: '#22c55e' }}>✓</span><span>{f}</span>
                   </li>
                 ))}
               </ul>
               {isCurrent ? (
-                <div className="mono" style={{ textAlign: 'center', color: '#f5c518', fontSize: 12, textTransform: 'uppercase' }}>Current Plan</div>
+                <div className="mono" style={{ textAlign: 'center', color: '#f5c518', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.5 }}>Current Plan</div>
               ) : plan.price > 0 ? (
                 <button className="btn btn-primary" onClick={() => handleUpgrade(plan.id)} style={{ width: '100%', padding: '10px' }}>
-                  Upgrade
+                  {user?.plan === 'free' ? 'Upgrade' : 'Switch'}
                 </button>
-              ) : null}
+              ) : (
+                <div className="mono" style={{ textAlign: 'center', color: '#525252', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                  Free tier
+                </div>
+              )}
             </div>
           );
         })}

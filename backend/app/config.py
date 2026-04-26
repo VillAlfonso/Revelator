@@ -32,8 +32,10 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_ID_BASIC = os.getenv("STRIPE_PRICE_ID_BASIC", "")
 STRIPE_PRICE_ID_PRO = os.getenv("STRIPE_PRICE_ID_PRO", "")
+STRIPE_PRICE_ID_PREMIUM = os.getenv("STRIPE_PRICE_ID_PREMIUM", "")
+# Legacy alias — old "basic" tier maps to new "pro". Keep so existing .env files still load.
+STRIPE_PRICE_ID_BASIC = os.getenv("STRIPE_PRICE_ID_BASIC", STRIPE_PRICE_ID_PRO)
 
 # ============================================
 # LLM
@@ -58,10 +60,21 @@ APP_VERSION = "2.0.0"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-# Free tier limits
+# Uploaded scan images are stored here (created on startup if missing).
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(Path(__file__).parent.parent / "uploads")))
+
+# Plan limits. -1 means unlimited.
+UNLIMITED = -1
 FREE_SCANS_PER_MONTH = int(os.getenv("FREE_SCANS_PER_MONTH", "10"))
-BASIC_SCANS_PER_MONTH = int(os.getenv("BASIC_SCANS_PER_MONTH", "100"))
-PRO_SCANS_PER_MONTH = int(os.getenv("PRO_SCANS_PER_MONTH", "1000"))
+PRO_SCANS_PER_MONTH = int(os.getenv("PRO_SCANS_PER_MONTH", "-1"))         # $5/mo unlimited
+PREMIUM_SCANS_PER_MONTH = int(os.getenv("PREMIUM_SCANS_PER_MONTH", "-1"))  # $10/mo unlimited + AI
+
+# Plan pricing (USD/month). Source of truth for the /plans API response.
+PRO_PRICE_USD = float(os.getenv("PRO_PRICE_USD", "5"))
+PREMIUM_PRICE_USD = float(os.getenv("PREMIUM_PRICE_USD", "10"))
+
+# Plans that include the AI/LLM-generated forensic explanation.
+LLM_PLANS = {"premium"}
 
 # ============================================
 # EMAIL (optional, for password reset etc.)

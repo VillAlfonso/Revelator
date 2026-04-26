@@ -7,7 +7,7 @@ Full-stack document forgery detection with auth, payments, and scan history.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import APP_NAME, APP_VERSION, FRONTEND_URL
+from .config import APP_NAME, APP_VERSION, FRONTEND_URL, UPLOAD_DIR
 from .database import init_db
 from .forgery.detector import load_yolo_models, TRAINING_STATUS, yolo_models
 from .routes import auth, analyze, payments, admin
@@ -40,6 +40,10 @@ async def startup_event():
     print("\nInitializing database...")
     init_db()
     print("  Database ready.")
+
+    # Ensure upload directory exists
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"  Upload directory: {UPLOAD_DIR}")
 
     # Load YOLO models
     print("\nLoading YOLO models...")
