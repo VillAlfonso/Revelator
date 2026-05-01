@@ -137,17 +137,21 @@ def get_model_for_category(category: Optional[str] = None):
 def run_yolo_inference(image: Image.Image, category: Optional[str] = None) -> List[Dict]:
     detections = []
 
-    # Dispatch Roboflow-hosted categories first; they bypass the local YOLO loop.
-    if category and roboflow_client.is_configured(category):
+    # Dispatch order: prefer locally-trained YOLO weights when present.
+    # Roboflow is the fallback for categories that don't have a local checkpoint.
+    # Setting ROBOFLOW_<CAT>_MODEL='' in .env (or never training the local model)
+    # is enough to switch a single category between the two paths.
+    if category and category not in yolo_models and roboflow_client.is_configured(category):
         preds = roboflow_client.infer(image, category)
         detections.extend(roboflow_client.to_detections(preds, category, CLASS_LABELS, NAME_TO_CLASS))
         detections.sort(key=lambda x: x["confidence"], reverse=True)
         return detections
 
     if category is None:
-        # Preliminary scan: also run any Roboflow-hosted categories.
+        # Preliminary scan: run Roboflow for categories that DON'T have a
+        # local model loaded (the local ones get picked up by the YOLO loop below).
         for cat in NAME_TO_CLASS:
-            if roboflow_client.is_configured(cat):
+            if cat not in yolo_models and roboflow_client.is_configured(cat):
                 preds = roboflow_client.infer(image, cat)
                 detections.extend(roboflow_client.to_detections(preds, cat, CLASS_LABELS, NAME_TO_CLASS))
 

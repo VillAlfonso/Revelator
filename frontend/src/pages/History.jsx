@@ -28,13 +28,21 @@ export default function History() {
 
   return (
     <div>
-      <h1 className="oswald" style={{ fontSize: 26, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24 }}>
+      <p className="classification-bar" style={{ marginBottom: 12 }}>
+        OPERATOR · SCAN · LOG
+      </p>
+      <h1 className="oswald glow" style={{
+        fontSize: 28, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 24,
+        color: '#00ff66',
+      }}>
         Scan History
       </h1>
 
       {scans.length === 0 ? (
         <div className="card">
-          <p style={{ color: '#525252', textAlign: 'center', padding: 32 }}>No scans yet.</p>
+          <p className="mono" style={{ color: '#3f6e4a', textAlign: 'center', padding: 32, letterSpacing: 2 }}>
+            ▣ NO SCANS RECORDED
+          </p>
         </div>
       ) : (
         <>
@@ -48,7 +56,7 @@ export default function History() {
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 24 }}>
               <button className="btn btn-secondary" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
                 style={{ padding: '8px 16px', fontSize: 12 }}>&larr; Prev</button>
-              <span className="mono" style={{ padding: '8px 16px', color: '#a3a3a3', fontSize: 13 }}>
+              <span className="mono" style={{ padding: '8px 16px', color: '#86efac', fontSize: 13 }}>
                 {page + 1} / {totalPages}
               </span>
               <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}
@@ -62,9 +70,9 @@ export default function History() {
 }
 
 const verdictColors = {
-  forged: '#dc2626',
-  suspicious: '#f97316',
-  no_forgery_detected: '#22c55e',
+  forged: '#ff3344',
+  suspicious: '#ffa040',
+  no_forgery_detected: '#00ff66',
   not_a_document: '#737373',
 };
 const verdictLabels = {
@@ -80,7 +88,7 @@ function HistoryCard({ scan, onClick }) {
     <button
       onClick={onClick}
       style={{
-        background: '#151515',
+        background: '#0a120c',
         border: `1px solid #262626`,
         borderLeft: `4px solid ${borderColor}`,
         borderRadius: 6,
@@ -95,7 +103,7 @@ function HistoryCard({ scan, onClick }) {
     >
       <div style={{
         aspectRatio: '4/3',
-        background: '#0a0a0a',
+        background: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -136,7 +144,7 @@ function HistoryCard({ scan, onClick }) {
                 AI
               </span>
             )}
-            <span className="mono" style={{ fontSize: 11, color: '#a3a3a3' }}>
+            <span className="mono" style={{ fontSize: 11, color: '#86efac' }}>
               {(scan.confidence_score * 100).toFixed(0)}%
             </span>
           </div>
@@ -145,8 +153,8 @@ function HistoryCard({ scan, onClick }) {
           {scan.filename}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          <span className="mono" style={{ fontSize: 10, color: '#525252' }}>{scan.scan_id}</span>
-          <span className="mono" style={{ fontSize: 10, color: '#525252' }}>
+          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{scan.scan_id}</span>
+          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>
             {new Date(scan.created_at).toLocaleDateString()}
           </span>
         </div>
@@ -177,10 +185,10 @@ function ScanDetailView({ detail, onBack }) {
         const y = c.y_min * scale;
         const w = (c.x_max - c.x_min) * scale;
         const h = (c.y_max - c.y_min) * scale;
-        ctx.strokeStyle = ann.color || '#dc2626';
+        ctx.strokeStyle = ann.color || '#ff3344';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-        ctx.fillStyle = ann.color || '#dc2626';
+        ctx.fillStyle = ann.color || '#ff3344';
         ctx.font = 'bold 12px JetBrains Mono';
         const label = `${idx + 1}. ${ann.title} (${(ann.confidence * 100).toFixed(0)}%)`;
         const tw = ctx.measureText(label).width + 8;
@@ -195,11 +203,12 @@ function ScanDetailView({ detail, onBack }) {
   return (
     <div>
       <button onClick={onBack} style={{
-        background: 'none', border: 'none', color: '#f5c518', cursor: 'pointer',
-        fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1.5,
+        background: 'none', border: 'none', color: '#00ff66', cursor: 'pointer',
+        fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1.5,
         fontSize: 13, marginBottom: 20, padding: 0,
+        textShadow: '0 0 6px rgba(0,255,102,0.5)',
       }}>
-        &larr; Back to History
+        ← back to history
       </button>
 
       <div className="card">
@@ -207,28 +216,28 @@ function ScanDetailView({ detail, onBack }) {
           <h2 className="oswald" style={{ fontSize: 20, letterSpacing: 2, textTransform: 'uppercase' }}>
             Scan Detail
           </h2>
-          <span className="mono" style={{ color: '#525252', fontSize: 13 }}>{detail.scan_id}</span>
+          <span className="mono" style={{ color: '#3f6e4a', fontSize: 13 }}>{detail.scan_id}</span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           <StatBox label="Verdict" value={verdictLabels[detail.verdict] || detail.verdict} color={verdictColors[detail.verdict]} oswald />
-          <StatBox label="Confidence" value={`${(detail.confidence_score * 100).toFixed(1)}%`} color="#f5c518" mono />
-          <StatBox label="File" value={detail.filename} color="#a3a3a3" mono small />
-          <StatBox label="Date" value={new Date(detail.created_at).toLocaleString()} color="#a3a3a3" mono small />
+          <StatBox label="Confidence" value={`${(detail.confidence_score * 100).toFixed(1)}%`} color="#00ff66" mono />
+          <StatBox label="File" value={detail.filename} color="#86efac" mono small />
+          <StatBox label="Date" value={new Date(detail.created_at).toLocaleString()} color="#86efac" mono small />
         </div>
 
         {detail.has_image && (
           <div style={{ marginBottom: 20 }}>
-            <h4 className="oswald" style={{ fontSize: 13, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+            <h4 className="oswald" style={{ fontSize: 13, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
               {detail.annotations?.length > 0 ? 'Annotated Image' : 'Uploaded Image'}
             </h4>
             {detail.annotations?.length > 0 ? (
-              <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 4, border: '1px solid #262626' }} />
+              <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 4, border: '1px solid #112418' }} />
             ) : (
               <img
                 src={api.getScanImageUrl(detail.scan_id)}
                 alt={detail.filename}
-                style={{ maxWidth: '100%', borderRadius: 4, border: '1px solid #262626' }}
+                style={{ maxWidth: '100%', borderRadius: 4, border: '1px solid #112418' }}
               />
             )}
           </div>
@@ -236,14 +245,14 @@ function ScanDetailView({ detail, onBack }) {
 
         {detail.llm_explanation ? (
           <div style={{ marginBottom: 16 }}>
-            <h4 className="oswald" style={{ fontSize: 13, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+            <h4 className="oswald" style={{ fontSize: 13, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
               Analysis
             </h4>
             <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d4d4d4' }}>{detail.llm_explanation}</p>
           </div>
         ) : detail.llm_locked ? (
           <div style={{ marginBottom: 16 }}>
-            <h4 className="oswald" style={{ fontSize: 13, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+            <h4 className="oswald" style={{ fontSize: 13, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
               Analysis
             </h4>
             <div style={{
@@ -256,7 +265,7 @@ function ScanDetailView({ detail, onBack }) {
                 <div className="oswald" style={{ fontSize: 13, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>
                   AI Forensic Explanation
                 </div>
-                <p style={{ fontSize: 13, color: '#a3a3a3', lineHeight: 1.6, margin: 0, marginBottom: 10 }}>
+                <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: 0, marginBottom: 10 }}>
                   Upgrade to <strong style={{ color: '#a78bfa', textTransform: 'capitalize' }}>{detail.llm_required_plan || 'premium'}</strong> for
                   a plain-language breakdown on every scan.
                 </p>
@@ -278,17 +287,17 @@ function ScanDetailView({ detail, onBack }) {
 
         {detail.annotations?.length > 0 && (
           <div>
-            <h4 className="oswald" style={{ fontSize: 13, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+            <h4 className="oswald" style={{ fontSize: 13, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
               Detections
             </h4>
             {detail.annotations.map((ann, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #1a1a1a' }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #112418' }}>
                 <span style={{
                   width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: ann.color, color: '#fff', fontSize: 10, fontWeight: 700,
                 }}>{i + 1}</span>
                 <span style={{ flex: 1, fontSize: 14 }}>{ann.title}</span>
-                <span className="mono" style={{ fontSize: 12, color: '#a3a3a3' }}>{(ann.confidence * 100).toFixed(0)}%</span>
+                <span className="mono" style={{ fontSize: 12, color: '#86efac' }}>{(ann.confidence * 100).toFixed(0)}%</span>
               </div>
             ))}
           </div>
@@ -301,11 +310,20 @@ function ScanDetailView({ detail, onBack }) {
 function StatBox({ label, value, color, oswald, mono, small }) {
   const className = oswald ? 'oswald' : mono ? 'mono' : '';
   return (
-    <div style={{ background: '#0a0a0a', padding: 14, borderRadius: 6, textAlign: 'center' }}>
-      <div className={className} style={{ color, fontSize: small ? 12 : 18, textTransform: oswald ? 'uppercase' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <div style={{
+      background: '#000', padding: 14, borderRadius: 3, textAlign: 'center',
+      border: '1px solid #112418',
+    }}>
+      <div className={className} style={{
+        color, fontSize: small ? 12 : 18,
+        textTransform: oswald ? 'uppercase' : 'none',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        textShadow: `0 0 6px ${color}40`,
+        letterSpacing: oswald ? 1.5 : 0,
+      }}>
         {value}
       </div>
-      <div style={{ fontSize: 11, color: '#525252', marginTop: 4 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 9, color: '#3f6e4a', marginTop: 4, letterSpacing: 1.5, textTransform: 'uppercase' }}>{label}</div>
     </div>
   );
 }

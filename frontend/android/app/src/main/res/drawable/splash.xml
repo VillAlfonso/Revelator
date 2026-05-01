@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Splash drawable — black background with the Revelator logo centered.
+  Replaces the old splash.png across all density folders by name override
+  (XML drawables take priority over PNG when both share the same name).
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/black" />
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center"
+        android:width="200dp"
+        android:height="200dp" />
+</layer-list>

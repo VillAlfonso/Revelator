@@ -4,7 +4,7 @@ import { useAuth } from '../App';
 
 const PLANS = ['free', 'basic', 'pro'];
 
-const labelStyle = { fontSize: 11, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, display: 'block' };
+const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, display: 'block' };
 
 export default function Admin() {
   const { user: me } = useAuth();
@@ -77,11 +77,18 @@ export default function Admin() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <h1 className="oswald" style={{ fontSize: 24, color: '#f5c518', letterSpacing: 3, textTransform: 'uppercase', margin: 0 }}>
-          Admin Panel
-        </h1>
-        <span style={{ fontSize: 12, color: '#a3a3a3', letterSpacing: 1, textTransform: 'uppercase' }}>
-          {total} user{total === 1 ? '' : 's'}
+        <div>
+          <p className="classification-bar" style={{ marginBottom: 6 }}>
+            CONTROL · ADMIN · CONSOLE
+          </p>
+          <h1 className="oswald glow" style={{
+            fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0,
+          }}>
+            Admin Panel
+          </h1>
+        </div>
+        <span className="mono" style={{ fontSize: 11, color: '#86efac', letterSpacing: 2, textTransform: 'uppercase' }}>
+          {total} OPERATOR{total === 1 ? '' : 'S'}
         </span>
       </div>
 
@@ -114,8 +121,12 @@ export default function Admin() {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid #dc2626', padding: 12, borderRadius: 4, marginBottom: 16, fontSize: 13, color: '#f87171' }}>
-          {error}
+        <div style={{
+          background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 12, borderRadius: 2,
+          marginBottom: 16, fontSize: 13, color: '#ff8a99',
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
+          ⚠ {error}
         </div>
       )}
 
@@ -130,7 +141,7 @@ export default function Admin() {
           />
         ))}
         {!loading && users.length === 0 && (
-          <div className="card" style={{ textAlign: 'center', color: '#a3a3a3' }}>No users found.</div>
+          <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No users found.</div>
         )}
       </div>
 
@@ -150,18 +161,18 @@ export default function Admin() {
             </Field>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
               <input type="checkbox" checked={editing.is_admin} onChange={e => setEditing({ ...editing, is_admin: e.target.checked })} disabled={editing.id === me?.id} />
-              Admin {editing.id === me?.id && <span style={{ color: '#a3a3a3', fontSize: 11 }}>(cannot remove own)</span>}
+              Admin {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11 }}>(cannot remove own)</span>}
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
               <input type="checkbox" checked={editing.is_active} onChange={e => setEditing({ ...editing, is_active: e.target.checked })} disabled={editing.id === me?.id} />
-              Active {editing.id === me?.id && <span style={{ color: '#a3a3a3', fontSize: 11 }}>(cannot deactivate own)</span>}
+              Active {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11 }}>(cannot deactivate own)</span>}
             </label>
-            <div style={{ borderTop: '1px solid #262626', paddingTop: 12, fontSize: 12, color: '#a3a3a3' }}>
-              <div>ID: <span style={{ color: '#e5e5e5', fontFamily: 'monospace' }}>{editing.id}</span></div>
-              <div>Stripe customer: <span style={{ color: '#e5e5e5', fontFamily: 'monospace' }}>{editing.stripe_customer_id || '—'}</span></div>
-              <div>Stripe subscription: <span style={{ color: '#e5e5e5', fontFamily: 'monospace' }}>{editing.stripe_subscription_id || '—'}</span></div>
-              <div>Scans this month: <span style={{ color: '#e5e5e5' }}>{editing.scans_this_month}</span></div>
-              <div>Created: <span style={{ color: '#e5e5e5' }}>{editing.created_at}</span></div>
+            <div style={{ borderTop: '1px solid #112418', paddingTop: 12, fontSize: 12, color: '#86efac' }}>
+              <div>ID: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.id}</span></div>
+              <div>Stripe customer: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_customer_id || '—'}</span></div>
+              <div>Stripe subscription: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_subscription_id || '—'}</span></div>
+              <div>Scans this month: <span style={{ color: '#d8ffe6' }}>{editing.scans_this_month}</span></div>
+              <div>Created: <span style={{ color: '#d8ffe6' }}>{editing.created_at}</span></div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
               <button className="btn" onClick={() => setEditing(null)} disabled={saving}>Cancel</button>
@@ -178,7 +189,7 @@ export default function Admin() {
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button className="btn" onClick={() => setDeleteId(null)}>Cancel</button>
-            <button className="btn" style={{ background: '#dc2626', color: '#fff', borderColor: '#dc2626' }} onClick={confirmDelete}>Delete</button>
+            <button className="btn btn-danger" onClick={confirmDelete}>Delete</button>
           </div>
         </Modal>
       )}
@@ -189,8 +200,12 @@ export default function Admin() {
 function StatCard({ label, value }) {
   return (
     <div className="card" style={{ padding: 14 }}>
-      <div style={{ fontSize: 11, color: '#a3a3a3', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
-      <div className="oswald" style={{ fontSize: 24, color: '#f5c518', marginTop: 4 }}>{value}</div>
+      <div className="mono" style={{ fontSize: 10, color: '#3f6e4a', textTransform: 'uppercase', letterSpacing: 2 }}>{label}</div>
+      <div className="oswald" style={{
+        fontSize: 24, color: '#00ff66', marginTop: 4,
+        textShadow: '0 0 10px rgba(0,255,102,0.5)',
+        letterSpacing: 1,
+      }}>{value}</div>
     </div>
   );
 }
@@ -205,18 +220,18 @@ function Badge({ children, color }) {
 }
 
 function UserRow({ user, isMe, onEdit, onDelete }) {
-  const planColor = { free: '#a3a3a3', basic: '#3b82f6', pro: '#f5c518' }[user.plan] || '#a3a3a3';
+  const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   return (
     <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
       <div style={{ flex: '1 1 240px', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 14, wordBreak: 'break-all' }}>{user.email}</span>
-          {isMe && <Badge color="#22c55e">You</Badge>}
-          {user.is_admin && <Badge color="#f5c518">Admin</Badge>}
-          {!user.is_active && <Badge color="#dc2626">Disabled</Badge>}
+          {isMe && <Badge color="#00ff66">You</Badge>}
+          {user.is_admin && <Badge color="#a3e635">Admin</Badge>}
+          {!user.is_active && <Badge color="#ff3344">Disabled</Badge>}
           <Badge color={planColor}>{user.plan}</Badge>
         </div>
-        <div style={{ color: '#a3a3a3', fontSize: 12, marginTop: 4 }}>
+        <div style={{ color: '#86efac', fontSize: 12, marginTop: 4 }}>
           @{user.username} {user.full_name && `· ${user.full_name}`}
         </div>
         <div style={{ color: '#737373', fontSize: 11, marginTop: 4, fontFamily: 'monospace', wordBreak: 'break-all' }}>
@@ -232,7 +247,7 @@ function UserRow({ user, isMe, onEdit, onDelete }) {
           className="btn"
           onClick={onDelete}
           disabled={isMe}
-          style={{ borderColor: isMe ? '#404040' : '#dc2626', color: isMe ? '#525252' : '#f87171' }}
+          style={{ borderColor: isMe ? '#1d3825' : '#ff3344', color: isMe ? '#3f6e4a' : '#ff8a99' }}
           title={isMe ? 'You cannot delete your own account' : 'Delete user'}
         >
           Delete
@@ -268,7 +283,7 @@ function Modal({ title, children, onClose }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 className="oswald" style={{ margin: 0, fontSize: 18, letterSpacing: 2, textTransform: 'uppercase' }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#a3a3a3', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#86efac', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
         {children}
       </div>
