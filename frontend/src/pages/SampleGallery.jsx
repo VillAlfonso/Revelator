@@ -14,13 +14,15 @@ export default function SampleGallery() {
   useEffect(() => {
     if (!cat) return;
     api.getCategories().then(data => {
-      const total = (data.category_dataset_totals || {})[cat.apiKey] || 0;
-      const trained = data.categories
-        ? Object.values(data.categories).flat().some(c => c.api_key === cat.apiKey && c.is_trained)
-        : false;
+      // Find the category data in the flattened categories array
+      const catData = data.categories
+        ? Object.values(data.categories).flat().find(c => c.api_key === cat.apiKey)
+        : null;
+      const total = catData?.dataset_count || 0;
+      const trained = catData?.is_trained || false;
       setStats({ total, trained, threshold: data.limited_data_threshold || 200 });
     }).catch(() => {});
-  }, [categoryId]);
+  }, [categoryId, cat]);
 
   useEffect(() => {
     if (!cat) return;
