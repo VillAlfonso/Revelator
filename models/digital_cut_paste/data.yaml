@@ -1,0 +1,8 @@
+path: C:\Revelator\models\digital_cut_paste
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 1
+names:
+  0: cut_paste

@@ -34,6 +34,13 @@ data/**/*.png
 data/**/*.bmp
 dataset/
 
+# Training datasets and source dumps (live in Roboflow/Colab, not git)
+digital_cut_paste.zip
+models/digital_cut_paste/train/
+models/digital_cut_paste/valid/
+models/digital_cut_paste/test/
+sources/
+
 # Logs
 *.log
 logs/
@@ -72,3 +79,4 @@ frontend/ios/DerivedData/
 
 # Personal notes / private docs
 SUGGESTIONS.md
+docs/CAPSTONE_PREP.md

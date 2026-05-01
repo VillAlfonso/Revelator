@@ -11,7 +11,25 @@
       "Bash(git checkout *)",
       "Bash(git add *)",
       "Bash(python -m py_compile scripts/ela.py)",
-      "Bash(python scripts/ela.py --help)"
+      "Bash(python scripts/ela.py --help)",
+      "Bash(python *)",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)",
+      "Bash(mkdir -p C:/tmp/synth_test_sources C:/tmp/synth_test_out)",
+      "Bash(cp C:/Revelator/backend/uploads/3b97346f-9911-45e8-ab51-db71b2ea6d7c/RV-20260428-*.jpg C:/tmp/synth_test_sources/)",
+      "Bash(pip install *)",
+      "Bash(curl -s \"https://api.roboflow.com/?api_key=YP4zc7JAolLerAGpn6Rk\")",
+      "Bash(curl -s \"https://api.roboflow.com/?api_key=rf_OSODsbFb0CdTZ6WzFJuI9odPp8H3\")",
+      "Bash(curl -s \"https://api.roboflow.com/ashenvales-workspace/find-cut-and-paste/1/yolov8?api_key=YP4zc7JAolLerAGpn6Rk\")",
+      "Bash(curl -s \"https://api.roboflow.com/ashenvales-workspace/find-cut-and-paste?api_key=YP4zc7JAolLerAGpn6Rk\")",
+      "Bash(rm -rf roboflow_dump)",
+      "Bash(mkdir -p roboflow_dump)",
+      "Bash(curl -sL \"https://app.roboflow.com/ds/mZXmXrFSkJ?key=2vIszlfbsx\" -o roboflow_dump/dataset.zip)",
+      "Read(//c//**)",
+      "Bash(rm -rf C:/Revelator/roboflow_dump)",
+      "Bash(pip show *)",
+      "Bash(timeout 8 npm run dev)"
     ]
   }
 }
