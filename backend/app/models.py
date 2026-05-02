@@ -23,7 +23,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=True)
     full_name = Column(String, default="")
-    google_id = Column(String, nullable=True, unique=True, index=True)
+    google_id = Column(String, nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False, nullable=False)

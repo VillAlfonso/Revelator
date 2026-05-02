@@ -33,7 +33,16 @@
       "Bash(git reset *)",
       "Bash(curl -s http://localhost:8000/api/samples/digital_cut_paste)",
       "Bash(curl -s http://localhost:5173/api/categories)",
-      "Bash(curl -s http://localhost:5173/api/samples/digital_cut_paste)"
+      "Bash(curl -s http://localhost:5173/api/samples/digital_cut_paste)",
+      "Bash(python run.py)",
+      "Bash(npm run *)",
+      "Bash(pkill -f \"python run.py\")",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs kill *)",
+      "Bash(killall python *)",
+      "Bash(python3)",
+      "Bash(kill -9 288)",
+      "Bash(curl -s http://localhost:5173/api/health)"
     ]
   }
 }
