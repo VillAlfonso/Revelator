@@ -87,6 +87,13 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def get_current_super_admin(current_user: User = Depends(get_current_user)) -> User:
+    """FastAPI dependency: only allow super admin users through."""
+    if not current_user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return current_user
+
+
 def get_user_from_token(token: str, db: Session) -> User:
     """Resolve a user from a raw access token string.
 
