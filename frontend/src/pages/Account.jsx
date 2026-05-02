@@ -10,6 +10,7 @@ export default function Account() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('stripe');
+  const [promoCode, setPromoCode] = useState('');
 
   useEffect(() => {
     api.getPlans().then(data => setPlans(data.plans)).catch(() => {});
@@ -59,6 +60,23 @@ export default function Account() {
       await api.cancelSubscription();
       setMsg('Subscription cancelled. Access continues until end of billing period.');
       refreshUser();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleRedeemCode() {
+    setError('');
+    if (!promoCode.trim()) {
+      setError('Please enter a code');
+      return;
+    }
+    try {
+      const result = await api.redeemCode(promoCode);
+      setMsg(result.message);
+      setPromoCode('');
+      refreshUser();
+      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       setError(err.message);
     }
@@ -162,6 +180,24 @@ export default function Account() {
             letterSpacing: 2, marginTop: 14, padding: 0,
           }}>Cancel Subscription</button>
         )}
+      </div>
+
+      {/* Redeem Code */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Redeem Code</h2>
+        <p style={{ fontSize: 12, color: '#86efac', marginBottom: 12 }}>Have a promo code? Enter it below to upgrade your plan instantly.</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            className="input"
+            placeholder="Enter promo code"
+            value={promoCode}
+            onChange={e => setPromoCode(e.target.value.toUpperCase())}
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-primary" onClick={handleRedeemCode} style={{ padding: '10px 24px' }}>
+            Redeem
+          </button>
+        </div>
       </div>
 
       {/* Payment Method Selection */}

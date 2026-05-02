@@ -44,6 +44,20 @@ class User(Base):
     scans = relationship("Scan", back_populates="user", cascade="all, delete-orphan")
 
 
+class PromoCode(Base):
+    __tablename__ = "promo_codes"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    code = Column(String, unique=True, nullable=False, index=True)
+    plan = Column(String, nullable=False)  # free, pro, premium
+    expires_at = Column(DateTime, nullable=True)
+    max_uses = Column(Integer, nullable=True)  # None = unlimited
+    uses_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Scan(Base):
     __tablename__ = "scans"
 

@@ -103,6 +103,13 @@ export const api = {
     });
   },
 
+  redeemCode(code) {
+    return request('/auth/redeem-code', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  },
+
   getMe() {
     return request('/auth/me');
   },
