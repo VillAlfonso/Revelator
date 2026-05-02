@@ -1,24 +1,13 @@
-# ForgeGuard - Indentation / Canal Light Tracing
-# YOLO Training Configuration
-# Category: Traced
-# 
-# This is a BINARY CLASSIFIER:
-#   Class 0: traced_indentation_detected (forgery of this type found)
-#
-# Forgery where original was placed on top and traced with pressure, leaving grooves.
+train: ../train/images
+val: ../valid/images
+test: ../test/images
 
-# Dataset paths (relative to this file)
-path: ./dataset
-train: images/train
-val: images/val
-
-# Single class - binary detection
 nc: 1
-names:
-  0: traced_indentation_detected
+names: ['Traced Indentation']
 
-# Training notes:
-# - Minimum 100 images recommended
-# - 80/20 train/val split
-# - Label format: YOLO (class x_center y_center width height)
-# - All coordinates normalized 0-1
+roboflow:
+  workspace: ashenvales-workspace
+  project: ashenvales-workspace
+  version: dataset
+  license: Private
+  url: https://app.roboflow.com/ashenvales-workspace/ashenvales-workspace/dataset
