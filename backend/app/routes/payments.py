@@ -200,11 +200,22 @@ def create_paymongo_checkout(
 
     payload = {
         "data": {
+            "type": "checkout_session",
             "attributes": {
                 "amount": amount_cents,
                 "currency": "PHP",
                 "description": f"Revelator {body.plan.upper()} Plan",
                 "statement_descriptor": "REVELATOR",
+                "line_items": [
+                    {
+                        "amount": amount_cents,
+                        "currency": "PHP",
+                        "description": f"Revelator {body.plan.upper()} Plan",
+                        "name": f"Revelator {body.plan.upper()} Plan",
+                        "quantity": 1,
+                    }
+                ],
+                "payment_method_types": ["card", "gcash"],
                 "redirect": {
                     "success": f"{FRONTEND_URL}/account?payment=success&provider=paymongo",
                     "failed": f"{FRONTEND_URL}/account?payment=cancelled",

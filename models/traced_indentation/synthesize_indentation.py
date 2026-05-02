@@ -27,48 +27,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 import cv2
 
 
-def extract_indentation_characteristics(real_image_path):
-    """
-    Analyze a real indentation sample to extract visual characteristics.
-    Returns dict of shadow patterns, depth cues, etc.
-    """
-    img = cv2.imread(real_image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        return {}
-
-    # Detect edges to find groove/shadow patterns
-    edges = cv2.Canny(img, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Estimate groove characteristics
-    avg_intensity = img.mean()
-    intensity_std = img.std()
-
-    return {
-        'avg_intensity': avg_intensity,
-        'intensity_std': intensity_std,
-        'num_contours': len(contours),
-    }
-
-
 def add_synthetic_indentation(clean_img_pil, region_box=None):
     """
     Add synthetic indentation marks to a clean document.
-
-    Args:
-        clean_img_pil: PIL Image of clean document
-        region_box: (x, y, w, h) region to add indentation to (random if None)
-
-    Returns:
-        PIL Image with synthetic indentation
-        Polygon coordinates for YOLO label
+    Simulates traced indentation with groove artifacts and pressure marks.
     """
     img = clean_img_pil.copy()
     W, H = img.size
 
     # Choose region if not provided
     if region_box is None:
-        # Pick a random region for indentation mark
         w = random.randint(int(W * 0.1), int(W * 0.4))
         h = random.randint(int(H * 0.05), int(H * 0.15))
         x = random.randint(0, W - w)
@@ -77,40 +45,20 @@ def add_synthetic_indentation(clean_img_pil, region_box=None):
 
     x, y, w, h = region_box
 
-    # Step 1: Add traced signature/text appearance (simulated)
-    # Draw subtle pressure marks that look like traced writing
-    draw = ImageDraw.Draw(img, 'RGBA')
-
-    # Add a faint traced signature line with slight waviness
-    points = []
-    num_points = w // 10
-    for i in range(num_points):
-        px = x + (i / num_points) * w
-        # Add slight waviness to simulate hand-traced marks
-        py = y + h/2 + random.randint(-int(h*0.1), int(h*0.1))
-        points.append((px, py))
-
-    if len(points) > 1:
-        draw.line(points, fill=(50, 50, 50, 40), width=2)
-
-    # Step 2: Add indentation groove artifacts (shadows under raking light)
-    # Create subtle shadow/gradient effects around the region
+    # Convert to numpy for processing
     img_array = np.array(img.convert('RGB'), dtype=np.float32)
 
-    # Add shadow gradient (simulating depth/groove)
+    # Add shadow gradient (simulating groove/indentation depth from raking light)
+    # Darker at edges, lighter in middle (typical of indentation grooves)
     for i in range(int(h)):
         for j in range(int(w)):
             px = int(x + j)
             py = int(y + i)
             if 0 <= px < W and 0 <= py < H:
-                # Shadow gradient: darker at edges, lighter in middle (groove effect)
                 dist_from_edge = min(i, h - i, j, w - j)
                 shadow_intensity = max(0, 1 - (dist_from_edge / (h/3)))
-                shadow_value = int(shadow_intensity * 15)  # Subtle shadow
-
-                img_array[py, px] = np.clip(
-                    img_array[py, px] - shadow_value, 0, 255
-                )
+                shadow_value = int(shadow_intensity * 20)
+                img_array[py, px] = np.clip(img_array[py, px] - shadow_value, 0, 255)
 
     img = Image.fromarray(np.uint8(img_array))
 
@@ -202,25 +150,23 @@ def main():
                   list(clean_dir.glob('*.png'))
     print(f"Found {len(clean_files)} clean documents")
 
-    # Analyze real indentation samples for characteristics
+    # Analyze real indentation samples for reference
     real_dir = Path(args.real_dir)
     real_files = list(real_dir.glob('*.jpg')) + list(real_dir.glob('*.jpeg')) + \
                  list(real_dir.glob('*.png'))
-    print(f"Found {len(real_files)} real indentation samples")
+    print(f"Found {len(real_files)} real indentation samples (will use as reference)")
 
     # Generate synthetic forgeries
     print(f"\nGenerating {args.count} synthetic forgeries per clean document...")
     synthetic_count = 0
 
     for clean_idx, clean_file in enumerate(clean_files):
-        if clean_idx >= 50:  # Limit to avoid too much generation
-            break
 
         try:
             clean_img = Image.open(clean_file).convert('RGB')
 
             for syn_idx in range(args.count):
-                # Create synthetic indentation
+                # Create synthetic indentation (simulates grooves from traced indentation)
                 forged_img, polygon = add_synthetic_indentation(clean_img)
 
                 # Augment
