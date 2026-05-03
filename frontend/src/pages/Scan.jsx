@@ -1,22 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { api } from '../api/client';
-import { CATEGORIES, CATEGORY_BY_ID, TIER_COLORS, TIER_META, categoriesByTier } from '../categories';
-import {
-  FingerprintWatermark, EyeMark, MagnifierIcon, Crosshair, FingerprintScan, EvidenceTag,
-} from '../components/ForensicMotifs';
+import { MagnifierIcon } from '../components/ForensicMotifs';
+import { CATEGORY_BY_KEY } from '../categories';
 
 export default function Scan() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const queryCatId = searchParams.get('category');
-  const initialCat = CATEGORY_BY_ID[queryCatId] || null;
-  const initialStep = queryCatId === 'auto' ? 'upload' : (initialCat ? 'upload' : 'select');
-
-  const [step, setStep] = useState(initialStep);
-  const [category, setCategory] = useState(initialCat);
-  const [datasetTotals, setDatasetTotals] = useState({});
-  const [trainedKeys, setTrainedKeys] = useState({});
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,37 +14,11 @@ export default function Scan() {
   const fileRef = useRef();
   const canvasRef = useRef();
 
-  useEffect(() => {
-    api.getCategories().then(data => {
-      setDatasetTotals(data.category_dataset_totals || {});
-      const keys = {};
-      Object.values(data.categories || {}).forEach(arr => {
-        arr.forEach(item => { keys[item.api_key] = !!item.is_trained; });
-      });
-      setTrainedKeys(keys);
-    }).catch(() => {});
-  }, []);
-
-  function pickCategory(cat) {
-    setCategory(cat);
-    setStep('upload');
-    setSearchParams({ category: cat.id }, { replace: true });
-  }
-
-  function pickAutoDetect() {
-    setCategory(null);
-    setStep('upload');
-    setSearchParams({ category: 'auto' }, { replace: true });
-  }
-
-  function backToSelect() {
-    setStep('select');
-    setCategory(null);
+  function resetScan() {
     setFile(null);
     setPreview(null);
     setResult(null);
     setError('');
-    setSearchParams({}, { replace: true });
   }
 
   function handleFileChange(e) {
@@ -146,7 +109,7 @@ export default function Scan() {
     setError('');
     setResult(null);
     try {
-      const data = await api.analyze(file, category?.apiKey || null);
+      const data = await api.analyze(file, null);
       setResult(data);
       if (data.annotations?.length > 0) {
         setTimeout(() => drawAnnotations(data.annotations, data.original_image_dimensions.width, data.original_image_dimensions.height), 100);
@@ -158,12 +121,6 @@ export default function Scan() {
     }
   }
 
-  if (step === 'select') {
-    return <SelectForgeryType onPick={pickCategory} onAutoDetect={pickAutoDetect} datasetTotals={datasetTotals} trainedKeys={trainedKeys} />;
-  }
-
-  // ───── upload step ─────
-  const accentColor = category?.color || '#00ff66';
   const verdictColors = {
     forged: '#ff3344',
     suspicious: '#ffa040',
@@ -179,67 +136,14 @@ export default function Scan() {
 
   return (
     <div>
-      <button
-        onClick={backToSelect}
-        style={{
-          background: 'transparent', border: 'none', color: '#6dba85', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: 0, fontSize: 13,
-          fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1,
-        }}
-      >
-        ← back to forgery types
-      </button>
-
-      <div style={{
-        background:
-          `linear-gradient(135deg, ${accentColor}10 0%, transparent 60%), #0a120c`,
-        borderLeft: `3px solid ${accentColor}`,
-        border: '1px solid #112418',
-        borderLeftWidth: 3,
-        padding: 20, marginBottom: 24, borderRadius: 3,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
-        boxShadow: `0 0 20px ${accentColor}20, inset 0 1px 0 ${accentColor}15`,
-      }}>
-        <div>
-          <p className="mono" style={{
-            fontSize: 10, letterSpacing: 3, color: accentColor, margin: 0,
-            textShadow: `0 0 8px ${accentColor}80`,
-          }}>
-            ▣ {category ? `CATEGORY · ${category.code}` : 'AUTO-DETECT'}
-          </p>
-          <h2 className="oswald" style={{
-            fontSize: 24, fontWeight: 700, letterSpacing: 2, margin: '4px 0 0',
-            textTransform: 'uppercase', color: '#d8ffe6',
-          }}>
-            {category ? category.title : 'Auto-Detect Forgery'}
-          </h2>
-          {category && (
-            <p style={{ fontSize: 12, color: '#6dba85', margin: '4px 0 0', maxWidth: 520, lineHeight: 1.5 }}>
-              {category.description}
-            </p>
-          )}
-        </div>
-        {category && (
-          <Link
-            to={`/samples/${category.id}`}
-            style={{
-              fontSize: 11, fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-              letterSpacing: 2, color: accentColor, textDecoration: 'none',
-              border: `1px solid ${accentColor}`, padding: '8px 14px', borderRadius: 2,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = `${accentColor}20`;
-              e.currentTarget.style.boxShadow = `0 0 16px ${accentColor}60`;
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            ▸ Examples
-          </Link>
-        )}
+      <div style={{ marginBottom: 24 }}>
+        <p className="classification-bar" style={{ marginBottom: 6 }}>FORENSIC · SCAN · PIPELINE</p>
+        <h2 className="oswald glow" style={{ fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0 }}>
+          Scan Forgery
+        </h2>
+        <p style={{ color: '#6dba85', fontSize: 13, marginTop: 6 }}>
+          Upload a document image — all 16 forgery detectors will run automatically.
+        </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
@@ -290,7 +194,7 @@ export default function Scan() {
         </div>
 
         <button className="btn btn-primary" onClick={handleAnalyze} disabled={!file || loading} style={{ fontSize: 16, padding: '18px 0' }}>
-          {loading ? '◌ Running detection…' : '▶ Analyze Document'}
+          {loading ? '◌ Running detection…' : '▶ Scan Forgery'}
         </button>
 
         {error && (
@@ -303,266 +207,21 @@ export default function Scan() {
         )}
 
         {result && (
-          <div className="card" style={{
-            borderColor: verdictColors[result.verdict] || '#1d3825',
-            boxShadow: `0 0 24px ${verdictColors[result.verdict]}30`,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 className="oswald" style={{ fontSize: 18, textTransform: 'uppercase', letterSpacing: 2.5, color: '#d8ffe6' }}>
-                ◆ Analysis Result
-              </h3>
-              <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>{result.scan_id}</span>
-            </div>
+          <ForensicResultCard
+            result={result}
+            canvasRef={canvasRef}
+            verdictColors={verdictColors}
+            verdictLabels={verdictLabels}
+          />
+        )}
 
-            <div style={{
-              textAlign: 'center', padding: 28, background: '#000', borderRadius: 2, marginBottom: 20,
-              border: `1px solid ${verdictColors[result.verdict]}`,
-              boxShadow: `inset 0 0 32px ${verdictColors[result.verdict]}20`,
-            }}>
-              <div className="oswald" style={{
-                fontSize: 34, fontWeight: 700, color: verdictColors[result.verdict],
-                textTransform: 'uppercase', letterSpacing: 5,
-                textShadow: `0 0 18px ${verdictColors[result.verdict]}99`,
-              }}>
-                {verdictLabels[result.verdict] || result.verdict}
-              </div>
-              <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 13, letterSpacing: 1.5 }}>
-                CONFIDENCE · {(result.confidence_score * 100).toFixed(1)}%
-              </div>
-            </div>
-
-            {result.training_warning && (
-              <div style={{
-                background: 'rgba(255,160,64,0.08)', border: '1px solid #ffa040', padding: 12, borderRadius: 2,
-                marginBottom: 16, fontSize: 12, color: '#ffc888', fontFamily: "'JetBrains Mono', monospace",
-              }}>
-                ⚠ {result.training_warning}
-              </div>
-            )}
-
-            <div style={{ marginBottom: 20 }}>
-              <h4 className="oswald" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, color: '#6dba85', marginBottom: 10 }}>
-                ▸ Forensic Analysis
-              </h4>
-              {result.llm_explanation ? (
-                <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d8ffe6' }}>{result.llm_explanation}</p>
-              ) : result.llm_locked ? (
-                <LlmUpgradePrompt requiredPlan={result.llm_required_plan} />
-              ) : null}
-            </div>
-
-            {result.annotations?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <h4 className="oswald" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, color: '#6dba85', marginBottom: 10 }}>
-                  ▸ Detected Regions
-                </h4>
-                <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 2, border: '1px solid #1d3825' }} />
-              </div>
-            )}
-
-            {result.annotations?.length > 0 && (
-              <div>
-                {result.annotations.map((ann, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 0', borderBottom: '1px solid #112418',
-                  }}>
-                    <span style={{
-                      width: 26, height: 26, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: ann.color, color: '#000', fontSize: 11, fontWeight: 800,
-                      boxShadow: `0 0 8px ${ann.color}80`,
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}>
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span style={{ flex: 1, fontSize: 14, color: '#d8ffe6' }}>{ann.title}</span>
-                    <span className="mono" style={{ fontSize: 12, color: ann.color }}>
-                      {(ann.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {result && (
+          <button className="btn" onClick={resetScan} style={{ fontSize: 13 }}>
+            ← New Scan
+          </button>
         )}
       </div>
     </div>
-  );
-}
-
-function SelectForgeryType({ onPick, onAutoDetect, datasetTotals = {}, trainedKeys = {} }) {
-  const totalTrained = Object.values(trainedKeys).filter(Boolean).length;
-
-  return (
-    <div>
-      {/* hero with fingerprint scan + watermark */}
-      <div style={{
-        position: 'relative', textAlign: 'center', marginBottom: 36,
-        padding: '12px 0 4px',
-      }}>
-        <FingerprintWatermark
-          size={420} opacity={0.045}
-          style={{ position: 'absolute', top: -40, left: '50%', transform: 'translateX(-50%)', zIndex: 0 }}
-        />
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-            <FingerprintScan size={150} color="#00ff66" />
-          </div>
-          <p className="classification-bar" style={{ marginBottom: 14 }}>
-            CASE FILE · FORENSIC PIPELINE · CLASSIFIED
-          </p>
-          <h2 className="oswald glow-strong" style={{
-            fontSize: 'clamp(28px, 5.5vw, 46px)', fontWeight: 700, letterSpacing: 5, marginBottom: 12,
-            color: '#00ff66', textTransform: 'uppercase',
-          }}>
-            Select Forgery Type
-          </h2>
-          <p style={{ color: '#86efac', maxWidth: 580, margin: '0 auto', lineHeight: 1.7, fontSize: 14 }}>
-            Sixteen forensic detectors, one per known forgery class. Pick the category you want
-            to scan against, or run automatic detection across the entire pipeline.
-          </p>
-
-          <div style={{
-            display: 'inline-flex', gap: 24, marginTop: 20, padding: '10px 22px',
-            border: '1px solid #1d3825', borderRadius: 2, background: 'rgba(0,255,102,0.03)',
-            boxShadow: 'inset 0 0 18px rgba(0,255,102,0.06)',
-          }}>
-            <Stat label="DETECTORS" value="16" color="#00ff66" />
-            <Divider />
-            <Stat label="ACTIVE"    value={String(totalTrained)} color="#00ffaa" />
-            <Divider />
-            <Stat label="TIERS"     value="3" color="#a3e635" />
-          </div>
-        </div>
-      </div>
-
-      <div style={{
-        display: 'grid', gap: 12, marginBottom: 32,
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-      }}>
-        <button
-          onClick={onAutoDetect}
-          className="lift"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(0,255,102,0.08) 0%, rgba(0,255,170,0.04) 100%), #050a07',
-            border: '1px solid #00ff66',
-            color: '#d8ffe6', cursor: 'pointer', padding: '20px 24px',
-            borderRadius: 3, textAlign: 'left',
-            boxShadow: '0 0 20px rgba(0,255,102,0.15)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Crosshair size={42} color="#00ff66" style={{ filter: 'drop-shadow(0 0 8px rgba(0,255,102,0.7))' }} />
-            <div style={{ flex: 1 }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: 3, color: '#00ff66', marginBottom: 4 }}>
-                AUTO · ALL DETECTORS
-              </div>
-              <div className="oswald" style={{ fontSize: 18, letterSpacing: 2, textTransform: 'uppercase', color: '#d8ffe6' }}>
-                Auto-Detect Forgery
-              </div>
-              <div style={{ fontSize: 12, color: '#86efac', marginTop: 4, lineHeight: 1.5 }}>
-                Run every detector and surface the strongest match.
-              </div>
-            </div>
-            <MagnifierIcon size={22} color="#00ff66" style={{ opacity: 0.7 }} />
-          </div>
-        </button>
-      </div>
-
-      {[1, 2, 3].map(tier => (
-        <TierBucket
-          key={tier}
-          tier={tier}
-          categories={categoriesByTier(tier)}
-          onPick={onPick}
-          datasetTotals={datasetTotals}
-          trainedKeys={trainedKeys}
-        />
-      ))}
-    </div>
-  );
-}
-
-function Stat({ label, value, color }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div className="oswald" style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 10px ${color}80` }}>
-        {value}
-      </div>
-      <div className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', marginTop: 2 }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function Divider() {
-  return <div style={{ width: 1, background: '#1d3825', alignSelf: 'stretch', minHeight: 28 }} />;
-}
-
-function TierBucket({ tier, categories, onPick, datasetTotals, trainedKeys }) {
-  const accent = TIER_COLORS[tier];
-  const meta = TIER_META[tier];
-  const trainedCount = categories.filter(c => trainedKeys[c.apiKey]).length;
-
-  return (
-    <section style={{ marginBottom: 36 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14,
-        paddingBottom: 10, borderBottom: `1px solid ${accent}33`,
-      }}>
-        <div className="eye-blink" style={{
-          width: 40, height: 40,
-          background: `${accent}18`, border: `1px solid ${accent}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: 2, boxShadow: `0 0 14px ${accent}50`,
-          padding: 7,
-        }}>
-          <EyeMark size={24} color={accent} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 className="oswald" style={{
-            fontSize: 17, fontWeight: 700, letterSpacing: 3, margin: 0,
-            color: accent, textTransform: 'uppercase',
-            textShadow: `0 0 10px ${accent}66`,
-          }}>
-            {meta.label}
-          </h3>
-          <p style={{ fontSize: 12, color: '#6dba85', margin: '2px 0 0', lineHeight: 1.4 }}>
-            {meta.sublabel}
-          </p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <span className="mono" style={{
-            fontSize: 9, color: accent, padding: '3px 8px',
-            border: `1px solid ${accent}66`, borderRadius: 2, letterSpacing: 1.5,
-          }}>
-            {categories.length} CLASSES
-          </span>
-          <span className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 1.5 }}>
-            {trainedCount}/{categories.length} ACTIVE
-          </span>
-        </div>
-      </div>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: 14,
-      }}>
-        {categories.map((cat, i) => (
-          <CategoryCard
-            key={cat.id}
-            cat={cat}
-            index={i + 1}
-            datasetCount={datasetTotals[cat.apiKey] || 0}
-            trained={trainedKeys[cat.apiKey]}
-            onClick={() => onPick(cat)}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -594,108 +253,137 @@ function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
   );
 }
 
-function CategoryCard({ cat, index, onClick, datasetCount = 0, trained }) {
-  const [hover, setHover] = useState(false);
-  const accent = cat.color;
+function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels }) {
+  const cat = result.detected_category;
+
+  // Gemini succeeded only when confidence > 0 (0 = fallback/error/unavailable)
+  const geminiOk = typeof result.category_confidence === 'number' && result.category_confidence > 0;
+  const geminiForgery = geminiOk && cat !== 'no_forgery_detected' && cat !== 'not_a_document';
+
+  const geminiAccent = !cat || !geminiOk ? '#737373'
+    : cat === 'no_forgery_detected' ? '#00ff66'
+    : cat === 'not_a_document' ? '#737373'
+    : cat === 'other' ? '#ffa040'
+    : (CATEGORY_BY_KEY[cat]?.color || '#a78bfa');
+
+  const vc = geminiOk ? (CATEGORY_BY_KEY[cat]?.color || (cat === 'no_forgery_detected' ? '#00ff66' : cat === 'not_a_document' ? '#737373' : cat === 'other' ? '#ffa040' : '#a78bfa')) : (verdictColors[result.verdict] || '#1d3825');
+
+  // Show YOLO only when Gemini confirms a forgery AND (if a specific category was
+  // scanned) the Gemini category matches what YOLO was analyzing.
+  const categoryMatch = !result.category_analyzed || result.detected_category === result.category_analyzed;
+  const hasYolo = result.annotations?.length > 0 && geminiForgery && categoryMatch;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background:
-          hover
-            ? `linear-gradient(135deg, ${accent}10 0%, transparent 70%), #0a120c`
-            : 'linear-gradient(135deg, rgba(0,255,102,0.015) 0%, transparent 70%), #0a120c',
-        border: `1px solid ${hover ? accent : '#112418'}`,
-        borderLeft: `3px solid ${accent}`,
-        padding: 0, textAlign: 'left', cursor: 'pointer',
-        transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden',
-        borderRadius: 3, color: 'inherit', font: 'inherit', width: '100%',
-        boxShadow: hover
-          ? `0 6px 28px ${accent}30, 0 0 18px ${accent}20, inset 0 1px 0 ${accent}25`
-          : `inset 0 1px 0 ${accent}10`,
-        transform: hover ? 'translateY(-2px)' : 'translateY(0)',
-      }}
-    >
-      {/* corner glyph */}
-      <div className="oswald hex-badge" style={{
-        position: 'absolute', top: 12, right: 12, width: 28, height: 28,
-        color: '#001005', fontWeight: 800, fontSize: 11,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: accent,
-        boxShadow: hover ? `0 0 14px ${accent}` : 'none',
-        transition: 'box-shadow 0.2s',
-        fontFamily: "'JetBrains Mono', monospace",
-      }}>
-        {String(index).padStart(2, '0')}
+    <div className="card" style={{ borderColor: vc, boxShadow: `0 0 24px ${vc}30`, padding: 0, overflow: 'hidden' }}>
+      {/* ── Verdict ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${vc}33` }}>
+        <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2.5, color: '#d8ffe6', margin: 0 }}>◆ Forensic Report</h3>
+        <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>{result.scan_id}</span>
       </div>
 
-      {/* scan-line decoration */}
-      {hover && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-          animation: 'scan-pulse 1.4s ease-in-out infinite',
-        }} />
+      <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${geminiAccent}33`, boxShadow: `inset 0 0 32px ${geminiAccent}18` }}>
+        <div className="oswald" style={{ fontSize: 32, fontWeight: 700, color: geminiAccent, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${geminiAccent}99` }}>
+          {geminiOk ? (result.detected_category_label || cat || '—') : (verdictLabels[result.verdict] || result.verdict)}
+        </div>
+        {geminiOk && (
+          <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
+            {(result.category_confidence * 100).toFixed(1)}% CONF
+            {result.certainty_level && (
+              <span style={{ marginLeft: 10, color: result.certainty_level === 'HIGH' ? '#00ff66' : result.certainty_level === 'MEDIUM' ? '#ffa040' : '#ff5555' }}>
+                · {result.certainty_level}
+              </span>
+            )}
+          </div>
+        )}
+        {hasYolo && (
+          <div className="mono" style={{ color: '#3f6e4a', marginTop: 6, fontSize: 10, letterSpacing: 1.5 }}>
+            YOLO {(result.confidence_score * 100).toFixed(1)}%
+          </div>
+        )}
+      </div>
+
+      {result.training_warning && (
+        <div style={{ background: 'rgba(255,160,64,0.08)', borderBottom: '1px solid #ffa040', padding: '10px 20px', fontSize: 12, color: '#ffc888', fontFamily: "'JetBrains Mono', monospace" }}>
+          ⚠ {result.training_warning}
+        </div>
       )}
 
-      <div style={{ padding: '18px 18px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10, paddingRight: 36 }}>
-          <span style={{
-            fontSize: 24, color: accent,
-            textShadow: `0 0 ${hover ? 14 : 8}px ${accent}99`,
-            transition: 'text-shadow 0.2s',
-            lineHeight: 1, marginTop: 2,
-          }}>{cat.icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="mono" style={{
-              fontSize: 9, letterSpacing: 2.5, margin: 0, color: accent,
-              textShadow: `0 0 6px ${accent}80`,
-            }}>{cat.code}</p>
-            <h3 className="oswald" style={{
-              fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: 1,
-              color: '#d8ffe6', textTransform: 'uppercase',
-            }}>{cat.title}</h3>
+      <div style={{ padding: '20px 20px 4px' }}>
+        {/* ── Gemini Vision ── */}
+        {geminiOk ? (
+          <div style={{ marginBottom: 20 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: geminiAccent, margin: '0 0 8px', textShadow: `0 0 6px ${geminiAccent}99` }}>
+              ▣ GEMINI VISION · CLASSIFICATION
+            </p>
+            <div style={{ background: `${geminiAccent}08`, border: `1px solid ${geminiAccent}44`, borderLeft: `3px solid ${geminiAccent}`, borderRadius: 3, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                <div>
+                  <h4 className="oswald" style={{ fontSize: 17, color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 2, margin: 0 }}>
+                    {result.detected_category_label || cat}
+                  </h4>
+                  {result.detected_subtype && (
+                    <p style={{ fontSize: 12, color: geminiAccent, margin: '3px 0 0', fontStyle: 'italic' }}>Subtype: {result.detected_subtype}</p>
+                  )}
+                </div>
+                <span className="mono" style={{ fontSize: 11, color: geminiAccent, letterSpacing: 1.5 }}>
+                  {(result.category_confidence * 100).toFixed(0)}% CONF
+                </span>
+              </div>
+              {result.category_explanation && (
+                <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d8ffe6', margin: '0 0 10px' }}>{result.category_explanation}</p>
+              )}
+              {result.category_evidence?.length > 0 && (
+                <ul style={{ margin: '0 0 10px', paddingLeft: 18, color: '#86efac', fontSize: 13, lineHeight: 1.6 }}>
+                  {result.category_evidence.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+              {result.tools_likely_used && (
+                <p style={{ fontSize: 12, color: '#86efac', margin: 0, borderTop: '1px solid #112418', paddingTop: 8 }}>
+                  <span className="mono" style={{ color: geminiAccent, letterSpacing: 1.5, marginRight: 6 }}>TOOLS USED:</span>
+                  {result.tools_likely_used}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-        <p style={{ fontSize: 12, color: '#86efac', margin: 0, lineHeight: 1.5, opacity: 0.85 }}>
-          {cat.description}
-        </p>
-      </div>
+        ) : (
+          <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', padding: '4px 10px', border: '1px solid #1d3825', borderRadius: 2 }}>
+              ▣ GEMINI VISION · TEMPORARILY UNAVAILABLE
+            </span>
+          </div>
+        )}
 
-      <div style={{
-        borderTop: '1px solid #112418', padding: '10px 16px', background: 'rgba(0,0,0,0.4)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
-      }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <span className="mono" style={{
-            fontSize: 9, letterSpacing: 1.5,
-            color: trained ? accent : '#3f6e4a',
-            textShadow: trained ? `0 0 6px ${accent}80` : 'none',
-          }}>
-            {trained ? '● ACTIVE' : '○ PENDING'}
-          </span>
-          <span className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 1.5 }}>
-            {datasetCount.toLocaleString()} IMG
-          </span>
-        </div>
-        <Link
-          to={`/samples/${cat.id}`}
-          onClick={e => e.stopPropagation()}
-          style={{
-            fontSize: 9, color: accent, textDecoration: 'none',
-            fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1.5,
-            padding: '3px 7px', border: `1px solid ${accent}40`, borderRadius: 2,
-          }}
-        >
-          Examples
-        </Link>
+        {/* ── LLM Explanation ── */}
+        {result.llm_explanation && (
+          <div style={{ marginBottom: 20 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#6dba85', margin: '0 0 8px' }}>▸ AI FORENSIC EXPLANATION</p>
+            <p style={{ lineHeight: 1.7, fontSize: 14, color: '#d8ffe6', margin: 0 }}>{result.llm_explanation}</p>
+          </div>
+        )}
+        {!result.llm_explanation && result.llm_locked && (
+          <div style={{ marginBottom: 20 }}>
+            <LlmUpgradePrompt requiredPlan={result.llm_required_plan} />
+          </div>
+        )}
+
+        {/* ── YOLO Detections — only when bounding boxes exist ── */}
+        {hasYolo && (
+          <div style={{ marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#6dba85', margin: '0 0 8px' }}>▸ YOLO · DETECTED REGIONS</p>
+            <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 2, border: '1px solid #1d3825', marginBottom: 12 }} />
+            {result.annotations.map((ann, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #112418' }}>
+                <span style={{ width: 26, height: 26, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: ann.color, color: '#000', fontSize: 11, fontWeight: 800, boxShadow: `0 0 8px ${ann.color}80`, fontFamily: "'JetBrains Mono', monospace" }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span style={{ flex: 1, fontSize: 14, color: '#d8ffe6' }}>{ann.title}</span>
+                <span className="mono" style={{ fontSize: 12, color: ann.color }}>{(ann.confidence * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

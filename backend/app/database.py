@@ -61,3 +61,15 @@ def _ensure_columns():
             scan_cols = {col["name"] for col in inspector.get_columns("scans")}
             if "image_path" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN image_path VARCHAR"))
+            if "detected_category" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN detected_category VARCHAR"))
+            if "detected_subtype" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN detected_subtype VARCHAR"))
+            if "category_explanation" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_explanation TEXT"))
+            if "tools_likely_used" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN tools_likely_used VARCHAR"))
+            if "category_confidence" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_confidence FLOAT"))
+            if "category_evidence" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_evidence TEXT"))

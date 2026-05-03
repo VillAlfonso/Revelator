@@ -59,6 +59,11 @@ GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
+# Gemini Vision — primary forensic classifier. Reads the document image and returns
+# a structured JSON verdict against the 19-category taxonomy.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
+
 # ============================================
 # YOLO
 # ============================================

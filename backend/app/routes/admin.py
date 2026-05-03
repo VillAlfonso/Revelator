@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_admin, get_current_super_admin, hash_password
 from ..database import get_db
 from ..models import User, Scan, PromoCode
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -293,3 +293,54 @@ def deactivate_code(
     code.is_active = False
     db.commit()
     return {"success": True, "message": f"Code {code.code} deactivated"}
+
+
+# ============================================
+# Gemini Vision Status
+# ============================================
+
+# Free-tier limits by model (RPD = requests per day, RPM = per minute)
+_GEMINI_FREE_LIMITS = {
+    "gemini-2.5-flash":      {"rpd": 1500, "rpm": 10},
+    "gemini-2.5-pro":        {"rpd":   25, "rpm":  5},
+    "gemini-2.0-flash":      {"rpd": 1500, "rpm": 15},
+    "gemini-2.0-flash-exp":  {"rpd": 1500, "rpm": 15},
+    "gemini-1.5-flash":      {"rpd": 1500, "rpm": 15},
+    "gemini-1.5-pro":        {"rpd":   50, "rpm":  2},
+}
+
+
+@router.get("/gemini-status")
+def gemini_status(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    """Return Gemini Vision API usage stats and free-tier quota info."""
+    from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
+
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today_start + timedelta(days=1)
+    hours_until_reset = (tomorrow - now_utc).total_seconds() / 3600
+
+    calls_today = (
+        db.query(func.count(Scan.id))
+        .filter(Scan.detected_category.isnot(None), Scan.created_at >= today_start)
+        .scalar() or 0
+    )
+    total_calls = (
+        db.query(func.count(Scan.id))
+        .filter(Scan.detected_category.isnot(None))
+        .scalar() or 0
+    )
+
+    limits = _GEMINI_FREE_LIMITS.get(GEMINI_VISION_MODEL, {"rpd": 1500, "rpm": 15})
+
+    return {
+        "configured": bool(GEMINI_API_KEY),
+        "model": GEMINI_VISION_MODEL,
+        "calls_today": calls_today,
+        "daily_limit": limits["rpd"],
+        "calls_remaining_today": max(0, limits["rpd"] - calls_today),
+        "rpm_limit": limits["rpm"],
+        "total_calls_ever": total_calls,
+        "resets_in_hours": round(hours_until_reset, 1),
+        "reset_time_utc": tomorrow.isoformat() + "Z",
+    }

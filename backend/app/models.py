@@ -74,6 +74,13 @@ class Scan(Base):
     image_height = Column(Integer, nullable=True)
     image_path = Column(String, nullable=True)  # relative path under UPLOAD_DIR
     training_warning = Column(Text, nullable=True)
+    # Gemini Vision classification — one of the 19 codes in forgery.gemini_vision.CATEGORY_CODES.
+    detected_category = Column(String, nullable=True, index=True)
+    detected_subtype = Column(String, nullable=True)
+    category_explanation = Column(Text, nullable=True)
+    tools_likely_used = Column(String, nullable=True)
+    category_confidence = Column(Float, nullable=True)
+    category_evidence = Column(Text, nullable=True)  # JSON array stored as string
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

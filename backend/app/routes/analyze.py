@@ -26,9 +26,11 @@ from ..forgery.detector import (
     CLASS_LABELS, NAME_TO_CLASS, VALID_CATEGORIES, TRAINING_STATUS,
     DATASET_COUNTS, LIMITED_DATA_THRESHOLD, MODELS_DIR,
     run_yolo_inference, determine_verdict, get_training_warning,
+    _count_dataset_images,
 )
 from ..forgery.llm import get_llm_explanation
 from ..forgery.document_gate import check_is_document
+from ..forgery.gemini_vision import classify as gemini_classify
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -65,6 +67,7 @@ def check_scan_limit(user: User):
 
 @router.get("/categories")
 def get_categories():
+    _count_dataset_images()  # refresh counts from disk on every call
     categories = {}
     category_totals = {}
     for class_id, info in CLASS_LABELS.items():
@@ -273,7 +276,39 @@ def analyze_document(
     training_warning = get_training_warning(category, detections)
     category_trained = TRAINING_STATUS.get(category, False) if category else False
 
-    # Build annotations
+    # Gemini Vision — primary classifier against the 19-category taxonomy.
+    # Runs after YOLO so failures don't block the existing pipeline.
+    gemini = gemini_classify(image)
+
+    # Filter out base COCO model detections — they are not forgery evidence.
+    # The _default model (yolov8n.pt) is a COCO general detector used as a
+    # placeholder when no category-specific YOLO weights exist. Its detections
+    # mean nothing in a forgery context, so we strip them before verdict logic.
+    real_detections = [d for d in detections if d.get("model_used") != "_default"]
+    if real_detections != detections:
+        verdict, confidence = determine_verdict(real_detections)
+
+    from ..forgery.gemini_vision import CATEGORY_CODES
+    _FORGERY_CATS = {c for c in CATEGORY_CODES if c not in {"no_forgery_detected", "not_a_document", "other"}}
+
+    if gemini["category"] in _FORGERY_CATS:
+        # Gemini identified a specific forgery type — let it drive the verdict.
+        # Threshold: ≥0.70 → forged, 0.50–0.69 → suspicious. Below 0.50 we
+        # trust YOLO's assessment (or keep the existing verdict).
+        g_conf = gemini["confidence"]
+        if g_conf >= 0.70:
+            verdict = "forged"
+            confidence = g_conf
+        elif g_conf >= 0.50:
+            if verdict == "no_forgery_detected":
+                verdict = "suspicious"
+                confidence = g_conf
+    elif gemini["category"] == "not_a_document" and not real_detections:
+        verdict = "not_a_document"
+    elif gemini["category"] == "no_forgery_detected" and not real_detections:
+        verdict = "no_forgery_detected"
+
+    # Build annotations from real (non-COCO) detections only.
     annotations = [
         {
             "id": d["id"],
@@ -283,7 +318,7 @@ def analyze_document(
             "title": d["title"],
             "confidence": d["confidence"],
         }
-        for d in detections
+        for d in real_detections
     ]
 
     scan_id = generate_scan_id()
@@ -313,6 +348,12 @@ def analyze_document(
         image_height=height,
         image_path=image_path,
         training_warning=training_warning,
+        detected_category=gemini["category"],
+        detected_subtype=gemini["subtype"],
+        category_explanation=gemini["explanation"],
+        tools_likely_used=gemini["tools_likely_used"],
+        category_confidence=gemini["confidence"],
+        category_evidence=json.dumps(gemini["evidence"]),
     )
     db.add(scan)
     current_user.scans_this_month += 1
@@ -331,6 +372,14 @@ def analyze_document(
         "timestamp": datetime.now().isoformat(),
         "training_warning": training_warning,
         "category_trained": category_trained,
+        "detected_category": gemini["category"],
+        "detected_category_label": gemini["category_label"],
+        "detected_subtype": gemini["subtype"],
+        "category_explanation": gemini["explanation"],
+        "category_evidence": gemini["evidence"],
+        "tools_likely_used": gemini["tools_likely_used"],
+        "category_confidence": gemini["confidence"],
+        "certainty_level": gemini.get("certainty_level"),
     }
 
 
@@ -392,6 +441,8 @@ def get_history(
                 "created_at": s.created_at.isoformat() if s.created_at else "",
                 "has_image": bool(s.image_path),
                 "has_llm_explanation": bool(s.llm_explanation),
+                "detected_category": s.detected_category,
+                "category_confidence": s.category_confidence,
             }
             for s in scans
         ],
@@ -423,8 +474,28 @@ def get_scan_detail(
         "image_height": scan.image_height,
         "has_image": bool(scan.image_path),
         "training_warning": scan.training_warning,
+        "detected_category": scan.detected_category,
+        "detected_category_label": _gemini_label(scan.detected_category),
+        "detected_subtype": scan.detected_subtype,
+        "category_explanation": scan.category_explanation,
+        "tools_likely_used": scan.tools_likely_used,
+        "category_confidence": scan.category_confidence,
+        "category_evidence": json.loads(scan.category_evidence) if scan.category_evidence else [],
+        "certainty_level": (
+            "HIGH" if (scan.category_confidence or 0) >= 0.85
+            else "MEDIUM" if (scan.category_confidence or 0) >= 0.60
+            else "LOW"
+        ) if scan.category_confidence else None,
         "created_at": scan.created_at.isoformat() if scan.created_at else "",
     }
+
+
+def _gemini_label(code: Optional[str]) -> Optional[str]:
+    """Map a stored detected_category code back to its human-readable label."""
+    if not code:
+        return None
+    from ..forgery.gemini_vision import CATEGORY_LABELS
+    return CATEGORY_LABELS.get(code)
 
 
 @router.get("/history/{scan_id}/image")

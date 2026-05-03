@@ -220,6 +220,10 @@ export const api = {
     return request(`/admin/super/codes/${codeId}/deactivate`, { method: 'POST' });
   },
 
+  adminGeminiStatus() {
+    return request('/admin/gemini-status');
+  },
+
   // Health
   health() {
     return request('/health', { noAuth: true });
