@@ -204,6 +204,22 @@ export const api = {
     return request('/admin/stats');
   },
 
+  // Super Admin — Promo Codes
+  adminGenerateCode(code, plan, max_uses, expires_in_days) {
+    return request('/admin/super/generate-code', {
+      method: 'POST',
+      body: JSON.stringify({ code, plan, max_uses, expires_in_days: expires_in_days ? parseInt(expires_in_days) : null }),
+    });
+  },
+
+  adminListCodes() {
+    return request('/admin/super/codes');
+  },
+
+  adminDeactivateCode(codeId) {
+    return request(`/admin/super/codes/${codeId}/deactivate`, { method: 'POST' });
+  },
+
   // Health
   health() {
     return request('/health', { noAuth: true });

@@ -8,6 +8,7 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 
 export default function Admin() {
   const { user: me } = useAuth();
+  const [tab, setTab] = useState('users'); // 'users' or 'promo'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -18,6 +19,10 @@ export default function Admin() {
   const [editing, setEditing] = useState(null); // user object being edited
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [codes, setCodes] = useState([]);
+  const [codesLoading, setCodesLoading] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [newCode, setNewCode] = useState({ code: '', plan: 'pro', max_uses: '10', expires_in_days: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,7 +42,21 @@ export default function Admin() {
     }
   }, [q, planFilter]);
 
+  const loadCodes = useCallback(async () => {
+    setCodesLoading(true);
+    setError('');
+    try {
+      const data = await api.adminListCodes();
+      setCodes(data.codes || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCodesLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (tab === 'promo') loadCodes(); }, [tab, loadCodes]);
 
   async function saveEdit() {
     setSaving(true);
@@ -74,6 +93,34 @@ export default function Admin() {
     }
   }
 
+  async function generateCode() {
+    if (!newCode.code.trim() || !newCode.max_uses) {
+      setError('Code and max uses are required');
+      return;
+    }
+    setGeneratingCode(true);
+    setError('');
+    try {
+      await api.adminGenerateCode(newCode.code, newCode.plan, parseInt(newCode.max_uses), newCode.expires_in_days);
+      setNewCode({ code: '', plan: 'pro', max_uses: '10', expires_in_days: '' });
+      await loadCodes();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGeneratingCode(false);
+    }
+  }
+
+  async function deactivateCode(codeId) {
+    setError('');
+    try {
+      await api.adminDeactivateCode(codeId);
+      await loadCodes();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -103,6 +150,37 @@ export default function Admin() {
         </div>
       )}
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid #1d3825', paddingBottom: 12 }}>
+        <button
+          className="mono"
+          onClick={() => setTab('users')}
+          style={{
+            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+            color: tab === 'users' ? '#00ff66' : '#86efac',
+            textTransform: 'uppercase', letterSpacing: 1,
+            borderBottom: tab === 'users' ? '2px solid #00ff66' : 'none',
+            marginBottom: '-12px',
+          }}
+        >
+          Users
+        </button>
+        <button
+          className="mono"
+          onClick={() => setTab('promo')}
+          style={{
+            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+            color: tab === 'promo' ? '#00ff66' : '#86efac',
+            textTransform: 'uppercase', letterSpacing: 1,
+            borderBottom: tab === 'promo' ? '2px solid #00ff66' : 'none',
+            marginBottom: '-12px',
+          }}
+        >
+          Promo Codes
+        </button>
+      </div>
+
+      {tab === 'users' && (
+      <div>
       <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ flex: '1 1 200px' }}>
           <label style={labelStyle}>Search</label>
@@ -192,6 +270,85 @@ export default function Admin() {
             <button className="btn btn-danger" onClick={confirmDelete}>Delete</button>
           </div>
         </Modal>
+      )}
+      </div>
+      )}
+
+      {tab === 'promo' && (
+      <div>
+        <div className="card" style={{ marginBottom: 16, padding: 14 }}>
+          <h3 className="oswald" style={{ margin: '0 0 12px 0', fontSize: 16, letterSpacing: 1, textTransform: 'uppercase' }}>Generate Promo Code</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Code</label>
+              <input
+                className="input"
+                value={newCode.code}
+                onChange={e => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
+                placeholder="e.g., FALL-2024"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Plan</label>
+              <select className="input" value={newCode.plan} onChange={e => setNewCode({ ...newCode, plan: e.target.value })}>
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Max Uses</label>
+              <input
+                className="input"
+                type="number"
+                value={newCode.max_uses}
+                onChange={e => setNewCode({ ...newCode, max_uses: e.target.value })}
+                placeholder="10"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Expires In (days, optional)</label>
+              <input
+                className="input"
+                type="number"
+                value={newCode.expires_in_days}
+                onChange={e => setNewCode({ ...newCode, expires_in_days: e.target.value })}
+                placeholder="30"
+              />
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={generateCode}
+            disabled={generatingCode}
+            style={{ marginTop: 12 }}
+          >
+            {generatingCode ? 'Generating...' : 'Generate Code'}
+          </button>
+        </div>
+
+        <h3 className="oswald" style={{ fontSize: 16, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Active Codes</h3>
+        {codesLoading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading codes...</div>}
+        {!codesLoading && codes.length === 0 && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No promo codes yet.</div>}
+        {codes.map(c => (
+          <div key={c.id} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 14, fontFamily: 'monospace' }}>{c.code}</div>
+              <div style={{ color: '#86efac', fontSize: 12, marginTop: 4 }}>
+                {c.plan.toUpperCase()} · Uses: {c.uses} · Expires: {c.expires_at} · {c.is_active ? 'Active' : 'Inactive'}
+              </div>
+            </div>
+            <button
+              className="btn"
+              onClick={() => deactivateCode(c.id)}
+              disabled={!c.is_active}
+              style={{ borderColor: c.is_active ? '#ff3344' : '#1d3825', color: c.is_active ? '#ff8a99' : '#3f6e4a' }}
+            >
+              {c.is_active ? 'Deactivate' : 'Deactivated'}
+            </button>
+          </div>
+        ))}
+      </div>
       )}
     </div>
   );
