@@ -36,13 +36,16 @@ dataset/
 
 # Training datasets and source dumps (live in Roboflow/Colab, not git)
 digital_cut_paste.zip
-models/*/train/
-models/*/valid/
-models/*/test/
 models/**/*.jpg
 models/**/*.jpeg
 models/**/*.png
 models/**/*.bmp
+models/**/*.zip
+models/*/train/
+models/*/valid/
+models/*/test/
+models/*/extracted_real/
+models/*/synthetic/
 sources/
 
 # Logs
