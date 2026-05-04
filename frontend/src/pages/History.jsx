@@ -12,6 +12,12 @@ function geminiColor(code) {
   return CATEGORY_BY_KEY[code]?.color || '#a78bfa';
 }
 
+// Formats a document_type key into a readable label
+function docTypeLabel(key) {
+  if (!key || key === 'other') return null;
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // Maps a Gemini category code to a short display label
 function geminiLabel(code, label) {
   if (label) return label;
@@ -117,9 +123,16 @@ function HistoryCard({ scan, onClick }) {
           </div>
         </div>
         <div style={{ fontSize: 13, color: '#d4d4d4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scan.filename}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
           <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{scan.scan_id}</span>
-          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{new Date(scan.created_at).toLocaleDateString()}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {docTypeLabel(scan.document_type) && (
+              <span className="mono" style={{ fontSize: 9, color: '#6dba85', letterSpacing: 1 }}>
+                📄 {docTypeLabel(scan.document_type).toUpperCase()}
+              </span>
+            )}
+            <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{new Date(scan.created_at).toLocaleDateString()}</span>
+          </div>
         </div>
       </div>
     </button>
@@ -181,7 +194,14 @@ function ScanDetailView({ detail, onBack }) {
         {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${color}33` }}>
           <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2.5, textTransform: 'uppercase', margin: 0, color: '#d8ffe6' }}>◆ Forensic Report</h2>
-          <span className="mono" style={{ color: '#3f6e4a', fontSize: 11 }}>{detail.scan_id}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+            {docTypeLabel(detail.document_type) && (
+              <span className="mono" style={{ fontSize: 10, color: '#6dba85', letterSpacing: 1.5 }}>
+                📄 {docTypeLabel(detail.document_type).toUpperCase()}
+              </span>
+            )}
+            <span className="mono" style={{ color: '#3f6e4a', fontSize: 11 }}>{detail.scan_id}</span>
+          </div>
         </div>
 
         {/* category banner */}

@@ -348,6 +348,7 @@ def analyze_document(
         user_id=current_user.id,
         filename=imageFile.filename or "unknown",
         category_analyzed=category,
+        document_type=document_type,
         verdict=verdict,
         confidence_score=confidence,
         llm_explanation=llm_explanation,
@@ -370,6 +371,7 @@ def analyze_document(
     return {
         "scan_id": scan_id,
         "category_analyzed": category,
+        "document_type": document_type,
         "verdict": verdict,
         "confidence_score": confidence,
         "llm_explanation": llm_explanation,
@@ -451,6 +453,7 @@ def get_history(
                 "has_llm_explanation": bool(s.llm_explanation),
                 "detected_category": s.detected_category,
                 "category_confidence": s.category_confidence,
+                "document_type": s.document_type,
             }
             for s in scans
         ],
@@ -494,16 +497,24 @@ def get_scan_detail(
             else "MEDIUM" if (scan.category_confidence or 0) >= 0.60
             else "LOW"
         ) if scan.category_confidence else None,
+        "document_type": scan.document_type,
+        "document_type_label": _document_type_label(scan.document_type),
         "created_at": scan.created_at.isoformat() if scan.created_at else "",
     }
 
 
 def _gemini_label(code: Optional[str]) -> Optional[str]:
-    """Map a stored detected_category code back to its human-readable label."""
     if not code:
         return None
     from ..forgery.gemini_vision import CATEGORY_LABELS
     return CATEGORY_LABELS.get(code)
+
+
+def _document_type_label(key: Optional[str]) -> Optional[str]:
+    if not key:
+        return None
+    from ..forgery.document_types import DOCUMENT_TYPES
+    return DOCUMENT_TYPES.get(key, {}).get("title")
 
 
 @router.get("/history/{scan_id}/image")

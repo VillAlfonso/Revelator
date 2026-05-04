@@ -74,6 +74,7 @@ class Scan(Base):
     image_height = Column(Integer, nullable=True)
     image_path = Column(String, nullable=True)  # relative path under UPLOAD_DIR
     training_warning = Column(Text, nullable=True)
+    document_type = Column(String, nullable=True)  # key from document_types.py (passport, bank_check, etc.)
     # Gemini Vision classification — one of the 19 codes in forgery.gemini_vision.CATEGORY_CODES.
     detected_category = Column(String, nullable=True, index=True)
     detected_subtype = Column(String, nullable=True)

@@ -73,3 +73,5 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN category_confidence FLOAT"))
             if "category_evidence" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN category_evidence TEXT"))
+            if "document_type" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN document_type VARCHAR"))

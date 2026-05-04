@@ -265,6 +265,7 @@ export default function Scan() {
             canvasRef={canvasRef}
             verdictColors={verdictColors}
             verdictLabels={verdictLabels}
+            documentTypeLabel={documentTypes.find(dt => dt.key === documentType)?.title}
           />
         )}
 
@@ -306,7 +307,7 @@ function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
   );
 }
 
-function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels }) {
+function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels, documentTypeLabel }) {
   const cat = result.detected_category;
 
   // Gemini succeeded only when confidence > 0 (0 = fallback/error/unavailable)
@@ -331,7 +332,14 @@ function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels })
       {/* ── Verdict ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${vc}33` }}>
         <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2.5, color: '#d8ffe6', margin: 0 }}>◆ Forensic Report</h3>
-        <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>{result.scan_id}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+          {documentTypeLabel && documentTypeLabel !== 'Other Document' && (
+            <span className="mono" style={{ fontSize: 10, color: '#6dba85', letterSpacing: 1.5 }}>
+              📄 {documentTypeLabel.toUpperCase()}
+            </span>
+          )}
+          <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>{result.scan_id}</span>
+        </div>
       </div>
 
       <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${geminiAccent}33`, boxShadow: `inset 0 0 32px ${geminiAccent}18` }}>
