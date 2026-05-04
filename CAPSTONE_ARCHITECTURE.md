@@ -1,6 +1,57 @@
 # Revelator — System Architecture & Design Decisions
 
-**Status:** In progress — documenting architectural journey and final decisions
+**Status:** Final Architecture Decided (Phase 3 Complete)
+
+---
+
+## ⚡ Quick Start for New Team Members
+
+**What is Revelator?** A forensic document forgery detection SaaS that uses AI to analyze documents and identify forged signatures, altered text, cut-and-paste sections, etc.
+
+**The Architecture We Decided On (Hybrid):**
+```
+WEB APP (React):
+  ├─ User auth → FastAPI + JWT
+  ├─ Document upload → FastAPI
+  ├─ Payments → FastAPI calls Stripe/PayMongo
+  └─ Inference → FastAPI calls Hugging Face Spaces
+
+MOBILE APP (React Native):
+  ├─ User auth → Firebase Auth
+  ├─ Data storage → Firebase Firestore
+  ├─ Image storage → Firebase Storage
+  ├─ Payments → Stripe SDK (mobile)
+  └─ Inference → Hugging Face Spaces API
+
+INFERENCE:
+  └─ Fine-tuned LLaVA 7B model on Hugging Face Spaces
+
+BACKEND HOSTING:
+  └─ FastAPI on Oracle Cloud (free tier)
+
+COSTS:
+  └─ $0 (all free tiers)
+```
+
+**Key Files to Know:**
+- `backend/app/routes/analyze.py` — Core document analysis endpoint
+- `backend/app/forgery/gemini_vision.py` — Current Gemini classifier (pre-fine-tuning)
+- `frontend/src/pages/Scan.jsx` — Main upload UI
+- `CAPSTONE_ARCHITECTURE.md` — This file! Full details on why we chose each component
+
+**Why This Design?**
+- **FastAPI on Oracle** = Learn real SaaS backend development + payment integration
+- **Firebase for mobile** = Fastest way to ship a real mobile app
+- **HF Spaces for LLM** = Free GPU for running fine-tuned models
+- **Hybrid approach** = Show understanding of both traditional + serverless architectures
+
+**Next Steps (For Your Classmate):**
+1. Read the **[Architectural Evolution](#architectural-evolution--decision-making-journey)** section below to understand *why* we chose each component
+2. Read **[Fine-Tuning LLaVA](#fine-tuning-llava-for-forensic-classification)** to see the ML strategy
+3. For development: check `backend/README.md` and `frontend/README.md` for setup instructions
+4. Questions? See the detailed sections below.
+
+---
 
 ## Architectural Evolution & Decision-Making Journey
 
@@ -497,18 +548,108 @@ Backend experience: Learn SaaS architecture
 | **Portfolio value** | "Full-stack engineer" | "Backend engineer + modern stack" |
 | **Maintenance** | Simpler | More complex |
 
-### Current Status (Choose Your Path)
-- **If Path A (Firebase only):**
-  - Web: React + Firebase (replace backend)
-  - Mobile: React Native + Firebase
-  - Inference: Direct to HF Spaces from frontend
-  - Admin: Use Firebase Console
+### FINAL DECISION: FastAPI Gateway + Firebase Persistence
 
-- **If Path B (Hybrid — recommended for learning):**
-  - Web: FastAPI backend ✅ + React frontend ✅ (replace Gemini with LLaVA)
-  - Mobile: React Native + Firebase
-  - Inference: Both call HF Spaces
-  - Admin: Keep custom FastAPI admin panel
+**Architecture chosen:**
+```
+┌──────────────────────────────────────────────────────┐
+│                                                      │
+│  WEB (React)           MOBILE (React Native)        │
+│       │                         │                    │
+│       └──────────────┬──────────┘                    │
+│                      ▼                               │
+│          ┌─────────────────────┐                     │
+│          │  FastAPI Gateway    │                     │
+│          │  (on Oracle)        │                     │
+│          │                     │                     │
+│          │ • Auth routing      │                     │
+│          │ • Payment routing   │                     │
+│          │ • Business logic    │                     │
+│          └──┬──┬──┬────────────┘                     │
+│             │  │  │                                  │
+│    ┌────────┘  │  └──────────┐                       │
+│    ▼           ▼             ▼                       │
+│ Firebase    HF Spaces    Stripe/PayMongo            │
+│ (Firestore) (LLaVA)      (Payments)                 │
+│ • Auth      • Inference  • Process                  │
+│ • Scans     • Results    • Webhooks                 │
+│ • History                                            │
+│ • Storage                                            │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+```
+
+**Component breakdown:**
+
+| Component | Purpose | Technology | Hosting |
+|---|---|---|---|
+| **API Gateway** | Route requests, orchestrate calls | FastAPI (Python) | Oracle Always Free |
+| **Persistence** | Store all user data | Firebase (Firestore) | Firebase (free tier) |
+| **Authentication** | Sign in/register, JWT tokens | Firebase Auth | Firebase (free tier) |
+| **Image Storage** | Store uploaded documents | Firebase Storage | Firebase (free tier) |
+| **Inference** | Classify documents | LLaVA-NeXT 7B | HF Spaces (free GPU) |
+| **Payments** | Process subscriptions | Stripe/PayMongo | Stripe/PayMongo (test keys) |
+
+**Data flow (example: user uploads scan):**
+```
+1. User clicks "Scan Document" (web or mobile)
+2. App → FastAPI (/api/analyze)
+3. FastAPI:
+   a. Gets user from Firebase Auth
+   b. Reads uploaded image
+   c. Calls HF Spaces (LLaVA inference)
+   d. Gets: category, confidence, explanation, evidence
+   e. Writes result to Firestore
+4. FastAPI returns result to app
+5. App displays forensic report
+```
+
+**Data flow (example: user upgrades to Pro):**
+```
+1. User clicks "Upgrade to Pro" (web or mobile)
+2. App → FastAPI (/api/payments/create-checkout)
+3. FastAPI:
+   a. Creates Stripe/PayMongo session
+   b. Returns checkout URL
+4. App redirects to payment page
+5. User pays
+6. Stripe/PayMongo webhook → FastAPI
+7. FastAPI:
+   a. Verifies payment
+   b. Updates Firestore (user.plan = "pro")
+8. App listens to Firestore, unlocks Pro features
+```
+
+**Why this architecture:**
+- ✅ FastAPI stays **lightweight** (no database, just routing)
+- ✅ Firebase handles **scaling** (managed service, free tier generous)
+- ✅ Both web and mobile use **same backend** (consistent)
+- ✅ **Zero hosting complexity** (FastAPI on free Oracle, Firebase serverless)
+- ✅ **Clean separation** of concerns (logic vs persistence vs inference)
+- ✅ **Stateless FastAPI** (easy to scale later)
+- ✅ **Real-time updates** (Firestore listeners in app)
+
+**Cost breakdown (capstone):**
+| Service | Cost | Reason |
+|---|---|---|
+| **Oracle Always Free** | $0 | Compute for FastAPI |
+| **Firebase** | $0 | Firestore, Auth, Storage (free tier) |
+| **HF Spaces** | $0 | Fine-tuned LLaVA (free GPU) |
+| **Stripe/PayMongo** | $0 | Test keys for demo |
+| **TOTAL** | **$0** | |
+
+**Production scaling (future):**
+- FastAPI: Deploy to Railway ($5-10/mo) or Cloud Run (pay-per-invocation)
+- Firebase: Scales automatically, upgrade to paid tier if needed
+- Stripe/PayMongo: Charges a % of transactions (standard)
+
+### Current Status (FINAL)
+- Web: React + FastAPI ✅ (replace Gemini with LLaVA)
+- Mobile: React Native + FastAPI (to be built)
+- Database: Firebase Firestore (not SQLite)
+- Storage: Firebase Storage (not local filesystem)
+- Inference: Fine-tuned LLaVA-NeXT 7B on HF Spaces
+- Payments: Stripe/PayMongo via FastAPI gateway
 
 ---
 
