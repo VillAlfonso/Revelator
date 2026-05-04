@@ -32,10 +32,21 @@
 | **Qwen-VL** | 10 billion | ~6GB | ✅ Good fit | 100-500/category |
 | **LLaVA-NeXT 7B** | 7 billion | ~4GB | ✅ Fits fine | 100-500/category |
 
-**Recommendation for capstone:** **LLaVA-1.5 7B** or **Qwen-VL**
-- Comfortably fits HF Spaces T4 free GPU (16GB VRAM)
-- Fast inference (~5-10s per image)
+**Recommendation for capstone:** **LLaVA-NeXT 7B** (BEST)
+- Newest architecture (better reasoning than 1.5, fewer hallucinations)
+- Same size as 1.5 7B (~4GB quantized) — fast inference (~5-10s per image)
+- Better document understanding than 1.5
+- Fits HF Spaces T4 free GPU comfortably (16GB VRAM)
 - Good accuracy with moderate fine-tuning data
+
+**Alternative if NeXT unavailable:** Qwen-VL
+- Excellent document understanding
+- Also ~6GB quantized, good HF Spaces fit
+- Slightly less tested on English forensic domain
+
+**Avoid:** LLaVA-1.5 13B
+- Tight fit on T4 GPU (15-20s inference, slow)
+- Marginal accuracy gain over 7B doesn't justify the slowdown
 
 ### Training Data Requirements
 - **Minimum viable:** 100-200 labeled images per forgery category (~1600-3200 total)
