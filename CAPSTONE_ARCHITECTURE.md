@@ -247,10 +247,67 @@ PRODUCTION PHASE (later):
 | **HF Spaces** | Fine-tuned LLaVA inference | Both | Free GPU tier |
 | **Stripe (mock)** | Payment flow (demo only) | Web | $0 (test keys) |
 
-### Current Status
-- Web: FastAPI backend ✅ + React frontend ✅ (replace Gemini with LLaVA)
-- Mobile: Not started (build with Firebase + HF Spaces)
-- Inference: Switch to fine-tuned LLaVA-NeXT 7B (replace Gemini)
+### Do You Actually Need FastAPI?
+
+**Question: Can we do everything with just Firebase (no backend)?**
+
+**Answer: Yes, but with trade-offs.**
+
+**What Firebase can handle:**
+
+| Feature | FastAPI | Firebase |
+|---|---|---|
+| User auth (sign in/register) | ✅ Custom JWT | ✅ Firebase Auth |
+| Scan history storage | ✅ SQLite/PostgreSQL | ✅ Firestore |
+| Call LLaVA for inference | ✅ Backend API | ✅ Direct from frontend |
+| Payment processing (Stripe) | ✅ Webhook handler | ✅ Stripe SDK + Cloud Function |
+| Subscription management | ✅ Custom logic | ✅ Store in Firestore |
+| Admin panel | ✅ Custom dashboard | ✅ Firebase Console |
+| Rate limiting per user | ✅ Backend enforces | ✅ Firestore rules |
+
+**Path A: Firebase Only (Simplest)**
+```
+Web: React → Firebase (auth + DB) → Stripe SDK → HF Spaces
+Mobile: React Native → Firebase (auth + DB) → Stripe SDK → HF Spaces
+Cost: $0
+Complexity: Low
+Backend experience: None
+```
+
+**Path B: Hybrid (FastAPI + Firebase) — What we planned**
+```
+Web: React → FastAPI (local) → Stripe/PayMongo → HF Spaces
+     FastAPI also has: JWT auth, subscriptions, admin panel, rate limiting
+Mobile: React Native → Firebase (auth + DB) → Stripe SDK → HF Spaces
+Cost: $0 (FastAPI runs locally)
+Complexity: Medium
+Backend experience: Learn SaaS architecture
+```
+
+**Trade-offs:**
+
+| Aspect | Path A (Firebase Only) | Path B (Hybrid) |
+|---|---|---|
+| **Shipping speed** | Fast ⚡ | Slower 🐢 |
+| **Hosting cost** | $0 | $0 (local demo) |
+| **Production hosting** | Firebase (scalable) | Need to host FastAPI (~$5-10/mo) |
+| **Backend learning** | None | Full SaaS stack |
+| **Code reuse** | One codebase (Firebase) | Two architectures |
+| **Portfolio value** | "Full-stack engineer" | "Backend engineer + modern stack" |
+| **Maintenance** | Simpler | More complex |
+
+### Current Status (Choose Your Path)
+- **If Path A (Firebase only):**
+  - Web: React + Firebase (replace backend)
+  - Mobile: React Native + Firebase
+  - Inference: Direct to HF Spaces from frontend
+  - Admin: Use Firebase Console
+
+- **If Path B (Hybrid — recommended for learning):**
+  - Web: FastAPI backend ✅ + React frontend ✅ (replace Gemini with LLaVA)
+  - Mobile: React Native + Firebase
+  - Inference: Both call HF Spaces
+  - Admin: Keep custom FastAPI admin panel
 
 ---
 
