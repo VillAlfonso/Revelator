@@ -89,47 +89,53 @@
 
 ---
 
-## Mobile & Deployment Strategy
+## Mobile & Deployment Strategy (Firebase-Only Approach)
 
 ### Mobile App Architecture (Capstone Phase)
 - **Frontend**: React Native or Flutter (not yet implemented, but planned)
 - **Can't run LLM locally** on mobile (RAM/battery/GPU constraints)
-- **Must call backend API** for all inference
+- **Must call API for inference** (HuggingFace Spaces)
+- **No backend server needed** — use Firebase instead
 
-### Free Hosting Plan for Capstone
+### Zero-Backend Architecture
 1. **Fine-tuned LLaVA model** → Hugging Face Spaces (free GPU tier)
-2. **Backend API** → Google Cloud Run OR Oracle Always Free
-3. **Mobile/Web app** → Calls backend `/api/analyze` endpoint
+2. **Authentication + Database** → Firebase (free tier)
+3. **Mobile app** → Direct calls to HF Spaces + Firebase
 4. **Data flow:**
    ```
    Mobile App
-       ↓ (POST image)
-   Backend (/api/analyze)
-       ↓ (calls with image)
-   HuggingFace Spaces (fine-tuned LLaVA inference)
-       ↓ (returns: category, confidence, explanation, evidence)
-   Backend (processes result)
-       ↓ (returns to app)
-   Mobile App (displays forensic report)
+       ├─→ Firebase Auth (sign in/register)
+       ├─→ Firebase Firestore (store/fetch scan history)
+       └─→ HuggingFace Spaces API (inference; image → result)
    ```
 
-### Backend Hosting Options (Free)
-- **Google Cloud Run** (recommended) — Free tier usually covers small apps; pay-per-invocation model
-- **Oracle Always Free** (current) — Truly free but severely underpowered; good for demo
-- **Render** (alternative) — Free tier with cold start; spins down after 15 min inactivity
-- **⚠️ Railway** — NOT truly free ($5/month credit, then charges; avoid)
+### Why Firebase Works for Capstone
+- **Authentication**: Built-in user sign in/register (free tier)
+- **Database**: Firestore stores scan history per user (free tier covers capstone usage)
+- **Zero hosting cost**: No backend server to deploy or maintain
+- **Simple deployment**: Just React Native/Flutter → Firebase SDK
+- **Scalable**: If needed, can add backend later without changing app
 
-### Why This Works for Capstone
-1. No local LLM needed (fine-tuned or otherwise)
-2. All components remain free or cheap
-3. Backend doesn't care if it's Gemini or fine-tuned LLaVA — same API contract
-4. Can swap models easily (Gemini now → LLaVA later)
-5. Mobile app works with any backend
+### Hosting & Services (All Free)
+| Service | Purpose | Cost |
+|---|---|---|
+| **Firebase Auth** | User sign in/register | Free tier |
+| **Firebase Firestore** | Scan history storage | Free tier (< 1GB/mo) |
+| **Hugging Face Spaces** | Fine-tuned LLaVA inference | Free GPU tier |
+| **Mobile app hosting** | React Native/Flutter | N/A (installed on device) |
+| **Backend server** | Not needed | $0 |
+
+### Trade-offs
+- ✓ Zero hosting costs
+- ✓ Simple architecture (no backend to manage)
+- ✓ Shows understanding of managed services
+- ✗ HF Spaces API keys in mobile app (acceptable for capstone demo)
+- ✗ Inference speed depends on HF Spaces cold start (~10-30s first call)
 
 ### Current Status (Demo)
-- Gemini Vision as classifier (free tier, no hosting needed)
-- Web frontend on local/demo server
-- Can pivot to fine-tuned LLaVA + mobile app without API changes
+- Gemini Vision as classifier via web frontend (FastAPI backend)
+- Mobile app (Firebase + HF Spaces) not yet built
+- Can port React components from web to React Native
 
 ---
 
@@ -161,13 +167,21 @@ What makes this sellable?
 - **Pro**: 100 scans/month, + LLM explanations (Groq)
 - **Premium**: Unlimited scans, + future fine-tuned models + batch API access
 
-### Alternative MVP: Fine-Tuned LLaVA Instead of Gemini
-If you want to show "we built and trained our own model" for the capstone:
-1. Fine-tune LLaVA on Colab with your labeled datasets
-2. Host on Hugging Face Spaces (free)
-3. Backend calls HF Spaces instead of Gemini
-4. Same API, same UX — but now it's *your* trained model
-5. Trade-off: Slower inference (HF Spaces cold starts), requires labeled data
+### MVP Roadmap: Gemini → Fine-Tuned LLaVA
+**Phase 1 (Current - Web Demo):**
+- Gemini Vision as classifier (free tier)
+- FastAPI backend (optional, for demos)
+- Web frontend (React)
+
+**Phase 2 (Mobile + Fine-Tuned):**
+- Fine-tune LLaVA on Colab with labeled datasets
+- Host on Hugging Face Spaces (free)
+- Mobile app (React Native/Flutter)
+- Firebase for auth + history
+- Mobile app calls HF Spaces directly for inference
+- Trade-off: Slower inference (HF Spaces cold starts ~10-30s), requires labeled data
+
+**No backend changes needed** — Firebase SDK handles everything the app needs
 
 ### Viability Threshold
 - Break-even at ~200 Pro users (@$5/mo = $1k/mo, covers Gemini paid tier)
