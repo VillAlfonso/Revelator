@@ -127,11 +127,16 @@ export const api = {
     return request('/about', { noAuth: true });
   },
 
-  analyze(file, category) {
+  analyze(file, category, documentType) {
     const form = new FormData();
     form.append('imageFile', file);
     if (category) form.append('category', category);
+    if (documentType) form.append('document_type', documentType);
     return request('/analyze', { method: 'POST', body: form });
+  },
+
+  getDocumentTypes() {
+    return request('/document-types', { noAuth: true });
   },
 
   preliminary(file) {

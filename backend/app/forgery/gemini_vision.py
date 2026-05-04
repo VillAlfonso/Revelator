@@ -190,12 +190,16 @@ def _fallback(reason: str) -> Dict[str, Any]:
     }
 
 
-def classify(image: Image.Image) -> Dict[str, Any]:
+def classify(image: Image.Image, document_type: Optional[str] = None) -> Dict[str, Any]:
     """
     Run Gemini Vision against the document image. Returns a dict with the keys:
         category, category_label, subtype, confidence, explanation, evidence, tools_likely_used
     Always returns a dict — on any failure, falls back to the 'other' category
     with the failure reason in the explanation.
+
+    Args:
+        image: PIL Image to classify
+        document_type: Optional document type (passport, check, contract, etc.) to provide context
     """
     client = _client()
     if client is None:
@@ -207,12 +211,17 @@ def classify(image: Image.Image) -> Dict[str, Any]:
     img_to_send.save(buf, format="JPEG", quality=88)
     buf.seek(0)
 
+    # Build prompt with document type context if provided
+    prompt = SYSTEM_PROMPT
+    if document_type and document_type != "other":
+        prompt = f"{SYSTEM_PROMPT}\n\nDOCUMENT TYPE HINT: The user indicates this is a {document_type.replace('_', ' ')}. Use this as context to guide your classification — certain forgery types are more likely for this document type."
+
     try:
         from google.genai import types as genai_types
         response = client.models.generate_content(
             model=GEMINI_VISION_MODEL,
             contents=[
-                SYSTEM_PROMPT,
+                prompt,
                 genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
             ],
             config=genai_types.GenerateContentConfig(

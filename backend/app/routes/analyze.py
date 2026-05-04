@@ -31,6 +31,7 @@ from ..forgery.detector import (
 from ..forgery.llm import get_llm_explanation
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import classify as gemini_classify
+from ..forgery.document_types import get_document_types_response
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -63,6 +64,12 @@ def check_scan_limit(user: User):
             status_code=429,
             detail=f"Monthly scan limit reached ({limit} scans on the {user.plan} plan). Upgrade for unlimited scans.",
         )
+
+
+@router.get("/document-types")
+def get_document_types():
+    """Get list of document types for scan context selection."""
+    return get_document_types_response()
 
 
 @router.get("/categories")
@@ -222,6 +229,7 @@ def get_about_info():
 def analyze_document(
     imageFile: UploadFile = File(...),
     category: Optional[str] = Form(None),
+    document_type: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -278,7 +286,7 @@ def analyze_document(
 
     # Gemini Vision — primary classifier against the 19-category taxonomy.
     # Runs after YOLO so failures don't block the existing pipeline.
-    gemini = gemini_classify(image)
+    gemini = gemini_classify(image, document_type=document_type)
 
     # Filter out base COCO model detections — they are not forgery evidence.
     # The _default model (yolov8n.pt) is a COCO general detector used as a
