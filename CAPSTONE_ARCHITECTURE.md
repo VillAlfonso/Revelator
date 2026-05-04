@@ -152,53 +152,105 @@
 
 ---
 
-## Mobile & Deployment Strategy (Firebase-Only Approach)
+## Hybrid SaaS Architecture (Best for Learning)
 
-### Mobile App Architecture (Capstone Phase)
-- **Frontend**: React Native or Flutter (not yet implemented, but planned)
-- **Can't run LLM locally** on mobile (RAM/battery/GPU constraints)
-- **Must call API for inference** (HuggingFace Spaces)
-- **No backend server needed** — use Firebase instead
+### Architecture Overview (Hybrid Approach)
 
-### Zero-Backend Architecture
-1. **Fine-tuned LLaVA model** → Hugging Face Spaces (free GPU tier)
-2. **Authentication + Database** → Firebase (free tier)
-3. **Mobile app** → Direct calls to HF Spaces + Firebase
-4. **Data flow:**
-   ```
-   Mobile App
-       ├─→ Firebase Auth (sign in/register)
-       ├─→ Firebase Firestore (store/fetch scan history)
-       └─→ HuggingFace Spaces API (inference; image → result)
-   ```
+```
+CAPSTONE PHASE:
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  WEB VERSION (Demo)          MOBILE VERSION        │
+│  ┌──────────────────┐        ┌──────────────────┐  │
+│  │  React           │        │ React Native     │  │
+│  │  (local demo)    │        │ (future)         │  │
+│  └────────┬─────────┘        └────────┬─────────┘  │
+│           │                           │            │
+│           │    ┌──────────────────────┘            │
+│           ▼    ▼                                    │
+│    ┌──────────────────┐           ┌─────────────┐  │
+│    │  FastAPI Backend │           │  Firebase   │  │
+│    │  (local server)  │           │  (auth+DB)  │  │
+│    │                  │           │             │  │
+│    │ • Auth (OAuth)   │           └─────────────┘  │
+│    │ • Subscriptions  │                            │
+│    │ • Payments       │           ┌─────────────┐  │
+│    │ • Admin Panel    │           │  HF Spaces  │  │
+│    │ • Rate Limits    │           │ (LLaVA)     │  │
+│    └────────┬─────────┘           └─────────────┘  │
+│             │                            ▲         │
+│             └────────────┬───────────────┘         │
+│                          │                         │
+│                  ┌───────▼─────────┐              │
+│                  │  HF Spaces API  │              │
+│                  │  (fine-tuned    │              │
+│                  │   LLaVA-NeXT)   │              │
+│                  └─────────────────┘              │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 
-### Why Firebase Works for Capstone
-- **Authentication**: Built-in user sign in/register (free tier)
-- **Database**: Firestore stores scan history per user (free tier covers capstone usage)
-- **Zero hosting cost**: No backend server to deploy or maintain
-- **Simple deployment**: Just React Native/Flutter → Firebase SDK
-- **Scalable**: If needed, can add backend later without changing app
+PRODUCTION PHASE (later):
+├─ Deploy FastAPI → Railway/Render ($5-10/mo)
+├─ Keep Firebase → free tier scales
+├─ Keep HF Spaces → free GPU tier
+└─ Add real Stripe/PayMongo → production keys
+```
 
-### Hosting & Services (All Free)
-| Service | Purpose | Cost |
-|---|---|---|
-| **Firebase Auth** | User sign in/register | Free tier |
-| **Firebase Firestore** | Scan history storage | Free tier (< 1GB/mo) |
-| **Hugging Face Spaces** | Fine-tuned LLaVA inference | Free GPU tier |
-| **Mobile app hosting** | React Native/Flutter | N/A (installed on device) |
-| **Backend server** | Not needed | $0 |
+### Web Version (Demo — Local FastAPI)
+- **Frontend**: React (current)
+- **Backend**: FastAPI running locally on your machine
+  - User auth (JWT + OAuth)
+  - Subscription tiers (demo only, no real payment yet)
+  - Admin panel
+  - Promo codes
+  - Rate limiting per user
+  - Scan history in SQLite
+- **Inference**: Call fine-tuned LLaVA on HF Spaces
+- **Hosting**: Run `python run.py` on your machine during demo
+- **Cost**: $0
+
+### Mobile Version (Firebase — No Backend)
+- **Frontend**: React Native or Flutter (to be built)
+- **Authentication**: Firebase Auth (sign in/register)
+- **Database**: Firebase Firestore (scan history per user)
+- **Inference**: Direct call to HF Spaces API
+- **Cost**: $0
+- **Data flow**:
+  ```
+  Mobile App
+      ├─→ Firebase Auth (user sign in)
+      ├─→ Firebase Firestore (store/fetch scan history)
+      └─→ HF Spaces (image → fine-tuned LLaVA → result)
+  ```
+
+### Why Hybrid Works for Capstone
+- **Web**: Shows full SaaS architecture (FastAPI, auth, payments, subscriptions, admin)
+- **Mobile**: Shows modern Firebase + serverless design
+- **Learning**: You build two different architectures, understand both
+- **Cost**: Completely free for capstone (run locally)
+- **Portfolio**: Can show both approaches to employers/investors
 
 ### Trade-offs
-- ✓ Zero hosting costs
-- ✓ Simple architecture (no backend to manage)
-- ✓ Shows understanding of managed services
-- ✗ HF Spaces API keys in mobile app (acceptable for capstone demo)
-- ✗ Inference speed depends on HF Spaces cold start (~10-30s first call)
+- ✓ Learn real SaaS backend (FastAPI, payments, auth)
+- ✓ Learn modern serverless (Firebase)
+- ✓ Zero hosting costs for capstone
+- ✓ Both web and mobile work
+- ✗ Two different architectures (but that's the learning)
+- ✗ Web backend only runs when you launch it locally
 
-### Current Status (Demo)
-- Gemini Vision as classifier via web frontend (FastAPI backend)
-- Mobile app (Firebase + HF Spaces) not yet built
-- Can port React components from web to React Native
+### Hosting & Services (Free)
+| Service | Purpose | Version | Cost |
+|---|---|---|---|
+| **FastAPI** | User auth, subscriptions, admin | Web | $0 (local) |
+| **Firebase Auth** | User sign in/register | Mobile | Free tier |
+| **Firebase Firestore** | Scan history | Mobile | Free tier |
+| **HF Spaces** | Fine-tuned LLaVA inference | Both | Free GPU tier |
+| **Stripe (mock)** | Payment flow (demo only) | Web | $0 (test keys) |
+
+### Current Status
+- Web: FastAPI backend ✅ + React frontend ✅ (replace Gemini with LLaVA)
+- Mobile: Not started (build with Firebase + HF Spaces)
+- Inference: Switch to fine-tuned LLaVA-NeXT 7B (replace Gemini)
 
 ---
 
