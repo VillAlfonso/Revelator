@@ -60,7 +60,8 @@
       "Bash(cp extracted_real/train/images/* synthetic/train/images/)",
       "Bash(cp extracted_real/train/labels/* synthetic/train/labels/)",
       "Bash(cp extracted_real/val/images/* synthetic/valid/images/)",
-      "Bash(cp extracted_real/val/labels/* synthetic/valid/labels/)"
+      "Bash(cp extracted_real/val/labels/* synthetic/valid/labels/)",
+      "Bash(gh api *)"
     ]
   }
 }

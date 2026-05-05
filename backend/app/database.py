@@ -75,3 +75,18 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN category_evidence TEXT"))
             if "document_type" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN document_type VARCHAR"))
+
+        # Create admin_audit_logs table if it doesn't exist (for logging admin actions)
+        if "admin_audit_logs" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE admin_audit_logs (
+                    id VARCHAR PRIMARY KEY,
+                    admin_id VARCHAR NOT NULL,
+                    action VARCHAR NOT NULL,
+                    target_user_id VARCHAR,
+                    details TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(admin_id) REFERENCES users(id),
+                    FOREIGN KEY(target_user_id) REFERENCES users(id)
+                )
+            """))

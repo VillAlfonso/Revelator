@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_admin, get_current_super_admin, hash_password
 from ..database import get_db
-from ..models import User, Scan, PromoCode
+from ..models import User, Scan, PromoCode, AdminAuditLog
 from datetime import datetime, timedelta, timezone
+import json
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -344,3 +345,106 @@ def gemini_status(_: User = Depends(get_current_admin), db: Session = Depends(ge
         "resets_in_hours": round(hours_until_reset, 1),
         "reset_time_utc": tomorrow.isoformat() + "Z",
     }
+
+
+# ============================================
+# Admin Actions (Ban User) — Admin Only
+# ============================================
+
+def _log_admin_action(db: Session, admin_id: str, action: str, target_user_id: str = None, details: dict = None):
+    """Log an admin action to the audit trail."""
+    log = AdminAuditLog(
+        admin_id=admin_id,
+        action=action,
+        target_user_id=target_user_id,
+        details=json.dumps(details) if details else None,
+    )
+    db.add(log)
+    db.commit()
+
+
+@router.post("/users/{user_id}/ban")
+def ban_user(
+    user_id: str,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Ban a user (deactivate account). Admin only."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot ban your own account")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="User is already banned")
+
+    user.is_active = False
+    db.commit()
+    db.refresh(user)
+
+    _log_admin_action(db, admin.id, "ban_user", user_id, {"username": user.username, "email": user.email})
+
+    return {"success": True, "message": f"User {user.username} has been banned"}
+
+
+@router.post("/users/{user_id}/unban")
+def unban_user(
+    user_id: str,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Unban a user (reactivate account). Admin only."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_active:
+        raise HTTPException(status_code=400, detail="User is already active")
+
+    user.is_active = True
+    db.commit()
+    db.refresh(user)
+
+    _log_admin_action(db, admin.id, "unban_user", user_id, {"username": user.username, "email": user.email})
+
+    return {"success": True, "message": f"User {user.username} has been unbanned"}
+
+
+# ============================================
+# Audit Logs — Super Admin Only
+# ============================================
+
+@router.get("/super/logs")
+def view_audit_logs(
+    super_admin: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """View audit logs of all admin actions. Super admin only."""
+    total = db.query(AdminAuditLog).count()
+    logs = (
+        db.query(AdminAuditLog)
+        .order_by(AdminAuditLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    result_logs = []
+    for log in logs:
+        admin_user = db.query(User).filter(User.id == log.admin_id).first()
+        target_user = db.query(User).filter(User.id == log.target_user_id).first() if log.target_user_id else None
+
+        result_logs.append({
+            "id": log.id,
+            "admin": {"username": admin_user.username, "email": admin_user.email} if admin_user else None,
+            "action": log.action,
+            "target": {"username": target_user.username, "email": target_user.email} if target_user else None,
+            "details": json.loads(log.details) if log.details else None,
+            "created_at": log.created_at.isoformat(),
+        })
+
+    return {"logs": result_logs, "total": total}

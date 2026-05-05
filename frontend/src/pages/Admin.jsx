@@ -10,7 +10,8 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 
 export default function Admin() {
   const { user: me } = useAuth();
-  const [tab, setTab] = useState('users'); // 'users', 'promo', 'dataset'
+  const isSuperAdmin = me?.is_super_admin;
+  const [tab, setTab] = useState('users'); // 'users', 'promo', 'dataset', 'logs'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -29,6 +30,9 @@ export default function Admin() {
   const [trainedKeys, setTrainedKeys] = useState({});
   const [scanCat, setScanCat] = useState(null); // category to scan in modal
   const [geminiStatus, setGeminiStatus] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [banningUserId, setBanningUserId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,8 +65,22 @@ export default function Admin() {
     }
   }, []);
 
+  const loadLogs = useCallback(async () => {
+    setLogsLoading(true);
+    setError('');
+    try {
+      const data = await api.adminViewLogs();
+      setLogs(data.logs || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (tab === 'promo') loadCodes(); }, [tab, loadCodes]);
+  useEffect(() => { if (tab === 'promo' && isSuperAdmin) loadCodes(); }, [tab, loadCodes, isSuperAdmin]);
+  useEffect(() => { if (tab === 'logs' && isSuperAdmin) loadLogs(); }, [tab, loadLogs, isSuperAdmin]);
   useEffect(() => {
     if (tab === 'dataset') {
       api.getCategories().then(data => {
@@ -146,6 +164,32 @@ export default function Admin() {
     }
   }
 
+  async function banUser(userId) {
+    setBanningUserId(userId);
+    setError('');
+    try {
+      await api.adminBanUser(userId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBanningUserId(null);
+    }
+  }
+
+  async function unbanUser(userId) {
+    setBanningUserId(userId);
+    setError('');
+    try {
+      await api.adminUnbanUser(userId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBanningUserId(null);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -189,19 +233,36 @@ export default function Admin() {
         >
           Users
         </button>
-        <button
-          className="mono"
-          onClick={() => setTab('promo')}
-          style={{
-            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === 'promo' ? '#00ff66' : '#86efac',
-            textTransform: 'uppercase', letterSpacing: 1,
-            borderBottom: tab === 'promo' ? '2px solid #00ff66' : 'none',
-            marginBottom: '-12px',
-          }}
-        >
-          Promo Codes
-        </button>
+        {isSuperAdmin && (
+          <>
+            <button
+              className="mono"
+              onClick={() => setTab('promo')}
+              style={{
+                padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+                color: tab === 'promo' ? '#00ff66' : '#86efac',
+                textTransform: 'uppercase', letterSpacing: 1,
+                borderBottom: tab === 'promo' ? '2px solid #00ff66' : 'none',
+                marginBottom: '-12px',
+              }}
+            >
+              Promo Codes
+            </button>
+            <button
+              className="mono"
+              onClick={() => setTab('logs')}
+              style={{
+                padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+                color: tab === 'logs' ? '#00ff66' : '#86efac',
+                textTransform: 'uppercase', letterSpacing: 1,
+                borderBottom: tab === 'logs' ? '2px solid #00ff66' : 'none',
+                marginBottom: '-12px',
+              }}
+            >
+              Audit Logs
+            </button>
+          </>
+        )}
         <button
           className="mono"
           onClick={() => setTab('dataset')}
@@ -254,6 +315,9 @@ export default function Admin() {
             isMe={u.id === me?.id}
             onEdit={() => setEditing({ ...u, _password: '' })}
             onDelete={() => setDeleteId(u.id)}
+            onBan={() => banUser(u.id)}
+            onUnban={() => unbanUser(u.id)}
+            isBanning={banningUserId === u.id}
           />
         ))}
         {!loading && users.length === 0 && (
@@ -357,7 +421,7 @@ export default function Admin() {
         <ScanModal cat={scanCat} onClose={() => setScanCat(null)} />
       )}
 
-      {tab === 'promo' && (
+      {tab === 'promo' && isSuperAdmin && (
       <div>
         <div className="card" style={{ marginBottom: 16, padding: 14 }}>
           <h3 className="oswald" style={{ margin: '0 0 12px 0', fontSize: 16, letterSpacing: 1, textTransform: 'uppercase' }}>Generate Promo Code</h3>
@@ -433,6 +497,34 @@ export default function Admin() {
         ))}
       </div>
       )}
+
+      {tab === 'logs' && isSuperAdmin && (
+      <div>
+        <h3 className="oswald" style={{ fontSize: 16, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Admin Audit Logs</h3>
+        {logsLoading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading logs...</div>}
+        {!logsLoading && logs.length === 0 && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No audit logs yet.</div>}
+        {logs.map(log => (
+          <div key={log.id} className="card" style={{ marginBottom: 12, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ color: '#e5e5e5', fontWeight: 600 }}>
+                {log.admin?.username} · <span style={{ color: '#86efac' }}>{log.action.replace(/_/g, ' ').toUpperCase()}</span>
+              </div>
+              <div style={{ color: '#737373', fontSize: 11 }}>{new Date(log.created_at).toLocaleString()}</div>
+            </div>
+            {log.target && (
+              <div style={{ color: '#86efac', fontSize: 12, marginBottom: 4 }}>
+                Target: <span style={{ color: '#d8ffe6' }}>{log.target.email}</span> (@{log.target.username})
+              </div>
+            )}
+            {log.details && (
+              <div style={{ color: '#737373', fontSize: 11, marginTop: 4, fontFamily: 'monospace' }}>
+                {JSON.stringify(log.details, null, 2)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      )}
     </div>
   );
 }
@@ -459,7 +551,7 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, onEdit, onDelete }) {
+function UserRow({ user, isMe, onEdit, onDelete, onBan, onUnban, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   return (
     <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
@@ -468,7 +560,7 @@ function UserRow({ user, isMe, onEdit, onDelete }) {
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 14, wordBreak: 'break-all' }}>{user.email}</span>
           {isMe && <Badge color="#00ff66">You</Badge>}
           {user.is_admin && <Badge color="#a3e635">Admin</Badge>}
-          {!user.is_active && <Badge color="#ff3344">Disabled</Badge>}
+          {!user.is_active && <Badge color="#ff3344">Banned</Badge>}
           <Badge color={planColor}>{user.plan}</Badge>
         </div>
         <div style={{ color: '#86efac', fontSize: 12, marginTop: 4 }}>
@@ -481,8 +573,29 @@ function UserRow({ user, isMe, onEdit, onDelete }) {
           {user.scans_this_month} scans this month · joined {(user.created_at || '').slice(0, 10)}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <button className="btn" onClick={onEdit}>Edit</button>
+        {user.is_active ? (
+          <button
+            className="btn"
+            onClick={onBan}
+            disabled={isMe || isBanning}
+            style={{ borderColor: isMe ? '#1d3825' : '#ff9500', color: isMe ? '#3f6e4a' : '#ffa500' }}
+            title={isMe ? 'You cannot ban your own account' : 'Ban user'}
+          >
+            {isBanning ? 'Banning...' : 'Ban'}
+          </button>
+        ) : (
+          <button
+            className="btn"
+            onClick={onUnban}
+            disabled={isBanning}
+            style={{ borderColor: '#00cc88', color: '#00ff99' }}
+            title="Unban user"
+          >
+            {isBanning ? 'Unbanning...' : 'Unban'}
+          </button>
+        )}
         <button
           className="btn"
           onClick={onDelete}

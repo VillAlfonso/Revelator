@@ -225,6 +225,20 @@ export const api = {
     return request(`/admin/super/codes/${codeId}/deactivate`, { method: 'POST' });
   },
 
+  // Admin actions (ban/unban users)
+  adminBanUser(userId) {
+    return request(`/admin/users/${userId}/ban`, { method: 'POST' });
+  },
+
+  adminUnbanUser(userId) {
+    return request(`/admin/users/${userId}/unban`, { method: 'POST' });
+  },
+
+  // Super admin logs
+  adminViewLogs(limit = 100, offset = 0) {
+    return request(`/admin/super/logs?limit=${limit}&offset=${offset}`);
+  },
+
   adminGeminiStatus() {
     return request('/admin/gemini-status');
   },

@@ -86,3 +86,17 @@ class Scan(Base):
 
     # Relationships
     user = relationship("User", back_populates="scans")
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    admin_id = Column(String, ForeignKey("users.id"), nullable=False)
+    action = Column(String, nullable=False)  # ban_user, unban_user, promote_admin, demote_admin, generate_code, etc.
+    target_user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    details = Column(Text, nullable=True)  # JSON details about the action
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    admin = relationship("User", foreign_keys=[admin_id])
+    target_user = relationship("User", foreign_keys=[target_user_id])
