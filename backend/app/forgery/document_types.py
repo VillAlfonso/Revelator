@@ -95,28 +95,6 @@ DOCUMENT_TYPES = {
             "digital_cut_paste", "digital_desktop", "digital_scanned",
         ],
     },
-    "medical_record": {
-        "title": "Medical Record",
-        "description": "Doctor's notes, prescription, or medical certificate",
-        "applicable_categories": [
-            "traced_carbon", "traced_indentation", "traced_projection",
-            "addition_insertion", "addition_interlineation", "erasure_chemical", "erasure_mechanical",
-            "digital_cut_paste", "digital_desktop", "digital_scanned",
-            "obliteration_ink", "obliteration_whiteout", "obliteration_pigment",
-            "sympathetic_indented",
-        ],
-    },
-    "power_of_attorney": {
-        "title": "Power of Attorney",
-        "description": "Legal authorization document with witness and notary signatures",
-        "applicable_categories": [
-            "traced_carbon", "traced_indentation", "traced_projection",
-            "addition_insertion", "addition_interlineation", "erasure_chemical", "erasure_mechanical",
-            "digital_cut_paste", "digital_desktop", "digital_scanned",
-            "obliteration_ink", "obliteration_whiteout", "obliteration_pigment",
-            "sympathetic_indented", "sympathetic_special",
-        ],
-    },
     "other": {
         "title": "Other Document",
         "description": "Any other type of document not listed above",
