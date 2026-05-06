@@ -53,6 +53,20 @@ export default function About() {
         <Stat label="Min Acceptable" value={totals.limited_data_threshold.toLocaleString()} color="#86efac" />
       </div>
 
+      {info.model_tiers && info.model_tiers.length > 0 && (
+        <Section title="The Three Forensic Tiers">
+          <p style={{ color: '#86efac', fontSize: 13, marginBottom: 18, lineHeight: 1.7 }}>
+            Revelator offers three progressively more capable analysis tiers. Each tier uses
+            different model(s) and is unlocked by a specific subscription plan. The Analyst is
+            the baseline — always available. The Detective and Sherlock tiers add fine-tuned,
+            domain-specialized models on top.
+          </p>
+          <div style={{ display: 'grid', gap: 16 }}>
+            {info.model_tiers.map(tier => <TierCard key={tier.key} tier={tier} />)}
+          </div>
+        </Section>
+      )}
+
       <Section title="How a scan works">
         <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {info.pipeline.map(p => (
@@ -194,6 +208,106 @@ function VerdictRow({ level, color, text }) {
     <div style={{ display: 'flex', gap: 16, padding: '12px 0', borderBottom: '1px solid #112418' }}>
       <span className={`badge badge-${badgeKey}`} style={{ flex: '0 0 auto', alignSelf: 'flex-start' }}>{level}</span>
       <span style={{ fontSize: 13, color: '#d8ffe6', lineHeight: 1.6 }}>{text}</span>
+    </div>
+  );
+}
+
+function TierCard({ tier }) {
+  const tierColors = {
+    1: { primary: '#86efac', glow: 'rgba(134,239,172,0.25)', bg: 'rgba(134,239,172,0.04)' },
+    2: { primary: '#00ffaa', glow: 'rgba(0,255,170,0.3)',    bg: 'rgba(0,255,170,0.05)' },
+    3: { primary: '#00ff66', glow: 'rgba(0,255,102,0.4)',    bg: 'rgba(0,255,102,0.07)' },
+  };
+  const c = tierColors[tier.rank] || tierColors[1];
+  return (
+    <div style={{
+      background: c.bg,
+      border: `1px solid ${c.primary}40`,
+      borderLeft: `4px solid ${c.primary}`,
+      borderRadius: 3,
+      padding: 18,
+      boxShadow: `inset 0 1px 0 ${c.primary}10`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+        <div>
+          <p className="mono" style={{ fontSize: 10, letterSpacing: 2, color: c.primary, margin: 0 }}>
+            TIER {tier.rank}
+          </p>
+          <h3 className="oswald" style={{
+            fontSize: 22, color: c.primary, margin: '4px 0 0 0',
+            textTransform: 'uppercase', letterSpacing: 3,
+            textShadow: `0 0 10px ${c.glow}`,
+          }}>
+            {tier.name}
+          </h3>
+          <p style={{ fontSize: 13, color: '#86efac', marginTop: 6, marginBottom: 0, fontStyle: 'italic' }}>
+            {tier.tagline}
+          </p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {!tier.available && (
+            <span className="mono" style={{
+              fontSize: 9, color: '#ffaa00', letterSpacing: 1.5,
+              padding: '3px 8px', border: '1px solid #ffaa00',
+              borderRadius: 2, textTransform: 'uppercase',
+            }}>
+              Coming Soon
+            </span>
+          )}
+          <span className="mono" style={{ fontSize: 10, color: c.primary, letterSpacing: 1, textAlign: 'right' }}>
+            {(tier.plans || []).join(' · ').toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <p style={{ fontSize: 13, color: '#d8ffe6', lineHeight: 1.7, margin: 0 }}>
+          {tier.description}
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <h4 className="oswald" style={{ fontSize: 11, letterSpacing: 2, color: '#6dba85', textTransform: 'uppercase', margin: '0 0 6px 0' }}>
+          ▸ Models in this tier
+        </h4>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {(tier.models || []).map((m, i) => (
+            <li key={i} style={{ fontSize: 12, color: '#86efac', lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>{m}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <h4 className="oswald" style={{ fontSize: 11, letterSpacing: 2, color: '#6dba85', textTransform: 'uppercase', margin: '0 0 6px 0' }}>
+          ▸ How it's trained
+        </h4>
+        <p style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: 0 }}>
+          {tier.training}
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+        <div>
+          <h4 className="oswald" style={{ fontSize: 11, letterSpacing: 2, color: '#00ff66', textTransform: 'uppercase', margin: '0 0 6px 0' }}>
+            ▸ Strengths
+          </h4>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {(tier.strengths || []).map((s, i) => (
+              <li key={i} style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7 }}>{s}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h4 className="oswald" style={{ fontSize: 11, letterSpacing: 2, color: '#ffa040', textTransform: 'uppercase', margin: '0 0 6px 0' }}>
+            ▸ Limitations
+          </h4>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {(tier.limitations || []).map((l, i) => (
+              <li key={i} style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7 }}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }

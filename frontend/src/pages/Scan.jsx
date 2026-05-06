@@ -2,10 +2,12 @@ import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { api } from '../api/client';
+import { useAuth } from '../App';
 import { MagnifierIcon } from '../components/ForensicMotifs';
 import { CATEGORY_BY_KEY } from '../categories';
 
 export default function Scan() {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,14 +15,20 @@ export default function Scan() {
   const [error, setError] = useState('');
   const [documentType, setDocumentType] = useState('other');
   const [documentTypes, setDocumentTypes] = useState([]);
+  const [modelTier, setModelTier] = useState('analyst');
+  const [tiers, setTiers] = useState([]);
   const fileRef = useRef();
   const canvasRef = useRef();
 
-  // Load document types on mount
+  // Load document types and model tiers on mount
   React.useEffect(() => {
     api.getDocumentTypes()
       .then(data => setDocumentTypes(data.document_types))
       .catch(err => console.error('Failed to load document types:', err));
+
+    api.getModelTiers()
+      .then(data => setTiers(data.tiers || []))
+      .catch(err => console.error('Failed to load model tiers:', err));
   }, []);
 
   function resetScan() {
@@ -118,7 +126,7 @@ export default function Scan() {
     setError('');
     setResult(null);
     try {
-      const data = await api.analyze(file, null, documentType !== 'other' ? documentType : null);
+      const data = await api.analyze(file, null, documentType !== 'other' ? documentType : null, modelTier);
       setResult(data);
       if (data.annotations?.length > 0) {
         setTimeout(() => drawAnnotations(data.annotations, data.original_image_dimensions.width, data.original_image_dimensions.height), 100);
@@ -156,6 +164,87 @@ export default function Scan() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
+        {/* Model Tier Selection */}
+        <div className="card">
+          <h3 className="oswald" style={{
+            fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
+            color: '#6dba85',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>◈</span>
+            Forensic Tier
+          </h3>
+          <p style={{ fontSize: 13, color: '#86efac', marginBottom: 14 }}>
+            Choose which model(s) analyze your document. Higher tiers use specialized models for better accuracy.
+          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {tiers.map(t => {
+              const isActive = modelTier === t.key;
+              const isUnlocked = t.unlocked !== false;
+              const isComingSoon = !t.available;
+              return (
+                <div
+                  key={t.key}
+                  onClick={() => isUnlocked && setModelTier(t.key)}
+                  style={{
+                    padding: 14,
+                    border: `1px solid ${isActive ? '#00ff66' : '#1d3825'}`,
+                    borderRadius: 3,
+                    background: isActive ? 'rgba(0,255,102,0.06)' : (isUnlocked ? '#0a1605' : 'rgba(20,20,20,0.5)'),
+                    cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                    opacity: isUnlocked ? 1 : 0.55,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="oswald glow" style={{
+                        fontSize: 16, color: isActive ? '#00ff66' : '#86efac',
+                        textTransform: 'uppercase', letterSpacing: 2,
+                      }}>
+                        T{t.rank} · {t.name}
+                      </span>
+                      {isComingSoon && (
+                        <span className="mono" style={{
+                          fontSize: 9, color: '#ffaa00', letterSpacing: 1.5,
+                          padding: '2px 6px', border: '1px solid #ffaa00',
+                          borderRadius: 2, textTransform: 'uppercase',
+                        }}>
+                          Coming Soon
+                        </span>
+                      )}
+                      {!isUnlocked && (
+                        <span className="mono" style={{
+                          fontSize: 9, color: '#ff8a99', letterSpacing: 1.5,
+                          padding: '2px 6px', border: '1px solid #ff3344',
+                          borderRadius: 2, textTransform: 'uppercase',
+                        }}>
+                          🔒 Upgrade Required
+                        </span>
+                      )}
+                    </div>
+                    <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1 }}>
+                      {(t.plans || []).join(' · ').toUpperCase()}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#86efac', marginTop: 8, marginBottom: 0, fontStyle: 'italic' }}>
+                    {t.tagline}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#6dba85', marginTop: 6, marginBottom: 0 }}>
+                    {(t.models || []).join(' + ')}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {!user?.plan || user.plan === 'free' ? (
+            <p style={{ fontSize: 11, color: '#3f6e4a', marginTop: 12, fontStyle: 'italic' }}>
+              Upgrade to Pro to unlock Detective. Premium unlocks Sherlock.{' '}
+              <Link to="/account" style={{ color: '#00ff66' }}>View plans →</Link>
+            </p>
+          ) : null}
+        </div>
+
         {/* Document Type Selection */}
         <div className="card">
           <h3 className="oswald" style={{

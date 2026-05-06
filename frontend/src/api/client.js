@@ -127,16 +127,21 @@ export const api = {
     return request('/about', { noAuth: true });
   },
 
-  analyze(file, category, documentType) {
+  analyze(file, category, documentType, modelTier) {
     const form = new FormData();
     form.append('imageFile', file);
     if (category) form.append('category', category);
     if (documentType) form.append('document_type', documentType);
+    if (modelTier) form.append('model_tier', modelTier);
     return request('/analyze', { method: 'POST', body: form });
   },
 
   getDocumentTypes() {
     return request('/document-types', { noAuth: true });
+  },
+
+  getModelTiers() {
+    return request('/tiers');
   },
 
   preliminary(file) {

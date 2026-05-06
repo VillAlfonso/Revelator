@@ -32,6 +32,11 @@ from ..forgery.llm import get_llm_explanation
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import classify as gemini_classify
 from ..forgery.document_types import get_document_types_response
+from ..forgery.model_tiers import (
+    TIER_ANALYST, TIER_DETECTIVE, TIER_SHERLOCK, ALL_TIERS,
+    TIER_AVAILABLE, TIER_META, get_tiers_response, is_tier_allowed,
+)
+from ..forgery import llava_client
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -70,6 +75,12 @@ def check_scan_limit(user: User):
 def get_document_types():
     """Get list of document types for scan context selection."""
     return get_document_types_response()
+
+
+@router.get("/tiers")
+def get_model_tiers(current_user: User = Depends(get_current_user)):
+    """Return model tier metadata with `unlocked` flags for the current user's plan."""
+    return get_tiers_response(user_plan=current_user.plan)
 
 
 @router.get("/categories")
@@ -222,6 +233,7 @@ def get_about_info():
             "total_dataset_images": sum(DATASET_COUNTS.values()),
             "limited_data_threshold": LIMITED_DATA_THRESHOLD,
         },
+        "model_tiers": list(TIER_META.values()),
     }
 
 
@@ -230,12 +242,24 @@ def analyze_document(
     imageFile: UploadFile = File(...),
     category: Optional[str] = Form(None),
     document_type: Optional[str] = Form(None),
+    model_tier: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # Validate category
     if category and category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Options: {VALID_CATEGORIES}")
+
+    # Resolve & validate model tier (default to Analyst — always available)
+    tier = (model_tier or TIER_ANALYST).lower()
+    if tier not in ALL_TIERS:
+        raise HTTPException(status_code=400, detail=f"Invalid model_tier. Options: {ALL_TIERS}")
+    if not is_tier_allowed(current_user.plan, tier):
+        raise HTTPException(
+            status_code=403,
+            detail=f"The {TIER_META[tier]['name']} tier requires a higher plan. "
+                   f"Upgrade to {TIER_META[tier]['plans'][0]} or above.",
+        )
 
     # Check scan limit
     check_scan_limit(current_user)
@@ -284,9 +308,47 @@ def analyze_document(
     training_warning = get_training_warning(category, detections)
     category_trained = TRAINING_STATUS.get(category, False) if category else False
 
-    # Gemini Vision — primary classifier against the 19-category taxonomy.
-    # Runs after YOLO so failures don't block the existing pipeline.
+    # ── Tiered inference ─────────────────────────────────────────────────────
+    # Analyst:   Gemini only (always runs; baseline).
+    # Detective: LLaVA-100 + Gemini verification. Falls back to Analyst if
+    #            LLaVA stub isn't wired up.
+    # Sherlock:  LLaVA-500 + document-type aware + Gemini verification. Same
+    #            fallback behavior as Detective until deployed.
     gemini = gemini_classify(image, document_type=document_type)
+    llava_result = None
+    tier_used = TIER_ANALYST  # what actually ran, may differ from requested
+
+    if tier == TIER_DETECTIVE and TIER_AVAILABLE[TIER_DETECTIVE]:
+        llava_result = llava_client.classify_detective(image, document_type=document_type)
+        if llava_result is not None:
+            tier_used = TIER_DETECTIVE
+    elif tier == TIER_SHERLOCK and TIER_AVAILABLE[TIER_SHERLOCK]:
+        llava_result = llava_client.classify_sherlock(image, document_type=document_type)
+        if llava_result is not None:
+            tier_used = TIER_SHERLOCK
+
+    # When a LLaVA tier returned a result, prefer its category but keep Gemini's
+    # explanation/evidence as the verification layer. Confidence is averaged so
+    # disagreement lowers the score automatically.
+    if llava_result is not None:
+        agreement = llava_result["category"] == gemini["category"]
+        avg_conf = (llava_result["confidence"] + gemini["confidence"]) / 2
+        gemini = {
+            **gemini,
+            "category": llava_result["category"],
+            "category_label": llava_result.get("category_label", gemini["category_label"]),
+            "subtype": llava_result.get("subtype", gemini["subtype"]),
+            "confidence": avg_conf if agreement else min(llava_result["confidence"], gemini["confidence"]),
+            "explanation": (
+                f"{llava_result['explanation']}\n\n"
+                f"Verification: {gemini['explanation']}"
+            ),
+            "evidence": (llava_result.get("evidence") or []) + gemini.get("evidence", []),
+            "tools_likely_used": llava_result.get("tools_likely_used", gemini["tools_likely_used"]),
+            "certainty_level": "HIGH" if agreement and avg_conf >= 0.85 else (
+                "MEDIUM" if agreement and avg_conf >= 0.60 else "LOW"
+            ),
+        }
 
     # Filter out base COCO model detections — they are not forgery evidence.
     # The _default model (yolov8n.pt) is a COCO general detector used as a
@@ -390,6 +452,9 @@ def analyze_document(
         "tools_likely_used": gemini["tools_likely_used"],
         "category_confidence": gemini["confidence"],
         "certainty_level": gemini.get("certainty_level"),
+        "model_tier_requested": tier,
+        "model_tier_used": tier_used,
+        "model_tier_fallback": tier != tier_used,
     }
 
 
