@@ -127,12 +127,19 @@ export const api = {
     return request('/about', { noAuth: true });
   },
 
-  analyze(file, category, documentType, modelTier) {
+  analyze(file, category, documentType, modelTier, extras = {}) {
     const form = new FormData();
     form.append('imageFile', file);
     if (category) form.append('category', category);
     if (documentType) form.append('document_type', documentType);
     if (modelTier) form.append('model_tier', modelTier);
+    if (extras.suspicionReason) form.append('suspicion_reason', extras.suspicionReason);
+    if (extras.areaOfConcern) form.append('area_of_concern', extras.areaOfConcern);
+    if (extras.imageSource) form.append('image_source', extras.imageSource);
+    if (extras.isForgedBelief) form.append('is_forged_belief', extras.isForgedBelief);
+    if (extras.shotType) form.append('shot_type', extras.shotType);
+    if (extras.lighting) form.append('lighting', extras.lighting);
+    if (extras.physicalClues) form.append('physical_clues', extras.physicalClues);
     return request('/analyze', { method: 'POST', body: form });
   },
 

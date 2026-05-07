@@ -117,6 +117,13 @@ def analyze_document(
     category: Optional[str] = Form(None),
     document_type: Optional[str] = Form(None),
     model_tier: Optional[str] = Form(None),
+    suspicion_reason: Optional[str] = Form(None),
+    area_of_concern: Optional[str] = Form(None),
+    image_source: Optional[str] = Form(None),
+    is_forged_belief: Optional[str] = Form(None),
+    shot_type: Optional[str] = Form(None),
+    lighting: Optional[str] = Form(None),
+    physical_clues: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -162,7 +169,17 @@ def analyze_document(
         }
 
     # Tiered inference: Analyst = Gemini only. Detective/Sherlock = LLaVA + Gemini (stubs for now).
-    gemini = gemini_classify(image, document_type=document_type)
+    gemini = gemini_classify(
+        image,
+        document_type=document_type,
+        suspicion_reason=suspicion_reason,
+        area_of_concern=area_of_concern,
+        image_source=image_source,
+        is_forged_belief=is_forged_belief,
+        shot_type=shot_type,
+        lighting=lighting,
+        physical_clues=physical_clues,
+    )
     llava_result = None
     tier_used = TIER_ANALYST
 
@@ -260,6 +277,8 @@ def analyze_document(
         "tools_likely_used": gemini["tools_likely_used"],
         "category_confidence": gemini["confidence"],
         "certainty_level": gemini.get("certainty_level"),
+        "reasoning_steps": gemini.get("reasoning_steps", []),
+        "anomaly_location": gemini.get("anomaly_location"),
         "model_tier_requested": tier,
         "model_tier_used": tier_used,
         "model_tier_fallback": tier != tier_used,

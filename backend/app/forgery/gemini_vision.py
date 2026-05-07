@@ -5,10 +5,11 @@ Reads the document image and returns a structured JSON verdict against the
 19-category taxonomy. Output is parsed into a dict that the analyze route
 saves to the Scan row.
 
-The 19 categories cover the 16 trained forgery classes plus three fallbacks:
-  - no_forgery_detected  → image is a document, but nothing suspicious
-  - not_a_document       → meme, selfie, joke; the explanation says what it is
-  - other                → real forgery that doesn't fit the 16; describe freely
+Design choices to minimize hallucinations:
+  - Chain-of-thought reasoning (model must show its work before classifying)
+  - Negative constraints (explicit IGNORE list to avoid flagging benign issues)
+  - Anomaly location grounding (forced to point to a specific region when forged)
+  - Optional user context (focus area, source, suspicion) that narrows the search
 """
 
 from __future__ import annotations
@@ -24,8 +25,6 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 
 
 # ── Category taxonomy ──────────────────────────────────────────────────────
-# Each tuple: (code, human-readable label). The code is what gets stored in
-# Scan.detected_category and surfaced to the frontend.
 CATEGORIES = [
     # Traced
     ("traced_carbon",            "Traced — Carbon Transfer"),
@@ -59,71 +58,165 @@ CATEGORY_CODES = [c[0] for c in CATEGORIES]
 CATEGORY_LABELS = dict(CATEGORIES)
 
 
-SYSTEM_PROMPT = """You are a forensic document examiner. You will be shown an image and you must classify it into EXACTLY ONE of these 19 categories.
+SYSTEM_PROMPT = """You are a forensic document examiner. Classify the image into EXACTLY ONE of the 19 categories below. Reason step by step before answering, and only flag a forgery when you can point to specific visible evidence.
 
-CATEGORY CODES (use the code on the left in your JSON response):
+CATEGORIES (use the code on the left in your JSON):
 
-Traced (signature/text traced from a source onto a target document):
+Traced:
   traced_carbon            — Carbon-paper transfer; faint carbon residue along strokes.
-  traced_indentation       — Pressure indentation visible on backside or via raking light.
-  traced_projection        — Projected/light-table tracing; uniform line weight, no carbon, no grooves.
+  traced_indentation       — Pressure indentation visible via raking light or backside.
+  traced_projection        — Light-table tracing; uniform line weight, no carbon, no grooves.
 
 Alteration:
-  addition_insertion       — New characters/digits inserted INSIDE existing words or numbers.
+  addition_insertion       — New characters inserted INSIDE existing words/numbers.
   addition_interlineation  — New writing squeezed BETWEEN existing lines.
-  erasure_chemical         — Bleach/solvent erasure; discoloration halo, fiber damage, ink ghosting.
-  erasure_mechanical       — Eraser/blade scraping; thinned/abraded paper, surface roughness.
+  erasure_chemical         — Bleach/solvent erasure; halo, fiber damage, ink ghosting.
+  erasure_mechanical       — Eraser/blade scraping; thinned/abraded paper.
 
 Cut and Paste / Digital Fabrication:
-  digital_cut_paste        — A section physically cut from one document and pasted onto another (visible edges, shadows, texture mismatch, adhesive marks), OR a region digitally spliced in (mismatched compression, lighting, or font). Use this for ANY cut-and-paste forgery, physical or digital.
-  digital_desktop          — Whole document fabricated in Word/Canva/Photoshop; unnatural typography or layout.
-  digital_scanned          — Scanned-then-edited document; scan artifacts plus digital tampering.
+  digital_cut_paste        — Section cut+pasted (physical OR digital splice). Visible edges, shadows, texture or compression mismatch.
+  digital_desktop          — Whole document fabricated in Word/Canva/Photoshop.
+  digital_scanned          — Scanned document with digital tampering on top.
 
-Obliteration (covering original text):
+Obliteration:
   obliteration_ink         — Original text scribbled out with ink.
   obliteration_whiteout    — Correction fluid covering text.
-  obliteration_pigment     — Opaque marker, paint, or other pigment covering text.
+  obliteration_pigment     — Opaque marker, paint, or pigment covering text.
 
 Sympathetic Ink:
-  sympathetic_indented     — Indented writing visible only via raking light or carbon dusting.
-  sympathetic_special      — Invisible/special ink (UV-reactive, iodine-fumed, heat-revealed, etc.). Identify the kind.
+  sympathetic_indented     — Indented writing visible only via raking light.
+  sympathetic_special      — Invisible/special ink (UV, iodine, heat-revealed, etc.).
 
 Currency:
-  currency_analysis        — Banknote suspected counterfeit.
+  currency_analysis        — Suspected counterfeit banknote.
 
-Fallbacks (use ONLY when none of the above fit):
-  no_forgery_detected      — Image IS a document and looks authentic, no tampering visible.
-  not_a_document           — Image is NOT a document at all (meme, selfie, photo, screenshot, joke). Describe what it actually is.
-  other                    — Real forgery, but doesn't fit any of the 16 specific categories. Describe it.
+Fallbacks (use ONLY when nothing above fits):
+  no_forgery_detected      — Document looks authentic, no tampering signs.
+  not_a_document           — Image is not a document at all (selfie, meme, screenshot).
+  other                    — Real forgery that doesn't match any of the 16 specific types.
 
-OUTPUT FORMAT — return ONLY valid JSON, no prose, no markdown fences:
+═══════════════════════════════════════════════════════════════════════════
+IGNORE these (they are NOT forgery indicators):
+  - Phone-camera blur, low resolution, poor lighting, shadows from the photographer
+  - Background surface (desk, hands, clutter behind the document)
+  - JPEG compression noise on the entire image (this is normal)
+  - Worn paper, creases, folds, age stains, coffee marks (these are wear, not forgery)
+  - Watermark patterns and security features that are SUPPOSED to be there
+  - Slight rotation, perspective skew, glare from flash
+═══════════════════════════════════════════════════════════════════════════
+
+REASONING — work through these steps in order before you classify:
+  1. What is in the image? (document or non-document; if document, what type?)
+  2. Scan the WHOLE document for anomalies. List what you actually see — not what you'd expect.
+  3. For each anomaly, ask: is this real tampering, or one of the IGNORE items above?
+  4. If there is real tampering, point to its LOCATION (which region of the document).
+  5. Now pick the single best category code based on the evidence.
+  6. Set confidence based on how clear the evidence is (see scale below).
+
+CONFIDENCE SCALE (be honest — overconfidence is hallucination):
+  0.90–1.00  Multiple unambiguous signs of this exact forgery type
+  0.70–0.89  Clear signs but some ambiguity
+  0.50–0.69  Suspicious but not definitive — could be benign
+  0.30–0.49  Weak signal; mention it but lean toward no_forgery_detected
+  0.00–0.29  No real evidence; classify as no_forgery_detected unless you saw something
+
+OUTPUT — return ONLY valid JSON, no markdown fences, no prose outside the object:
 
 {
-  "category": "<one code from the list above>",
-  "subtype": "<specific kind, e.g. 'Bleach-based ink remover', 'UV-reactive ink', 'Selfie', 'Meme', or null if not applicable>",
-  "confidence": <float between 0.0 and 1.0>,
-  "explanation": "<MUST start by stating the category in plain English, then explain why you chose it based on visible cues>",
-  "evidence": ["<short visible cue>", "<another cue>", ...],
-  "tools_likely_used": "<what tools/methods the forger likely used, or null if not applicable / not a forgery>"
+  "reasoning_steps": [
+    "<step 1: what's in the image>",
+    "<step 2: anomalies observed>",
+    "<step 3: filtered against ignore list>",
+    "<step 4: location of real tampering, or 'none found'>",
+    "<step 5: chosen category and why>"
+  ],
+  "category": "<one code from the list>",
+  "subtype": "<specific kind, or null>",
+  "confidence": <float 0.0–1.0 per scale above>,
+  "anomaly_location": "<where on the document the forgery appears, e.g. 'top-right date field' — null if no_forgery_detected or not_a_document>",
+  "explanation": "<MUST start with the human-readable category name, then explain why based on visible cues>",
+  "evidence": ["<short visible cue>", "<another>", "..."],
+  "tools_likely_used": "<what tools/methods, or null if not applicable>"
 }
 
-RULES:
-1. The "explanation" field MUST begin with the human-readable category name, e.g. "Chemical Erasure detected." or "This is a selfie, not a document."
-2. After naming the category, explain WHY using the visible cues.
-3. For sympathetic_special, identify the specific kind of ink in subtype (UV, iodine, heat, etc.) and explain what it likely is.
-4. For erasure_chemical, name the likely chemical class in subtype (bleach, acetone, etc.).
-5. For not_a_document, explicitly say what the image is — selfie, meme, screenshot, joke, etc.
-6. For other, describe the forgery in detail in the explanation.
-7. Pick exactly ONE category. If torn between two, pick the dominant one and mention the other in explanation.
-8. Output ONLY the JSON object — no preamble, no code fences, no commentary outside the JSON.
-9. For digital_cut_paste: use this for BOTH physical cut-and-paste (scissors + adhesive) AND digital splicing. Do NOT fall back to "other" just because the cut-and-paste appears physical rather than digital.
-10. BIAS TOWARD DETECTION: These images are submitted specifically because they are suspected forgeries. When you see even subtle anomalies — inconsistent ink density, misaligned baselines, abrupt texture changes, differing font weights, suspicious white patches, or any region that looks different from the surrounding area — classify it as the most likely forgery type. Do NOT classify as no_forgery_detected unless the document looks completely clean and consistent throughout.
-11. LOW CONFIDENCE IS STILL EVIDENCE: Even if you are not certain, assign the most likely forgery category and set confidence accordingly (0.50–0.70 for uncertain). Only use no_forgery_detected when you see zero signs of manipulation.
-12. COMMON SUBTLE CUES to look for: slight color/brightness difference in a region; text that looks slightly different in weight or spacing from surrounding text; a small white or discolored patch; any area where the paper texture changes; pixels that look sharper or blurrier than the rest; evidence of something being written over or under other content."""
+CRITICAL RULES:
+  1. The "explanation" MUST begin with the category's human name (e.g. "Chemical Erasure detected.").
+  2. If you classify as no_forgery_detected, set anomaly_location to null and evidence to [] or just observed-clean items.
+  3. Do NOT invent evidence. If you can't see it, don't list it.
+  4. Pick exactly ONE category. If torn, pick the dominant one and mention the other in explanation.
+  5. Output ONLY the JSON object. No code fences, no commentary."""
+
+
+def _build_user_context_block(
+    document_type: Optional[str],
+    suspicion_reason: Optional[str],
+    area_of_concern: Optional[str],
+    image_source: Optional[str],
+    is_forged_belief: Optional[str],
+    shot_type: Optional[str],
+    lighting: Optional[str],
+    physical_clues: Optional[str],
+) -> str:
+    """Build an optional user-context block. Returns empty string if no context."""
+    lines = []
+    if document_type and document_type not in ("other", "", None):
+        lines.append(f"- Document type (per user): {document_type.replace('_', ' ')}")
+    if image_source and image_source not in ("not_sure", "", None):
+        lines.append(f"- Image source (per user): {image_source.replace('_', ' ')}")
+    if shot_type and shot_type not in ("not_sure", "", None):
+        lines.append(f"- Shot type (per user): {shot_type.replace('_', ' ')}")
+    if lighting and lighting not in ("not_sure", "", None):
+        lines.append(f"- Lighting condition (per user): {lighting.replace('_', ' ')}")
+    if is_forged_belief and is_forged_belief not in ("not_sure", "", None):
+        lines.append(f"- User's belief about authenticity: {is_forged_belief.replace('_', ' ')}")
+    if area_of_concern and area_of_concern not in ("anywhere", "", None):
+        lines.append(f"- User wants you to focus on: {area_of_concern.replace('_', ' ')}")
+    if physical_clues and physical_clues not in ("none", "", None):
+        _clue_labels = {
+            "indentation_grooves": "indentation grooves / canal marks behind writing",
+            "carbon_streaks": "faint carbon residue along strokes",
+            "uniform_traced_lines": "uniform line weight (looks traced)",
+            "ink_halo": "halo or discoloration around erased area",
+            "paper_thinning": "thinned or abraded paper surface",
+            "characters_inserted": "extra characters squeezed inside words/numbers",
+            "text_between_lines": "writing squeezed between existing lines",
+            "cut_paste_edges": "visible cut/paste edges or texture mismatch",
+            "whiteout_correction": "correction fluid covering text",
+            "ink_scribbles": "ink scribbled over original text",
+            "opaque_pigment_cover": "marker/paint covering text",
+            "counterfeit_currency": "suspect counterfeit banknote",
+            "computer_generated": "looks computer-generated / desktop-published",
+            "scan_tampering_artifacts": "scanned document with visible digital edits layered on top",
+            "sympathetic_hidden_writing": "hidden writing only visible under special lighting (UV, raking, backlight) — check for sympathetic_indented",
+            "uv_reactive_ink_glow": "ink glows or reacts under UV light — check for sympathetic_special",
+        }
+        clue_label = _clue_labels.get(physical_clues, physical_clues.replace('_', ' '))
+        lines.append(f"- Physical clue user thinks they observed: {clue_label}")
+    if suspicion_reason:
+        clean = suspicion_reason.strip()[:300]
+        if clean:
+            lines.append(f"- User's suspicion in their own words: \"{clean}\"")
+    if not lines:
+        return ""
+    return (
+        "\n\n═══════════════════════════════════════════════════════════════════════════\n"
+        "USER-PROVIDED CONTEXT — TREAT AS HINTS ONLY, NOT FACTS:\n\n"
+        + "\n".join(lines)
+        + "\n\nHOW TO USE THIS CONTEXT:\n"
+        "  - The IMAGE is the ultimate evidence. The user's hints are just guidance.\n"
+        "  - Verify every user claim against what you actually see in the image.\n"
+        "  - If the user says \"indentation grooves visible\" but the image shows clean text\n"
+        "    with no grooves, IGNORE the user's hint and classify based on what you see.\n"
+        "  - If the user says \"this is forged\" but the document looks completely authentic,\n"
+        "    classify as no_forgery_detected — do not be pressured by their belief.\n"
+        "  - User hints can help you LEAN toward a category when the visible evidence is\n"
+        "    ambiguous, but they cannot CREATE evidence that isn't there.\n"
+        "  - When the user's hint contradicts the image, note this in your reasoning_steps.\n"
+        "═══════════════════════════════════════════════════════════════════════════"
+    )
 
 
 def _client():
-    """Lazy-initialize the Gemini client. Returns None if no API key is configured."""
     if not GEMINI_API_KEY:
         return None
     try:
@@ -134,18 +227,14 @@ def _client():
 
 
 def _strip_json_fence(text: str) -> str:
-    """Strip ```json ... ``` fences if Gemini wrapped its response."""
     text = text.strip()
     if text.startswith("```"):
-        # remove opening fence (with optional language tag)
         text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
-        # remove closing fence
         text = re.sub(r"\n?```$", "", text)
     return text.strip()
 
 
 def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate and coerce Gemini's JSON into the schema we save to the DB."""
     raw_cat = (parsed.get("category") or "").strip().lower()
     if raw_cat not in CATEGORY_CODES:
         raw_cat = "other"
@@ -153,10 +242,7 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
     confidence = parsed.get("confidence")
     try:
         confidence = float(confidence)
-        if confidence < 0.0:
-            confidence = 0.0
-        elif confidence > 1.0:
-            confidence = 1.0
+        confidence = max(0.0, min(1.0, confidence))
     except (TypeError, ValueError):
         confidence = 0.0
 
@@ -165,6 +251,21 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
         evidence = [str(evidence)]
     evidence = [str(e).strip() for e in evidence if str(e).strip()]
 
+    reasoning = parsed.get("reasoning_steps") or []
+    if not isinstance(reasoning, list):
+        reasoning = [str(reasoning)]
+    reasoning = [str(r).strip() for r in reasoning if str(r).strip()]
+
+    anomaly_location = parsed.get("anomaly_location")
+    if isinstance(anomaly_location, str):
+        anomaly_location = anomaly_location.strip() or None
+    elif anomaly_location is not None:
+        anomaly_location = str(anomaly_location).strip() or None
+
+    # Force null on non-forgery categories — Gemini sometimes makes up locations
+    if raw_cat in ("no_forgery_detected", "not_a_document"):
+        anomaly_location = None
+
     return {
         "category": raw_cat,
         "category_label": CATEGORY_LABELS[raw_cat],
@@ -172,13 +273,14 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "confidence": confidence,
         "explanation": (parsed.get("explanation") or "").strip(),
         "evidence": evidence,
+        "reasoning_steps": reasoning,
+        "anomaly_location": anomaly_location,
         "tools_likely_used": (parsed.get("tools_likely_used") or "").strip() or None,
         "certainty_level": "HIGH" if confidence >= 0.85 else "MEDIUM" if confidence >= 0.60 else "LOW",
     }
 
 
 def _fallback(reason: str) -> Dict[str, Any]:
-    """Default response when Gemini is unavailable or fails."""
     return {
         "category": "other",
         "category_label": CATEGORY_LABELS["other"],
@@ -186,35 +288,42 @@ def _fallback(reason: str) -> Dict[str, Any]:
         "confidence": 0.0,
         "explanation": f"Gemini Vision was unavailable: {reason}",
         "evidence": [],
+        "reasoning_steps": [],
+        "anomaly_location": None,
         "tools_likely_used": None,
     }
 
 
-def classify(image: Image.Image, document_type: Optional[str] = None) -> Dict[str, Any]:
+def classify(
+    image: Image.Image,
+    document_type: Optional[str] = None,
+    suspicion_reason: Optional[str] = None,
+    area_of_concern: Optional[str] = None,
+    image_source: Optional[str] = None,
+    is_forged_belief: Optional[str] = None,
+    shot_type: Optional[str] = None,
+    lighting: Optional[str] = None,
+    physical_clues: Optional[str] = None,
+) -> Dict[str, Any]:
     """
-    Run Gemini Vision against the document image. Returns a dict with the keys:
-        category, category_label, subtype, confidence, explanation, evidence, tools_likely_used
-    Always returns a dict — on any failure, falls back to the 'other' category
-    with the failure reason in the explanation.
+    Run Gemini Vision against the document image.
 
-    Args:
-        image: PIL Image to classify
-        document_type: Optional document type (passport, check, contract, etc.) to provide context
+    All extra args are optional hints — when None or default, Gemini classifies
+    purely from the image. The image is always the deciding factor.
     """
     client = _client()
     if client is None:
         return _fallback("API key not configured or google-genai not installed")
 
-    # Re-encode to JPEG bytes for the API.
     buf = io.BytesIO()
     img_to_send = image if image.mode == "RGB" else image.convert("RGB")
     img_to_send.save(buf, format="JPEG", quality=88)
     buf.seek(0)
 
-    # Build prompt with document type context if provided
-    prompt = SYSTEM_PROMPT
-    if document_type and document_type != "other":
-        prompt = f"{SYSTEM_PROMPT}\n\nDOCUMENT TYPE HINT: The user indicates this is a {document_type.replace('_', ' ')}. Use this as context to guide your classification — certain forgery types are more likely for this document type."
+    prompt = SYSTEM_PROMPT + _build_user_context_block(
+        document_type, suspicion_reason, area_of_concern, image_source,
+        is_forged_belief, shot_type, lighting, physical_clues,
+    )
 
     try:
         from google.genai import types as genai_types
@@ -230,14 +339,13 @@ def classify(image: Image.Image, document_type: Optional[str] = None) -> Dict[st
             ),
         )
         text = response.text or ""
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return _fallback(f"API call failed: {exc}")
 
     text = _strip_json_fence(text)
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        # Try to find a JSON object inside a noisy response.
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if not match:
             return _fallback("response was not valid JSON")

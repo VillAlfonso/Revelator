@@ -17,6 +17,14 @@ export default function Scan() {
   const [documentTypes, setDocumentTypes] = useState([]);
   const [modelTier, setModelTier] = useState('analyst');
   const [tiers, setTiers] = useState([]);
+  const [showExtras, setShowExtras] = useState(false);
+  const [suspicionReason, setSuspicionReason] = useState('');
+  const [areaOfConcern, setAreaOfConcern] = useState('');
+  const [imageSource, setImageSource] = useState('');
+  const [isForgedBelief, setIsForgedBelief] = useState('');
+  const [shotType, setShotType] = useState('');
+  const [lighting, setLighting] = useState('');
+  const [physicalClues, setPhysicalClues] = useState('');
   const fileRef = useRef();
   const canvasRef = useRef();
 
@@ -108,7 +116,21 @@ export default function Scan() {
     setError('');
     setResult(null);
     try {
-      const data = await api.analyze(file, null, documentType !== 'other' ? documentType : null, modelTier);
+      const data = await api.analyze(
+        file,
+        null,
+        documentType !== 'other' ? documentType : null,
+        modelTier,
+        {
+          suspicionReason: suspicionReason.trim() || null,
+          areaOfConcern: areaOfConcern || null,
+          imageSource: imageSource || null,
+          isForgedBelief: isForgedBelief || null,
+          shotType: shotType || null,
+          lighting: lighting || null,
+          physicalClues: physicalClues || null,
+        }
+      );
       setResult(data);
       if (data.annotations?.length > 0) {
         setTimeout(() => drawAnnotations(data.annotations, data.original_image_dimensions.width, data.original_image_dimensions.height), 100);
@@ -276,6 +298,202 @@ export default function Scan() {
           </div>
         </div>
 
+        {/* Optional context — collapsed by default */}
+        <div style={{ border: '1px solid #112418', borderRadius: 3, background: 'rgba(0,255,102,0.02)' }}>
+          <button
+            type="button"
+            onClick={() => setShowExtras(!showExtras)}
+            style={{
+              width: '100%', padding: '12px 16px', background: 'transparent', border: 'none',
+              cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              color: '#6dba85', fontFamily: "'Oswald', sans-serif", letterSpacing: 2,
+              textTransform: 'uppercase', fontSize: 12,
+            }}
+          >
+            <span>＋ Additional Context (Optional)</span>
+            <span style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1 }}>
+              {showExtras ? '▲ HIDE' : '▼ EXPAND'}
+            </span>
+          </button>
+          {showExtras && (
+            <div style={{ padding: '0 16px 16px', display: 'grid', gap: 14 }}>
+              <p style={{ fontSize: 12, color: '#3f6e4a', margin: 0, fontStyle: 'italic' }}>
+                Skip any field — the model works without these. Filling them in helps focus the analysis.
+              </p>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  WHAT MAKES YOU SUSPICIOUS?
+                </label>
+                <textarea
+                  value={suspicionReason}
+                  onChange={(e) => setSuspicionReason(e.target.value)}
+                  maxLength={300}
+                  rows={2}
+                  placeholder="e.g. The signature looks shaky, or the date seems edited..."
+                  style={{
+                    width: '100%', padding: 10, background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    resize: 'vertical',
+                  }}
+                />
+                <p style={{ fontSize: 10, color: '#3f6e4a', margin: '4px 0 0', textAlign: 'right' }}>
+                  {suspicionReason.length}/300
+                </p>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  AREA TO FOCUS ON
+                </label>
+                <select
+                  value={areaOfConcern}
+                  onChange={(e) => setAreaOfConcern(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— Anywhere (default) —</option>
+                  <option value="signature">Signature</option>
+                  <option value="photo">Photo / face</option>
+                  <option value="dates">Dates</option>
+                  <option value="seals_stamps">Seals or stamps</option>
+                  <option value="watermarks">Watermarks / security features</option>
+                  <option value="text_content">Text content</option>
+                  <option value="numbers">Numbers / amounts</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  HOW WAS THIS CAPTURED?
+                </label>
+                <select
+                  value={imageSource}
+                  onChange={(e) => setImageSource(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— Not sure (default) —</option>
+                  <option value="phone_photo">Phone photo</option>
+                  <option value="scanner">Scanner</option>
+                  <option value="screenshot">Screenshot</option>
+                  <option value="downloaded_pdf">Downloaded PDF</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  ARE YOU SURE THIS IS FORGED?
+                </label>
+                <select
+                  value={isForgedBelief}
+                  onChange={(e) => setIsForgedBelief(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— Not sure (default) —</option>
+                  <option value="yes_confident">Yes, I'm confident</option>
+                  <option value="probably">Probably</option>
+                  <option value="just_checking">Just checking — could go either way</option>
+                  <option value="no_just_curious">No, just curious / authenticating</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  IS THIS ZOOMED IN OR MACRO?
+                </label>
+                <select
+                  value={shotType}
+                  onChange={(e) => setShotType(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— Not sure (default) —</option>
+                  <option value="macro_extreme_close">Macro / extreme close-up</option>
+                  <option value="zoomed_close_up">Zoomed close-up of one region</option>
+                  <option value="normal_full_doc">Normal — whole document</option>
+                  <option value="wide_with_context">Wide shot with surroundings</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  DID YOU USE SPECIAL LIGHTING?
+                </label>
+                <select
+                  value={lighting}
+                  onChange={(e) => setLighting(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— Not sure / normal light (default) —</option>
+                  <option value="ultraviolet">Ultraviolet (UV) light</option>
+                  <option value="raking_light">Raking / oblique light (for indentations)</option>
+                  <option value="backlit">Backlit (light behind paper)</option>
+                  <option value="infrared">Infrared</option>
+                  <option value="normal_daylight">Normal daylight only</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  PHYSICAL CLUE YOU NOTICED
+                </label>
+                <select
+                  value={physicalClues}
+                  onChange={(e) => setPhysicalClues(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">— None / not sure (default) —</option>
+                  <option value="indentation_grooves">Indentation grooves / canal marks behind writing</option>
+                  <option value="carbon_streaks">Faint carbon residue along strokes</option>
+                  <option value="uniform_traced_lines">Uniform line weight (looks traced)</option>
+                  <option value="ink_halo">Halo or discoloration around erased area</option>
+                  <option value="paper_thinning">Thinned or abraded paper surface</option>
+                  <option value="characters_inserted">Extra characters squeezed inside words/numbers</option>
+                  <option value="text_between_lines">Writing squeezed between existing lines</option>
+                  <option value="cut_paste_edges">Visible cut/paste edges or texture mismatch</option>
+                  <option value="whiteout_correction">Correction fluid covering text</option>
+                  <option value="ink_scribbles">Ink scribbled over original text</option>
+                  <option value="opaque_pigment_cover">Marker / paint covering text</option>
+                  <option value="counterfeit_currency">Suspect counterfeit banknote</option>
+                  <option value="computer_generated">Looks computer-generated / desktop-published</option>
+                  <option value="scan_tampering_artifacts">Scanned document with visible digital edits on top</option>
+                  <option value="sympathetic_hidden_writing">Hidden writing only visible under special lighting (UV, raking, backlight)</option>
+                  <option value="uv_reactive_ink_glow">Ink glows or reacts under UV light</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
         <button className="btn btn-primary" onClick={handleAnalyze} disabled={!file || loading} style={{ fontSize: 16, padding: '18px 0' }}>
           {loading ? '◌ Running detection…' : '▶ Scan Forgery'}
         </button>
@@ -428,11 +646,27 @@ function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels, d
                   {result.category_evidence.map((e, i) => <li key={i}>{e}</li>)}
                 </ul>
               )}
+              {result.anomaly_location && (
+                <p style={{ fontSize: 12, color: '#ffc888', margin: '0 0 8px', borderTop: '1px solid #112418', paddingTop: 8 }}>
+                  <span className="mono" style={{ color: '#ffa040', letterSpacing: 1.5, marginRight: 6 }}>LOCATION:</span>
+                  {result.anomaly_location}
+                </p>
+              )}
               {result.tools_likely_used && (
                 <p style={{ fontSize: 12, color: '#86efac', margin: 0, borderTop: '1px solid #112418', paddingTop: 8 }}>
                   <span className="mono" style={{ color: geminiAccent, letterSpacing: 1.5, marginRight: 6 }}>TOOLS USED:</span>
                   {result.tools_likely_used}
                 </p>
+              )}
+              {result.reasoning_steps?.length > 0 && (
+                <details style={{ marginTop: 10, borderTop: '1px solid #112418', paddingTop: 8 }}>
+                  <summary className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1.5, cursor: 'pointer' }}>
+                    ▸ REASONING STEPS ({result.reasoning_steps.length})
+                  </summary>
+                  <ol style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 12, color: '#86efac', lineHeight: 1.7 }}>
+                    {result.reasoning_steps.map((s, i) => <li key={i}>{s}</li>)}
+                  </ol>
+                </details>
               )}
             </div>
           </div>
