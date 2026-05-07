@@ -67,24 +67,6 @@ export default function Scan() {
     }
   }
 
-  async function handlePickFromGallery() {
-    setError('');
-    setResult(null);
-    try {
-      const photo = await Camera.getPhoto({
-        quality: 90, allowEditing: false,
-        resultType: CameraResultType.Uri, source: CameraSource.Photos,
-      });
-      const res = await fetch(photo.webPath);
-      const blob = await res.blob();
-      const f = new File([blob], `photo-${Date.now()}.${photo.format || 'jpg'}`, { type: blob.type });
-      setFile(f);
-      setPreview(photo.webPath);
-    } catch (err) {
-      if (err?.message && !/cancel/i.test(err.message)) setError(err.message);
-    }
-  }
-
   function drawAnnotations(annotations, imgW, imgH) {
     const canvas = canvasRef.current;
     if (!canvas || !preview) return;
@@ -163,88 +145,50 @@ export default function Scan() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
-        {/* Model Tier Selection */}
-        <div className="card">
-          <h3 className="oswald" style={{
-            fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
-            color: '#6dba85',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontSize: 18 }}>◈</span>
-            Forensic Tier
-          </h3>
-          <p style={{ fontSize: 13, color: '#86efac', marginBottom: 14 }}>
-            Choose which model(s) analyze your document. Higher tiers use specialized models for better accuracy.
-          </p>
-          <div style={{ display: 'grid', gap: 10 }}>
+      {/* Compact tier selector — sits below header, above the form cards */}
+      {tiers.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, whiteSpace: 'nowrap' }}>MODEL</span>
+          <div style={{ display: 'flex', gap: 4 }}>
             {tiers.map(t => {
               const isActive = modelTier === t.key;
               const isUnlocked = t.unlocked !== false;
               const isComingSoon = !t.available;
               return (
-                <div
+                <button
                   key={t.key}
-                  onClick={() => isUnlocked && setModelTier(t.key)}
+                  type="button"
+                  title={`${t.tagline}${isComingSoon ? ' — Coming soon' : !isUnlocked ? ' — Upgrade required' : ''}`}
+                  onClick={() => !isComingSoon && isUnlocked && setModelTier(t.key)}
                   style={{
-                    padding: 14,
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    fontFamily: "'Oswald', sans-serif",
+                    letterSpacing: 1.5,
+                    textTransform: 'uppercase',
                     border: `1px solid ${isActive ? '#00ff66' : '#1d3825'}`,
-                    borderRadius: 3,
-                    background: isActive ? 'rgba(0,255,102,0.06)' : (isUnlocked ? '#0a1605' : 'rgba(20,20,20,0.5)'),
-                    cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                    opacity: isUnlocked ? 1 : 0.55,
+                    borderRadius: 2,
+                    background: isActive ? 'rgba(0,255,102,0.1)' : 'transparent',
+                    color: isActive ? '#00ff66' : (isUnlocked && !isComingSoon) ? '#6dba85' : '#3f6e4a',
+                    cursor: (!isComingSoon && isUnlocked) ? 'pointer' : 'not-allowed',
+                    opacity: (isUnlocked && !isComingSoon) ? 1 : 0.45,
                     transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span className="oswald glow" style={{
-                        fontSize: 16, color: isActive ? '#00ff66' : '#86efac',
-                        textTransform: 'uppercase', letterSpacing: 2,
-                      }}>
-                        T{t.rank} · {t.name}
-                      </span>
-                      {isComingSoon && (
-                        <span className="mono" style={{
-                          fontSize: 9, color: '#ffaa00', letterSpacing: 1.5,
-                          padding: '2px 6px', border: '1px solid #ffaa00',
-                          borderRadius: 2, textTransform: 'uppercase',
-                        }}>
-                          Coming Soon
-                        </span>
-                      )}
-                      {!isUnlocked && (
-                        <span className="mono" style={{
-                          fontSize: 9, color: '#ff8a99', letterSpacing: 1.5,
-                          padding: '2px 6px', border: '1px solid #ff3344',
-                          borderRadius: 2, textTransform: 'uppercase',
-                        }}>
-                          🔒 Upgrade Required
-                        </span>
-                      )}
-                    </div>
-                    <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1 }}>
-                      {(t.plans || []).join(' · ').toUpperCase()}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: 12, color: '#86efac', marginTop: 8, marginBottom: 0, fontStyle: 'italic' }}>
-                    {t.tagline}
-                  </p>
-                  <p style={{ fontSize: 11, color: '#6dba85', marginTop: 6, marginBottom: 0 }}>
-                    {(t.models || []).join(' + ')}
-                  </p>
-                </div>
+                  {isComingSoon ? '' : !isUnlocked ? '🔒 ' : ''}{t.name}
+                  {isComingSoon && <span style={{ fontSize: 8, color: '#ffaa00', letterSpacing: 1 }}>COMING SOON</span>}
+                </button>
               );
             })}
           </div>
-          {!user?.plan || user.plan === 'free' ? (
-            <p style={{ fontSize: 11, color: '#3f6e4a', marginTop: 12, fontStyle: 'italic' }}>
-              Upgrade to Pro to unlock Detective. Premium unlocks Sherlock.{' '}
-              <Link to="/account" style={{ color: '#00ff66' }}>View plans →</Link>
-            </p>
-          ) : null}
+          <span style={{ fontSize: 11, color: '#3f6e4a', fontStyle: 'italic' }}>— choose model</span>
         </div>
+      )}
 
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
         {/* Document Type Selection */}
         <div className="card">
           <h3 className="oswald" style={{
@@ -303,11 +247,8 @@ export default function Scan() {
             <button type="button" className="btn btn-primary" onClick={handleTakePhoto} style={{ padding: '14px 16px' }}>
               ⌖ Take Photo
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handlePickFromGallery} style={{ padding: '14px 16px' }}>
-              ▥ Gallery
-            </button>
             <button type="button" className="btn btn-secondary" onClick={() => fileRef.current.click()} style={{ padding: '14px 16px' }}>
-              ⎙ File
+              ⎙ Upload
             </button>
           </div>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />

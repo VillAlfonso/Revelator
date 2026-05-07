@@ -56,10 +56,15 @@ export default function About() {
       {info.model_tiers && info.model_tiers.length > 0 && (
         <Section title="The Three Forensic Tiers">
           <p style={{ color: '#86efac', fontSize: 13, marginBottom: 18, lineHeight: 1.7 }}>
-            Revelator offers three progressively more capable analysis tiers. Each tier uses
-            different model(s) and is unlocked by a specific subscription plan. The Analyst is
-            the baseline — always available. The Detective and Sherlock tiers add fine-tuned,
-            domain-specialized models on top.
+            Revelator offers three progressively more capable analysis tiers. The{' '}
+            <strong style={{ color: '#00ff66' }}>Analyst</strong> tier is live now — powered by
+            Gemini Vision and available on all plans. The{' '}
+            <strong style={{ color: '#ffaa00' }}>Detective</strong> and{' '}
+            <strong style={{ color: '#ffaa00' }}>Sherlock</strong> tiers are{' '}
+            <span style={{ color: '#ffaa00', fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: 1 }}>
+              coming soon
+            </span>{' '}
+            — they will add fine-tuned, domain-specialized forensic models on top of the Gemini baseline.
           </p>
           <div style={{ display: 'grid', gap: 16 }}>
             {info.model_tiers.map(tier => <TierCard key={tier.key} tier={tier} />)}
