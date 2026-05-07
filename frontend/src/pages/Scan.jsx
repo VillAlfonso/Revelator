@@ -211,50 +211,6 @@ export default function Scan() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
-        {/* Document Type Selection */}
-        <div className="card">
-          <h3 className="oswald" style={{
-            fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
-            color: '#6dba85',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontSize: 18 }}>📄</span>
-            Document Type
-          </h3>
-          <p style={{ fontSize: 13, color: '#86efac', marginBottom: 14 }}>
-            What kind of document are you scanning? This helps Gemini focus on document-specific forgery patterns.
-          </p>
-          <select
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              background: '#0a1605',
-              border: '1px solid #1d3825',
-              borderRadius: 3,
-              color: '#d8ffe6',
-              fontSize: 13,
-              fontFamily: "'JetBrains Mono', monospace",
-              cursor: 'pointer',
-              transition: 'border-color 0.2s',
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#00ff66'}
-            onBlur={(e) => e.target.style.borderColor = '#1d3825'}
-          >
-            {documentTypes.map(dt => (
-              <option key={dt.key} value={dt.key} style={{ background: '#0a1605', color: '#d8ffe6' }}>
-                {dt.title}
-              </option>
-            ))}
-          </select>
-          {documentType !== 'other' && (
-            <p style={{ fontSize: 12, color: '#3f6e4a', marginTop: 10, fontStyle: 'italic' }}>
-              {documentTypes.find(dt => dt.key === documentType)?.description}
-            </p>
-          )}
-        </div>
-
         <div className="card">
           <h3 className="oswald" style={{
             fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
@@ -320,6 +276,33 @@ export default function Scan() {
               <p style={{ fontSize: 12, color: '#3f6e4a', margin: 0, fontStyle: 'italic' }}>
                 Skip any field — the model works without these. Filling them in helps focus the analysis.
               </p>
+
+              <div>
+                <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
+                  DOCUMENT TYPE
+                </label>
+                <select
+                  value={documentType}
+                  onChange={(e) => setDocumentType(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 14px', background: '#0a1605',
+                    border: '1px solid #1d3825', borderRadius: 3,
+                    color: '#d8ffe6', fontSize: 13, fontFamily: "'JetBrains Mono', monospace",
+                    cursor: 'pointer',
+                  }}
+                >
+                  {documentTypes.map(dt => (
+                    <option key={dt.key} value={dt.key} style={{ background: '#0a1605', color: '#d8ffe6' }}>
+                      {dt.title}
+                    </option>
+                  ))}
+                </select>
+                {documentType !== 'other' && (
+                  <p style={{ fontSize: 11, color: '#3f6e4a', marginTop: 5, fontStyle: 'italic' }}>
+                    {documentTypes.find(dt => dt.key === documentType)?.description}
+                  </p>
+                )}
+              </div>
 
               <div>
                 <label className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#6dba85', display: 'block', marginBottom: 6 }}>
