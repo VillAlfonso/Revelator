@@ -13,7 +13,7 @@ export default function Scan() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const [documentType, setDocumentType] = useState('other');
+  const [documentType, setDocumentType] = useState('');
   const [documentTypes, setDocumentTypes] = useState([]);
   const [modelTier, setModelTier] = useState('analyst');
   const [tiers, setTiers] = useState([]);
@@ -291,13 +291,14 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
+                  <option value="">— Not sure / general document (default) —</option>
                   {documentTypes.map(dt => (
                     <option key={dt.key} value={dt.key} style={{ background: '#0a1605', color: '#d8ffe6' }}>
                       {dt.title}
                     </option>
                   ))}
                 </select>
-                {documentType !== 'other' && (
+                {documentType && documentType !== 'other' && (
                   <p style={{ fontSize: 11, color: '#3f6e4a', marginTop: 5, fontStyle: 'italic' }}>
                     {documentTypes.find(dt => dt.key === documentType)?.description}
                   </p>
