@@ -79,8 +79,12 @@ def _verdict_from_gemini(gemini: dict) -> tuple[str, float]:
         if conf >= 0.50:
             return "suspicious", conf
         return "no_forgery_detected", conf
-    # "other" or unknown
-    return "suspicious", conf
+    # "other" or unknown — apply same confidence thresholds, don't auto-escalate
+    if conf >= 0.70:
+        return "forged", conf
+    if conf >= 0.50:
+        return "suspicious", conf
+    return "no_forgery_detected", conf
 
 
 @router.get("/document-types")
@@ -180,6 +184,9 @@ def analyze_document(
         lighting=lighting,
         physical_clues=physical_clues,
     )
+    if gemini.get("_unavailable"):
+        raise HTTPException(status_code=503, detail="Gemini Vision is temporarily unavailable. Please try again in a moment.")
+
     llava_result = None
     tier_used = TIER_ANALYST
 

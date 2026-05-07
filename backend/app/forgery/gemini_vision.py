@@ -291,6 +291,7 @@ def _fallback(reason: str) -> Dict[str, Any]:
         "reasoning_steps": [],
         "anomaly_location": None,
         "tools_likely_used": None,
+        "_unavailable": True,
     }
 
 
