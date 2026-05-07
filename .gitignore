@@ -35,6 +35,7 @@ data/**/*.bmp
 dataset/
 
 # Training datasets and source dumps (live in Roboflow/Colab, not git)
+Clean/
 digital_cut_paste.zip
 models/**/*.jpg
 models/**/*.jpeg
