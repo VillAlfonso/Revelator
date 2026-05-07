@@ -1,0 +1,29 @@
+# ── Secrets — never commit ──
+**/firebase-service-account*.json
+backend/.env
+web/.env
+mobile/.env
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── Node ──
+node_modules/
+dist/
+.vite/
+build/
+
+# ── Editor / OS ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── Logs ──
+*.log
+npm-debug.log*
