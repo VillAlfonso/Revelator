@@ -62,7 +62,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 # Gemini Vision — primary forensic classifier. Reads the document image and returns
 # a structured JSON verdict against the 19-category taxonomy.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash-lite")
 
 # ============================================
 # YOLO
