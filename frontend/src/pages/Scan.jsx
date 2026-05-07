@@ -148,12 +148,7 @@ export default function Scan() {
     no_forgery_detected: '#00ff66',
     not_a_document: '#737373',
   };
-  const verdictLabels = {
-    forged: 'Forged',
-    suspicious: 'Suspicious',
-    no_forgery_detected: 'No Forgery Detected',
-    not_a_document: 'Not a Document',
-  };
+
 
   return (
     <div>
@@ -496,7 +491,7 @@ export default function Scan() {
             result={result}
             canvasRef={canvasRef}
             verdictColors={verdictColors}
-            verdictLabels={verdictLabels}
+
             documentTypeLabel={documentTypes.find(dt => dt.key === documentType)?.title}
           />
         )}
@@ -539,7 +534,7 @@ function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
   );
 }
 
-function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels, documentTypeLabel }) {
+function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabel }) {
   const cat = result.detected_category;
 
   // Gemini succeeded only when confidence > 0 (0 = fallback/error/unavailable)
@@ -576,7 +571,7 @@ function ForensicResultCard({ result, canvasRef, verdictColors, verdictLabels, d
 
       <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${geminiAccent}33`, boxShadow: `inset 0 0 32px ${geminiAccent}18` }}>
         <div className="oswald" style={{ fontSize: 32, fontWeight: 700, color: geminiAccent, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${geminiAccent}99` }}>
-          {geminiOk ? (result.detected_category_label || cat || '—') : (verdictLabels[result.verdict] || result.verdict)}
+          {geminiOk ? (result.detected_category_label || cat || '—') : '—'}
         </div>
         {geminiOk && (
           <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
