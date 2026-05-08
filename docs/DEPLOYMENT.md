@@ -1,164 +1,300 @@
-# Deployment Guide
+# Production Deployment Guide
 
-This is the cheap-but-real production setup for Revelator v2.
+When you're ready to launch Revelator, use this checklist.
 
-| Component  | Where                  | Cost           |
-|------------|------------------------|----------------|
-| Web app    | Vercel (or GitHub Pages) | Free          |
-| Backend    | Oracle Cloud Free VM   | Free (forever) |
-| Database   | Firebase Firestore     | Free tier      |
-| Auth       | Firebase Auth          | Free tier      |
-| Storage    | Firebase Storage       | Free 5 GB      |
-| AI         | Gemini Vision API      | Free tier (rate-limited), or pay-as-you-go |
-| LLaVA tier | Hugging Face Spaces    | Free CPU / paid GPU |
+---
 
-## 1. Deploy the backend (Oracle Cloud)
+## **Database Migration**
 
-### 1a. Provision a free VM
+### Current (Development)
+- SQLite: `./forgeguard.db`
+- Single file, no concurrency
+- ❌ Not suitable for multiple users
 
-1. Sign up at https://cloud.oracle.com → enable Always Free.
-2. Create an **Ampere A1 Compute** instance (4 OCPU, 24 GB RAM) — the most generous free tier.
-   - OS: **Ubuntu 22.04**
-   - Add an SSH key.
-   - Open ports 80, 443, 8000 in the network security group.
-3. SSH in. Install the basics:
-   ```bash
-   sudo apt update && sudo apt install -y python3-pip python3-venv git nginx
-   ```
+### Production
+- **Switch to: PostgreSQL**
+- Supports concurrent users
+- Easy backups and scaling
+- Cloud-friendly (Heroku, AWS RDS, Railway, Supabase)
 
-### 1b. Pull and run
+**Steps:**
+1. Create PostgreSQL database (local or cloud)
+2. Update `.env`: `DATABASE_URL=postgresql://user:password@host:5432/revelator`
+3. Run migrations: `python -c "from backend.app.database import init_db; init_db()"`
+4. SQLite → PostgreSQL dump (if migrating existing data)
 
-```bash
-git clone <your repo> revelator
-cd revelator/v2/backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+**Recommended Providers:**
+- Railway.app ($5/month)
+- Supabase (free tier)
+- AWS RDS (pay-as-you-go)
+- DigitalOcean Managed Databases
 
-# Upload your firebase-service-account.json here (do NOT commit it).
-scp firebase-service-account.json oracle:/home/ubuntu/revelator/v2/backend/
+---
 
-cp .env.example .env
-nano .env   # fill in keys
+## **LLM Setup**
+
+### Current (Development)
+- Ollama local (CPU/GPU intensive)
+- Groq API (some endpoints)
+- ❌ Local Ollama slow for production
+
+### Production
+- **Switch to: Groq API only**
+- Fast (~500ms response)
+- Cheap (~$0.001 per call)
+- No server resources needed
+
+**Changes Required:**
+```env
+# .env
+USE_CLOUD_LLM=true
+GROQ_API_KEY=gsk_...  # Get from https://console.groq.com/keys
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_VISION_MODEL=llama-4-vision-preview
 ```
 
-### 1c. systemd service
+**Disable Ollama:**
+- Remove OLLAMA_URL and OLLAMA_MODEL from config, or
+- Keep them but never use with `USE_CLOUD_LLM=true`
 
-Create `/etc/systemd/system/revelator.service`:
+---
 
-```ini
-[Unit]
-Description=Revelator backend
-After=network.target
+## **Image Storage**
 
-[Service]
-User=ubuntu
-WorkingDirectory=/home/ubuntu/revelator/v2/backend
-ExecStart=/home/ubuntu/revelator/v2/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
-Restart=on-failure
+### Current (Development)
+- Stored on server: `./backend/uploads/`
+- ❌ Limited disk space, scales poorly
 
-[Install]
-WantedBy=multi-user.target
+### Production
+- **Switch to: Cloud Storage**
+- AWS S3, Google Cloud Storage, Cloudinary, or DigitalOcean Spaces
+
+**Recommended for simplicity:**
+- **Cloudinary** (free tier: 25GB/month, easy upload API)
+- **DigitalOcean Spaces** ($5/month, S3-compatible)
+- **AWS S3** (industry standard, pay-per-use)
+
+**Implementation:**
+1. Create cloud storage bucket
+2. Update `/backend/app/routes/analyze.py` to upload to cloud instead of `./uploads/`
+3. Return signed URLs for image retrieval
+4. Delete local upload directory from server
+
+---
+
+## **User Data & Security**
+
+### Authentication
+- ✓ JWT tokens with bcrypt hashing (already done)
+- ✓ Google OAuth support (already done)
+- ✓ Refresh token rotation (already done)
+
+### HTTPS
+- Required for all production deployments
+- Free SSL: Let's Encrypt (auto-renewal)
+- Most hosting platforms (Railway, Render, Heroku) provide this automatically
+
+### Payment Data
+- ✓ Stripe/PayMongo handle all card data (PCI DSS compliant)
+- ✓ You never see/store card numbers
+- Keep webhook signatures verified (already done)
+
+### Data Protection
+- [ ] Add data deletion endpoint (`DELETE /api/auth/me` → delete user + scans)
+- [ ] Privacy policy & terms of service
+- [ ] GDPR compliance (for EU users)
+- [ ] Regular automated backups (PostgreSQL)
+- [ ] Encrypted database backups
+
+### Secrets Management
+- Never commit `.env` to git ✓
+- Use hosting platform's environment variable management
+- Rotate API keys periodically (Stripe, PayMongo, Groq)
+
+---
+
+## **Hosting Options**
+
+### Tier 1: Easiest (Recommended for MVP)
+- **Railway.app** — 1-click deploy FastAPI + PostgreSQL
+  - ~$5-20/month depending on usage
+  - Built-in SSL, no config needed
+  - PostgreSQL included
+  
+- **Render.com** — similar to Railway
+  - Free tier available
+  - Good for starting out
+  
+- **Vercel** (for frontend only)
+  - Next.js/React frontend
+  - Backend on separate platform (Railway, Render, etc.)
+
+### Tier 2: More Control
+- **DigitalOcean App Platform** — managed containers
+  - ~$12/month minimum
+  - More customizable
+
+- **AWS** (Elastic Beanstalk, ECS, Lambda)
+  - Scalable but more complex
+  - Best for high-traffic apps
+
+### Tier 3: DIY (Advanced)
+- **Docker** + VPS (DigitalOcean, Linode, Hetzner)
+  - Full control
+  - More infrastructure management
+
+---
+
+## **Deployment Checklist**
+
+### Phase 1: Database & Storage
+- [ ] Create PostgreSQL database
+- [ ] Update `DATABASE_URL` in `.env`
+- [ ] Set up cloud storage (S3/Cloudinary)
+- [ ] Update image upload code
+
+### Phase 2: LLM & API
+- [ ] Get Groq API key from https://console.groq.com
+- [ ] Set `USE_CLOUD_LLM=true`
+- [ ] Test Groq API calls
+- [ ] Remove Ollama dependency
+
+### Phase 3: Security & Compliance
+- [ ] Enable HTTPS/SSL
+- [ ] Add CORS for your domain
+- [ ] Add `.env` secrets to hosting platform
+- [ ] Implement data deletion endpoint
+- [ ] Create privacy policy & terms of service
+
+### Phase 4: Reliability
+- [ ] Set up automated daily backups
+- [ ] Add error logging (Sentry, or platform logs)
+- [ ] Add rate limiting on API
+- [ ] Monitor disk usage alerts
+- [ ] Monitor database connection limits
+
+### Phase 5: Monitoring (Optional but Recommended)
+- [ ] Set up application monitoring (New Relic, Datadog)
+- [ ] Log API errors (Sentry, LogRocket)
+- [ ] Monitor Groq API usage/costs
+- [ ] Track payment webhook failures
+
+### Phase 6: User Onboarding
+- [ ] Domain & DNS setup
+- [ ] Email verification working
+- [ ] Password reset working
+- [ ] Payment flow tested end-to-end
+- [ ] Promo codes tested
+
+---
+
+## **Environment Variables (Production)**
+
+```env
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/revelator
+
+# JWT
+SECRET_KEY=<generate-random-64-char-string>
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=30
+
+# LLM (Groq only)
+USE_CLOUD_LLM=true
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_VISION_MODEL=llama-4-vision-preview
+
+# Payments
+STRIPE_SECRET_KEY=sk_live_...  # NOT test keys!
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID_PRO=price_...
+STRIPE_PRICE_ID_PREMIUM=price_...
+
+PAYMONGO_SECRET_KEY=sk_live_...  # NOT test keys!
+PAYMONGO_PUBLIC_KEY=pk_live_...
+
+# OAuth
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+
+# URLs
+FRONTEND_URL=https://yourdomain.com
+API_URL=https://api.yourdomain.com
+
+# Cloud Storage (if using S3)
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET=revelator-uploads
+AWS_REGION=us-east-1
+
+# Optional: Error logging
+SENTRY_DSN=https://...
 ```
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now revelator
-sudo systemctl status revelator
-```
+---
 
-### 1d. nginx + HTTPS
+## **Cost Estimate (Monthly)**
 
-```nginx
-# /etc/nginx/sites-available/revelator
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        client_max_body_size 25M;
-    }
-}
-```
+| Service | Cost | Notes |
+|---------|------|-------|
+| Hosting (Railway) | $10-20 | Scales with usage |
+| PostgreSQL | included | Included in Railway |
+| Groq API | ~$5 | ~100K requests/month |
+| S3/Cloudinary | $5-10 | Or included if free tier |
+| Domain | $10-15 | Annual |
+| **Total** | **$30-60** | Very affordable |
 
-```bash
-sudo ln -s /etc/nginx/sites-available/revelator /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl restart nginx
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d api.yourdomain.com
-```
+---
 
-## 2. Deploy the web app (Vercel)
+## **Testing Before Launch**
 
-```bash
-cd v2/web
-npm install -g vercel
-vercel
-```
+1. **Database**: Test concurrent user access
+2. **Auth**: Test login, signup, Google OAuth, promo codes
+3. **Payments**: Test Stripe & PayMongo with test keys first
+4. **Images**: Upload, retrieve, delete from cloud storage
+5. **LLM**: Test Groq API responses
+6. **Load**: Simulate 10+ concurrent users
+7. **Errors**: Test error handling, webhook failures
+8. **Security**: SQL injection, XSS, CSRF tests
 
-Set the env vars in the Vercel dashboard (Project → Settings → Environment Variables):
+---
 
-```
-VITE_API_URL=https://api.yourdomain.com
-VITE_FIREBASE_API_KEY=…
-VITE_FIREBASE_AUTH_DOMAIN=…
-VITE_FIREBASE_PROJECT_ID=…
-VITE_FIREBASE_STORAGE_BUCKET=…
-VITE_FIREBASE_MESSAGING_SENDER_ID=…
-VITE_FIREBASE_APP_ID=…
-```
+## **Post-Launch Monitoring**
 
-After deploying, add the Vercel domain (e.g. `revelator.vercel.app`) to Firebase **Authentication → Settings → Authorized domains**.
+- Check error logs daily for first week
+- Monitor Groq API costs
+- Monitor database disk usage
+- Verify daily backups are running
+- Check payment webhook logs
+- Review user feedback
 
-Cheaper alternative: **GitHub Pages** with the `vite-plugin-static-copy` setup, or **Cloudflare Pages**. Both free.
+---
 
-## 3. Wire up Stripe
+## **Rollback Plan**
 
-1. https://dashboard.stripe.com → create two **Products** (Pro $5/mo, Premium $10/mo) → copy the price IDs.
-2. **Developers → API keys** → copy live keys.
-3. **Developers → Webhooks → Add endpoint**:
-   - URL: `https://api.yourdomain.com/api/payments/stripe-webhook`
-   - Events: `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.paused`
-   - Copy the signing secret.
-4. Update `backend/.env` with `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_PREMIUM`.
-5. Restart the backend: `sudo systemctl restart revelator`.
+If something goes wrong in production:
+1. Revert to previous PostgreSQL backup
+2. Revert frontend to last working commit
+3. Monitor Groq API rate limits
+4. Check payment webhook logs for failures
 
-## 4. Wire up PayMongo (Philippines)
+Keep backups for at least 7 days.
 
-1. https://dashboard.paymongo.com → API keys → copy public + secret keys.
-2. **Webhooks → Add endpoint**:
-   - URL: `https://api.yourdomain.com/api/payments/paymongo-webhook`
-   - Event: `checkout_session.payment.paid`
-   - Copy the secret.
-3. Update `backend/.env` with `PAYMONGO_SECRET_KEY`, `PAYMONGO_PUBLIC_KEY`, `PAYMONGO_WEBHOOK_SECRET`.
+---
 
-## 5. (Later) Deploy LLaVA on Hugging Face Spaces
+## **Useful Links**
 
-When the fine-tuned weights are ready:
+- Railway: https://railway.app
+- Render: https://render.com
+- PostgreSQL Setup: https://www.postgresql.org/docs/
+- Groq Console: https://console.groq.com
+- AWS S3: https://aws.amazon.com/s3/
+- Cloudinary: https://cloudinary.com
+- Let's Encrypt: https://letsencrypt.org
+- Sentry: https://sentry.io
 
-1. Create two Spaces: `<you>/revelator-llava-detective` and `<you>/revelator-llava-sherlock`.
-2. Use the Gradio template; expose `/api/predict` returning the JSON shape documented in `backend/app/forgery/llava_client.py`.
-3. Set `LLAVA_DETECTIVE_URL` and `LLAVA_SHERLOCK_URL` in `backend/.env`.
-4. Restart. The Detective/Sherlock tiers automatically wake up — no code change needed.
+---
 
-## 6. Smoke test
-
-After deploying:
-
-```
-GET https://api.yourdomain.com/                      → {"name":"Revelator"…}
-GET https://api.yourdomain.com/api/health            → {"status":"ok"}
-GET https://api.yourdomain.com/api/document-types    → {"document_types":[…]}
-```
-
-Open the web app, sign up, run a scan, watch the result populate. Check Firestore → `scans` collection, your scan should appear.
-
-## 7. Monitoring
-
-- **Backend**: `sudo journalctl -u revelator -f` for live logs
-- **Firebase usage**: Console → Usage and billing
-- **Gemini quota**: https://ai.dev/rate-limit (free tier) or AI Studio billing
-- **Stripe events**: Dashboard → Events
-- **PayMongo events**: Dashboard → Webhooks → recent deliveries
+**When you're ready to launch, start with Phase 1. Don't skip security checks in Phase 3.**

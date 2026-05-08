@@ -1,90 +1,90 @@
-"""Payment routes — Stripe (global) + PayMongo (Philippines).
-
-Flow:
-  1. Frontend calls POST /api/payments/create-checkout with {plan, payment_method}.
-     Backend creates a checkout session and returns the redirect URL.
-  2. User pays externally.
-  3. Provider POSTs to our webhook with the result.
-  4. We verify the signature and update the user's plan in Firestore.
-
-Frontend reads the updated plan via the Firestore listener on `users/{uid}`
-— no extra polling needed.
+"""
+Payment routes for Stripe and PayMongo subscription management.
 """
 
-from __future__ import annotations
-
 import base64
-import json
-from datetime import datetime, timezone
-from typing import Optional
-
 import requests
-import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
+from ..database import get_db
+from ..models import User
 from ..config import (
-    FRONTEND_URL,
-    PAYMONGO_PUBLIC_KEY,
-    PAYMONGO_SECRET_KEY,
-    PAYMONGO_WEBHOOK_SECRET,
-    PRO_PRICE_USD,
-    PREMIUM_PRICE_USD,
-    STRIPE_PRICE_ID_PREMIUM,
-    STRIPE_PRICE_ID_PRO,
-    STRIPE_SECRET_KEY,
-    STRIPE_WEBHOOK_SECRET,
+    STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRICE_ID_PRO, STRIPE_PRICE_ID_PREMIUM, FRONTEND_URL,
+    PAYMONGO_SECRET_KEY, PAYMONGO_PUBLIC_KEY,
+    PRO_PRICE_USD, PREMIUM_PRICE_USD,
 )
-from ..firebase_admin_init import db
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
-if STRIPE_SECRET_KEY:
-    stripe.api_key = STRIPE_SECRET_KEY
+
+def get_stripe():
+    """Lazy import stripe so the app works even without the package."""
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Stripe is not configured. Add STRIPE_SECRET_KEY to .env")
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        return stripe
+    except ImportError:
+        raise HTTPException(status_code=503, detail="stripe package not installed. Run: pip install stripe")
 
 
-def _now():
-    return datetime.now(timezone.utc)
+PLAN_PRICE_MAP = {
+    "pro": STRIPE_PRICE_ID_PRO,
+    "premium": STRIPE_PRICE_ID_PREMIUM,
+}
 
 
-# ── Plans ──────────────────────────────────────────────────────────
+class CheckoutRequest(BaseModel):
+    plan: str  # "pro" or "premium"
+    payment_method: str = "stripe"  # "stripe" or "paymongo"
+
+
+def get_paymongo():
+    """Lazy import and validate PayMongo configuration."""
+    if not PAYMONGO_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="PayMongo is not configured. Add PAYMONGO_SECRET_KEY to .env")
+    return {
+        "secret_key": PAYMONGO_SECRET_KEY,
+        "public_key": PAYMONGO_PUBLIC_KEY,
+    }
+
 
 @router.get("/plans")
 def get_plans():
     return {
         "plans": [
             {
-                "key": "free",
-                "name": "Free",
-                "price_usd": 0,
-                "currency": "USD",
+                "id": "free", "name": "Free", "price": 0,
+                "scans_per_month": 10, "unlimited": False, "llm_included": False,
                 "features": [
                     "10 scans / month",
-                    "Analyst tier (Gemini Vision)",
-                    "Document classification",
+                    "Verdict + bounding boxes",
+                    "Scan history with images",
+                    "Community support",
                 ],
             },
             {
-                "key": "pro",
-                "name": "Pro",
-                "price_usd": PRO_PRICE_USD,
-                "currency": "USD",
+                "id": "pro", "name": "Pro", "price": PRO_PRICE_USD,
+                "scans_per_month": -1, "unlimited": True, "llm_included": False,
                 "features": [
                     "Unlimited scans",
-                    "Detective tier (LLaVA + Gemini)",
+                    "Verdict + bounding boxes",
+                    "Scan history with images",
+                    "Email support",
+                ],
+            },
+            {
+                "id": "premium", "name": "Premium", "price": PREMIUM_PRICE_USD,
+                "scans_per_month": -1, "unlimited": True, "llm_included": True,
+                "features": [
+                    "Unlimited scans",
+                    "AI forensic explanation on every scan",
                     "Priority processing",
-                ],
-            },
-            {
-                "key": "premium",
-                "name": "Premium",
-                "price_usd": PREMIUM_PRICE_USD,
-                "currency": "USD",
-                "features": [
-                    "Unlimited scans",
-                    "Sherlock tier (full LLaVA + document-aware)",
-                    "AI-generated forensic explanation",
                     "Priority support",
                 ],
             },
@@ -92,189 +92,199 @@ def get_plans():
     }
 
 
-@router.get("/paymongo-public-key")
-def get_paymongo_public_key():
-    return {"public_key": PAYMONGO_PUBLIC_KEY}
-
-
-# ── Stripe checkout ────────────────────────────────────────────────
-
-class CheckoutRequest(BaseModel):
-    plan: str
-    payment_method: str = "stripe"
-
-
 @router.post("/create-checkout")
-def create_checkout(body: CheckoutRequest, current_user: dict = Depends(get_current_user)):
-    plan = body.plan.lower()
-    if plan not in {"pro", "premium"}:
-        raise HTTPException(400, "plan must be 'pro' or 'premium'")
+def create_checkout(
+    body: CheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stripe = get_stripe()
 
-    method = body.payment_method.lower()
-    if method == "stripe":
-        return _stripe_checkout(current_user, plan)
-    if method == "paymongo":
-        return _paymongo_checkout(current_user, plan)
-    raise HTTPException(400, "payment_method must be 'stripe' or 'paymongo'")
-
-
-def _stripe_checkout(user: dict, plan: str) -> dict:
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Stripe is not configured")
-
-    price_id = STRIPE_PRICE_ID_PRO if plan == "pro" else STRIPE_PRICE_ID_PREMIUM
+    price_id = PLAN_PRICE_MAP.get(body.plan)
     if not price_id:
-        raise HTTPException(503, f"Stripe price ID for {plan} is not configured")
+        raise HTTPException(status_code=400, detail="Invalid plan. Choose 'pro' or 'premium'.")
 
-    customer_id = user.get("stripe_customer_id") or None
-    if not customer_id:
+    # Create or reuse Stripe customer
+    if not current_user.stripe_customer_id:
         customer = stripe.Customer.create(
-            email=user.get("email") or None,
-            name=user.get("full_name") or None,
-            metadata={"firebase_uid": user["uid"]},
+            email=current_user.email,
+            metadata={"user_id": current_user.id},
         )
-        customer_id = customer.id
-        db().collection("users").document(user["uid"]).update({
-            "stripe_customer_id": customer_id, "updated_at": _now(),
-        })
+        current_user.stripe_customer_id = customer.id
+        db.commit()
 
+    # Create checkout session
     session = stripe.checkout.Session.create(
-        customer=customer_id,
-        mode="subscription",
+        customer=current_user.stripe_customer_id,
+        payment_method_types=["card"],
         line_items=[{"price": price_id, "quantity": 1}],
+        mode="subscription",
         success_url=f"{FRONTEND_URL}/account?payment=success",
         cancel_url=f"{FRONTEND_URL}/account?payment=cancelled",
-        metadata={"firebase_uid": user["uid"], "plan": plan},
+        metadata={"user_id": current_user.id, "plan": body.plan},
     )
-    return {"checkout_url": session.url, "provider": "stripe"}
+
+    return {"checkout_url": session.url, "session_id": session.id}
 
 
-# ── PayMongo checkout ──────────────────────────────────────────────
+@router.post("/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    stripe = get_stripe()
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
 
-def _paymongo_checkout(user: dict, plan: str) -> dict:
-    if not PAYMONGO_SECRET_KEY:
-        raise HTTPException(503, "PayMongo is not configured")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
-    # Convert USD price to PHP (rough: 1 USD ≈ 56 PHP). For production,
-    # use the live FX rate or a fixed PHP price column on the plan.
-    usd_price = PRO_PRICE_USD if plan == "pro" else PREMIUM_PRICE_USD
-    php_centavos = int(round(usd_price * 56 * 100))
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        user_id = session.get("metadata", {}).get("user_id")
+        plan = session.get("metadata", {}).get("plan", "basic")
+        subscription_id = session.get("subscription")
 
-    auth = base64.b64encode(f"{PAYMONGO_SECRET_KEY}:".encode()).decode()
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                user.plan = plan
+                user.stripe_subscription_id = subscription_id
+                db.commit()
+
+    elif event["type"] == "customer.subscription.deleted":
+        sub = event["data"]["object"]
+        subscription_id = sub.get("id")
+        user = db.query(User).filter(User.stripe_subscription_id == subscription_id).first()
+        if user:
+            user.plan = "free"
+            user.stripe_subscription_id = None
+            db.commit()
+
+    return {"status": "ok"}
+
+
+@router.post("/cancel")
+def cancel_subscription(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not current_user.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="No active subscription")
+
+    stripe = get_stripe()
+    stripe.Subscription.modify(current_user.stripe_subscription_id, cancel_at_period_end=True)
+    return {"message": "Subscription will cancel at end of billing period"}
+
+
+# ============================================
+# PayMongo Payment Routes
+# ============================================
+
+@router.post("/paymongo-checkout")
+def create_paymongo_checkout(
+    body: CheckoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a PayMongo payment link for subscription."""
+    paymongo = get_paymongo()
+
+    amount_cents = int(PRO_PRICE_USD * 100) if body.plan == "pro" else int(PREMIUM_PRICE_USD * 100)
+
+    # Create PayMongo charge with webhook
+    auth_string = base64.b64encode(f"{paymongo['secret_key']}:".encode()).decode()
+    headers = {
+        "Authorization": f"Basic {auth_string}",
+        "Content-Type": "application/json",
+    }
+
     payload = {
         "data": {
+            "type": "checkout_session",
             "attributes": {
-                "send_email_receipt": False,
-                "show_description": True,
-                "show_line_items": True,
-                "line_items": [{
-                    "currency": "PHP",
-                    "amount": php_centavos,
-                    "name": f"Revelator {plan.title()} (1 month)",
-                    "quantity": 1,
-                }],
-                "payment_method_types": ["card", "gcash", "paymaya", "grab_pay"],
-                "success_url": f"{FRONTEND_URL}/account?payment=success",
-                "cancel_url": f"{FRONTEND_URL}/account?payment=cancelled",
-                "metadata": {"firebase_uid": user["uid"], "plan": plan},
+                "amount": amount_cents,
+                "currency": "PHP",
+                "description": f"Revelator {body.plan.upper()} Plan",
+                "statement_descriptor": "REVELATOR",
+                "line_items": [
+                    {
+                        "amount": amount_cents,
+                        "currency": "PHP",
+                        "description": f"Revelator {body.plan.upper()} Plan",
+                        "name": f"Revelator {body.plan.upper()} Plan",
+                        "quantity": 1,
+                    }
+                ],
+                "payment_method_types": ["card", "gcash"],
+                "redirect": {
+                    "success": f"{FRONTEND_URL}/account?payment=success&provider=paymongo",
+                    "failed": f"{FRONTEND_URL}/account?payment=cancelled",
+                },
+                "metadata": {
+                    "user_id": current_user.id,
+                    "plan": body.plan,
+                    "email": current_user.email,
+                },
             }
         }
     }
-    r = requests.post(
-        "https://api.paymongo.com/v1/checkout_sessions",
-        headers={"Authorization": f"Basic {auth}", "Content-Type": "application/json"},
-        json=payload, timeout=15,
-    )
-    if not r.ok:
-        raise HTTPException(502, f"PayMongo error: {r.text[:200]}")
-    data = r.json()["data"]
-    return {
-        "checkout_url": data["attributes"]["checkout_url"],
-        "provider": "paymongo",
-        "session_id": data["id"],
-    }
 
-
-# ── Webhooks ───────────────────────────────────────────────────────
-
-@router.post("/stripe-webhook")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-
-    if not STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(503, "Stripe webhook secret not configured")
     try:
-        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except (ValueError, stripe.error.SignatureVerificationError) as exc:
-        raise HTTPException(400, f"Webhook signature failed: {exc}")
+        response = requests.post(
+            "https://api.paymongo.com/v1/checkout_sessions",
+            json=payload,
+            headers=headers,
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
 
-    et = event["type"]
-    obj = event["data"]["object"]
+        checkout_url = data["data"]["attributes"]["checkout_url"]
+        session_id = data["data"]["id"]
 
-    if et == "checkout.session.completed":
-        uid = (obj.get("metadata") or {}).get("firebase_uid")
-        plan = (obj.get("metadata") or {}).get("plan")
-        if uid and plan in {"pro", "premium"}:
-            db().collection("users").document(uid).update({
-                "plan": plan,
-                "stripe_subscription_id": obj.get("subscription") or "",
-                "scans_this_month": 0,
-                "scan_reset_date": _now(),
-                "updated_at": _now(),
-            })
-    elif et in ("customer.subscription.deleted", "customer.subscription.paused"):
-        # Downgrade — find the user via stripe_customer_id
-        cid = obj.get("customer")
-        if cid:
-            users = db().collection("users").where("stripe_customer_id", "==", cid).stream()
-            for snap in users:
-                snap.reference.update({"plan": "free", "updated_at": _now()})
+        # Store session for webhook reference
+        current_user.paymongo_source_id = session_id
+        db.commit()
 
-    return {"received": True}
+        return {"checkout_url": checkout_url, "session_id": session_id, "provider": "paymongo"}
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"PayMongo API error: {str(e)}")
 
 
 @router.post("/paymongo-webhook")
-async def paymongo_webhook(request: Request):
-    payload = await request.body()
-    if PAYMONGO_WEBHOOK_SECRET:
-        # PayMongo signs webhooks with HMAC-SHA256; verify in production.
-        # The header is `Paymongo-Signature: t=…,te=…,li=…`.
-        sig_header = request.headers.get("paymongo-signature", "")
-        if not _paymongo_signature_valid(sig_header, payload, PAYMONGO_WEBHOOK_SECRET):
-            raise HTTPException(400, "PayMongo webhook signature invalid")
-
+async def paymongo_webhook(request: Request, db: Session = Depends(get_db)):
+    """Handle PayMongo payment success webhooks."""
     try:
-        event = json.loads(payload.decode())
+        payload = await request.json()
     except Exception:
-        raise HTTPException(400, "Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid request body")
 
-    etype = (event.get("data") or {}).get("attributes", {}).get("type")
-    data = (event.get("data") or {}).get("attributes", {}).get("data") or {}
+    event_type = payload.get("data", {}).get("type")
 
-    if etype == "checkout_session.payment.paid":
-        meta = ((data.get("attributes") or {}).get("metadata") or {})
-        uid = meta.get("firebase_uid")
-        plan = meta.get("plan")
-        if uid and plan in {"pro", "premium"}:
-            db().collection("users").document(uid).update({
-                "plan": plan,
-                "scans_this_month": 0,
-                "scan_reset_date": _now(),
-                "updated_at": _now(),
-            })
+    if event_type == "payment.success":
+        payment_data = payload.get("data", {}).get("attributes", {})
+        metadata = payment_data.get("metadata", {})
 
-    return {"received": True}
+        user_id = metadata.get("user_id")
+        plan = metadata.get("plan", "pro")
+
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                user.plan = plan
+                user.paymongo_customer_id = payment_data.get("source", {}).get("id")
+                db.commit()
+                return {"status": "ok"}
+
+    return {"status": "ok"}
 
 
-def _paymongo_signature_valid(header: str, payload: bytes, secret: str) -> bool:
-    import hashlib
-    import hmac
-    parts = dict(p.split("=", 1) for p in header.split(",") if "=" in p)
-    timestamp = parts.get("t")
-    signature = parts.get("li") or parts.get("te")
-    if not timestamp or not signature:
-        return False
-    signed = f"{timestamp}.{payload.decode()}".encode()
-    expected = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+@router.get("/paymongo-public-key")
+def get_paymongo_public_key():
+    """Get PayMongo public key for frontend integration."""
+    try:
+        paymongo = get_paymongo()
+        return {"public_key": paymongo["public_key"]}
+    except HTTPException:
+        return {"public_key": None}

@@ -1,4 +1,4 @@
-"""Run the FastAPI backend in development. Use uvicorn directly in production."""
+"""Run the Revelator API server."""
 
 import uvicorn
 

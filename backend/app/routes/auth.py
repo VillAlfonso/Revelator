@@ -61,7 +61,7 @@ def user_to_dict(user: User) -> dict:
         "full_name": user.full_name or "",
         "plan": user.plan,
         "scans_this_month": user.scans_this_month,
-        "is_admin": bool(user.is_admin),
+        "role": user.role or "user",
         "is_active": bool(user.is_active),
         "created_at": user.created_at.isoformat() if user.created_at else "",
     }

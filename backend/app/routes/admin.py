@@ -22,13 +22,12 @@ VALID_PLANS = {"free", "basic", "pro"}
 
 class UserUpdate(BaseModel):
     plan: Optional[str] = None
-    is_admin: Optional[bool] = None
-    is_super_admin: Optional[bool] = None
+    role: Optional[str] = None  # user | admin | superadmin
     is_active: Optional[bool] = None
     full_name: Optional[str] = None
     username: Optional[str] = None
     email: Optional[str] = None
-    password: Optional[str] = None  # optional reset
+    password: Optional[str] = None
 
 
 def _user_row(u: User) -> dict:
@@ -38,8 +37,7 @@ def _user_row(u: User) -> dict:
         "username": u.username,
         "full_name": u.full_name or "",
         "plan": u.plan,
-        "is_admin": bool(u.is_admin),
-        "is_super_admin": bool(u.is_super_admin),
+        "role": u.role or "user",
         "is_active": bool(u.is_active),
         "is_verified": bool(u.is_verified),
         "scans_this_month": u.scans_this_month,
@@ -55,7 +53,7 @@ def stats(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     total_users = db.query(func.count(User.id)).scalar() or 0
     total_scans = db.query(func.count(Scan.id)).scalar() or 0
     plan_counts = dict(db.query(User.plan, func.count(User.id)).group_by(User.plan).all())
-    admin_count = db.query(func.count(User.id)).filter(User.is_admin == True).scalar() or 0
+    admin_count = db.query(func.count(User.id)).filter(User.role.in_(("admin", "superadmin"))).scalar() or 0
     return {
         "total_users": total_users,
         "total_scans": total_scans,
@@ -112,22 +110,16 @@ def update_user(
             raise HTTPException(status_code=400, detail=f"Invalid plan. Options: {sorted(VALID_PLANS)}")
         user.plan = body.plan
 
-    if body.is_admin is not None or body.is_super_admin is not None:
-        if not admin.is_super_admin:
-            raise HTTPException(status_code=403, detail="Only super admins can change admin roles")
-
-    if body.is_admin is not None:
-        if user.id == admin.id and body.is_admin is False:
-            raise HTTPException(status_code=400, detail="You cannot remove your own admin role")
-        user.is_admin = body.is_admin
-
-    if body.is_super_admin is not None:
-        if user.id == admin.id and body.is_super_admin is False:
-            # Check if user is the last super admin
-            super_admin_count = db.query(User).filter(User.is_super_admin == True).count()
-            if super_admin_count <= 1:
+    if body.role is not None:
+        if body.role not in ("user", "admin", "superadmin"):
+            raise HTTPException(status_code=400, detail="Invalid role. Options: user, admin, superadmin")
+        if admin.role != "superadmin":
+            raise HTTPException(status_code=403, detail="Only super admins can change roles")
+        if user.id == admin.id and body.role == "user":
+            superadmin_count = db.query(User).filter(User.role == "superadmin").count()
+            if superadmin_count <= 1:
                 raise HTTPException(status_code=400, detail="Cannot remove the last super admin")
-        user.is_super_admin = body.is_super_admin
+        user.role = body.role
 
     if body.is_active is not None:
         if user.id == admin.id and body.is_active is False:
@@ -180,8 +172,8 @@ def delete_user(
 @router.get("/super/info")
 def super_admin_info(super_admin: User = Depends(get_current_super_admin), db: Session = Depends(get_db)):
     """Super admin dashboard: view all admins and super admins."""
-    admins = db.query(User).filter(User.is_admin == True).all()
-    super_admins = db.query(User).filter(User.is_super_admin == True).all()
+    admins = db.query(User).filter(User.role == "admin").all()
+    super_admins = db.query(User).filter(User.role == "superadmin").all()
     return {
         "current_user": _user_row(super_admin),
         "admins": [_user_row(u) for u in admins],
@@ -201,11 +193,10 @@ def promote_to_super_admin(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.is_super_admin:
+    if user.role == "superadmin":
         raise HTTPException(status_code=400, detail="User is already super admin")
 
-    user.is_super_admin = True
-    user.is_admin = True
+    user.role = "superadmin"
     db.commit()
     db.refresh(user)
     return _user_row(user)

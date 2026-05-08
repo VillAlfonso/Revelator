@@ -1,29 +1,91 @@
-# ── Secrets — never commit ──
-**/firebase-service-account*.json
-backend/.env
-web/.env
-mobile/.env
+# Environment
+.env
+venv/
+.venv/
+env/
 
-# ── Python ──
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 *.egg-info/
-.venv/
-venv/
 
-# ── Node ──
-node_modules/
-dist/
-.vite/
-build/
+# YOLO
+runs/
+*.pt
+!weights/.gitkeep
 
-# ── Editor / OS ──
-.DS_Store
-Thumbs.db
+# IDE
 .idea/
 .vscode/
 *.swp
+*.swo
 
-# ── Logs ──
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (large files)
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.bmp
+dataset/
+
+# Training datasets and source dumps (live in Roboflow/Colab, not git)
+Clean/
+digital_cut_paste.zip
+models/**/*.jpg
+models/**/*.jpeg
+models/**/*.png
+models/**/*.bmp
+models/**/*.zip
+models/*/train/
+models/*/valid/
+models/*/test/
+models/*/extracted_real/
+models/*/synthetic/
+sources/
+
+# Logs
 *.log
-npm-debug.log*
+logs/
+
+# Database
+*.db
+!forgeguard.db
+
+# User-uploaded scan images
+backend/uploads/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.capacitor/
+
+# Frontend env (commit only .env.example)
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+
+# Capacitor native platforms — track source, ignore build output
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/captures/
+frontend/android/app/release/
+frontend/ios/App/build/
+frontend/ios/App/Pods/
+frontend/ios/DerivedData/
+
+# Android build artifacts
+*.apk
+*.aab
+
+# Personal notes / private docs
+SUGGESTIONS.md
+docs/CAPSTONE_PREP.md

@@ -26,8 +26,7 @@ class User(Base):
     google_id = Column(String, nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
-    is_super_admin = Column(Boolean, default=False, nullable=False)
+    role = Column(String, default="user", nullable=False)  # user | admin | superadmin
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

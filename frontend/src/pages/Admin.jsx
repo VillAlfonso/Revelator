@@ -10,7 +10,7 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 
 export default function Admin() {
   const { user: me } = useAuth();
-  const isSuperAdmin = me?.is_super_admin;
+  const isSuperAdmin = me?.role === "superadmin";
   const [tab, setTab] = useState('users'); // 'users', 'promo', 'dataset', 'logs'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -559,7 +559,7 @@ function UserRow({ user, isMe, onEdit, onDelete, onBan, onUnban, isBanning }) {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 14, wordBreak: 'break-all' }}>{user.email}</span>
           {isMe && <Badge color="#00ff66">You</Badge>}
-          {user.is_admin && <Badge color="#a3e635">Admin</Badge>}
+          {["admin","superadmin"].includes(user.role) && <Badge color="#a3e635">{user.role}</Badge>}
           {!user.is_active && <Badge color="#ff3344">Banned</Badge>}
           <Badge color={planColor}>{user.plan}</Badge>
         </div>

@@ -117,12 +117,12 @@ def check_is_document(image: Image.Image) -> Tuple[bool, str]:
             raw = _ask_ollama(image_bytes)
     except Exception as e:
         # Loud log so users know why a non-document slipped through.
-        print(f"⚠️  Document gate FAILED OPEN ({type(e).__name__}: {e}). "
+        print(f"[WARN] Document gate FAILED OPEN ({type(e).__name__}: {e}). "
               f"Image will be processed as if it were a document.")
         return True, ""
 
     if not raw:
-        print("⚠️  Document gate returned empty response — failing open.")
+        print("[WARN] Document gate returned empty response -- failing open.")
         return True, ""
 
     lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
@@ -138,5 +138,5 @@ def check_is_document(image: Image.Image) -> Tuple[bool, str]:
     if "DOCUMENT" in verdict_line:
         return True, reason
 
-    print(f"⚠️  Document gate ambiguous response — failing open. Raw: {raw[:200]!r}")
+    print(f"[WARN] Document gate ambiguous response -- failing open. Raw: {raw[:200]!r}")
     return True, ""

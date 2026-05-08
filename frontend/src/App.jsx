@@ -86,7 +86,7 @@ function AdminRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <BootSplash />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.is_admin) return <Navigate to="/scan" replace />;
+  if (!["admin","superadmin"].includes(user.role)) return <Navigate to="/scan" replace />;
   return children;
 }
 
@@ -117,7 +117,7 @@ function Layout({ children }) {
     { path: '/history', label: 'History' },
     { path: '/about', label: 'About' },
     { path: '/account', label: 'Account' },
-    ...(user?.is_admin ? [{ path: '/admin', label: 'Admin' }] : []),
+    ...(["admin","superadmin"].includes(user?.role) ? [{ path: '/admin', label: 'Admin' }] : []),
   ];
 
   const linkStyle = (active) => ({

@@ -26,7 +26,7 @@ def main():
         if not user:
             print(f"No user found with email: {args.email}")
             sys.exit(1)
-        user.is_admin = not args.revoke
+        user.role = "user" if args.revoke else "admin"
         db.commit()
         action = "revoked" if args.revoke else "granted"
         print(f"Admin role {action} for {user.email} (id={user.id}, plan={user.plan})")

@@ -1,35 +1,43 @@
-"""FastAPI entrypoint for Revelator v2."""
-
-from contextlib import asynccontextmanager
+"""
+Revelator SaaS API
+==================
+Forensic document forgery detection — FastAPI gateway + Gemini Vision.
+"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import APP_NAME, APP_VERSION, FRONTEND_URL
-from .firebase_admin_init import init as firebase_init
-from .routes import analyze, payments
+from .config import APP_NAME, APP_VERSION, FRONTEND_URL, UPLOAD_DIR
+from .database import init_db
+from .routes import auth, analyze, payments, admin
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    firebase_init()
-    yield
-
-
-app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
+app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(analyze.router)
 app.include_router(payments.router)
+app.include_router(admin.router)
 
 
-@app.get("/")
-def root():
-    return {"name": APP_NAME, "version": APP_VERSION, "status": "ok"}
+@app.on_event("startup")
+async def startup_event():
+    print("\n" + "=" * 50)
+    print(f"{APP_NAME} API v{APP_VERSION} Starting...")
+    print("=" * 50)
+    init_db()
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"  Upload directory: {UPLOAD_DIR}")
+    print("=" * 50 + "\n")
+
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "version": APP_VERSION}

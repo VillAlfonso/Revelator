@@ -40,8 +40,7 @@ def main():
 
             count = 0
             for user in users:
-                user.is_super_admin = not args.revoke
-                user.is_admin = True if not args.revoke else user.is_admin
+                user.role = "user" if args.revoke else "superadmin"
                 count += 1
 
             db.commit()
@@ -56,9 +55,7 @@ def main():
                 print(f"No user found with email: {args.email}")
                 sys.exit(1)
 
-            user.is_super_admin = not args.revoke
-            if not args.revoke:
-                user.is_admin = True  # super admins must also be admins
+            user.role = "user" if args.revoke else "superadmin"
             db.commit()
             action = "revoked" if args.revoke else "granted"
             print(f"Super admin role {action} for {user.email} (id={user.id}, plan={user.plan})")

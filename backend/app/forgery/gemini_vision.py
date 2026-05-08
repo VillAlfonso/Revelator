@@ -23,6 +23,22 @@ from PIL import Image
 
 from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 
+# Fallback chain: best quality first, lite last.
+# If GEMINI_VISION_MODEL is set in .env, only that model is used (no fallback).
+# Otherwise, cascade through this chain on rate limit errors.
+_FALLBACK_CHAIN = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+
+def _model_chain() -> list[str]:
+    """Return ordered list of models to try. If a model is explicitly set, use only that."""
+    if GEMINI_VISION_MODEL:
+        return [GEMINI_VISION_MODEL]  # Use explicitly configured model, no fallback
+    return list(_FALLBACK_CHAIN)  # Otherwise, cascade through the default chain
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in ("429", "quota", "rate_limit", "rateerror", "resource_exhausted", "exhausted"))
+
 
 # ── Category taxonomy ──────────────────────────────────────────────────────
 CATEGORIES = [
@@ -64,7 +80,7 @@ CATEGORIES (use the code on the left in your JSON):
 
 Traced:
   traced_carbon            — Carbon-paper transfer; faint carbon residue along strokes.
-  traced_indentation       — Pressure indentation visible via raking light or backside.
+  traced_indentation       — Pressure indentation / canal light effect: look for a halo (colorless depression/groove) around ink strokes where the pen pressed into paper, often visible as a depression in paper fibers. Ink may not fill the entire indented path (poor alignment). Line quality may show hesitation or tremor rather than natural fluidity.
   traced_projection        — Light-table tracing; uniform line weight, no carbon, no grooves.
 
 Alteration:
@@ -277,6 +293,7 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "anomaly_location": anomaly_location,
         "tools_likely_used": (parsed.get("tools_likely_used") or "").strip() or None,
         "certainty_level": "HIGH" if confidence >= 0.85 else "MEDIUM" if confidence >= 0.60 else "LOW",
+        "model_used": None,
     }
 
 
@@ -326,22 +343,35 @@ def classify(
         is_forged_belief, shot_type, lighting, physical_clues,
     )
 
-    try:
-        from google.genai import types as genai_types
-        response = client.models.generate_content(
-            model=GEMINI_VISION_MODEL,
-            contents=[
-                prompt,
-                genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
-            ],
-            config=genai_types.GenerateContentConfig(
-                temperature=0.2,
-                response_mime_type="application/json",
-            ),
-        )
-        text = response.text or ""
-    except Exception as exc:
-        return _fallback(f"API call failed: {exc}")
+    from google.genai import types as genai_types
+
+    text = ""
+    last_exc: Optional[Exception] = None
+    model_used = None
+    for model in _model_chain():
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    prompt,
+                    genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"),
+                ],
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.2,
+                    response_mime_type="application/json",
+                ),
+            )
+            text = response.text or ""
+            model_used = model
+            break
+        except Exception as exc:
+            if _is_rate_limited(exc):
+                print(f"[WARN] {model} rate-limited, trying next model. ({exc})")
+                last_exc = exc
+                continue
+            return _fallback(f"API call failed: {exc}")
+    else:
+        return _fallback(f"All models rate-limited: {last_exc}")
 
     text = _strip_json_fence(text)
     try:
@@ -358,4 +388,6 @@ def classify(
     if not isinstance(parsed, dict):
         return _fallback("response was not a JSON object")
 
-    return _coerce(parsed)
+    result = _coerce(parsed)
+    result["model_used"] = model_used
+    return result
