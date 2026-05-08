@@ -50,7 +50,7 @@ Both the FastAPI backend and the React web app talk to the same Firebase project
 
 ```js
 rules_version = '2';
-service cloud.firestore {
+service cloud.firestore { 
   match /databases/{database}/documents {
 
     // Users can read/update their own profile. Backend (Admin SDK) bypasses these.
