@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import PromptDashboard from '../components/PromptDashboard';
 
 // Backend groups stay 6 (Digital, Alteration, Traced, Obliteration, Sympathetic Ink, Currency).
 // Each backend group maps to several leaf classes that the user picks individually on /scan.
@@ -16,6 +17,7 @@ const CATEGORY_META = {
 export default function About() {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
+  const [showDashboard, setShowDashboard] = useState(false);
 
   useEffect(() => {
     api.getAbout()
@@ -61,6 +63,43 @@ export default function About() {
           </div>
         </Section>
       )}
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div
+          onClick={() => setShowDashboard(s => !s)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            cursor: 'pointer', userSelect: 'none',
+          }}
+        >
+          <div>
+            <h2 className="oswald" style={{
+              fontSize: 13, letterSpacing: 2.5, textTransform: 'uppercase',
+              color: '#6dba85', margin: 0,
+            }}>
+              ▸ How the Analyst Reasons — Live Prompt Analytics
+            </h2>
+            <p style={{ fontSize: 12, color: '#86efac', margin: '6px 0 0 0', lineHeight: 1.6 }}>
+              Behind every classification is a prompt that defines 19 forgery categories, branching rules, and
+              user-context variables. This dashboard reads the live prompt and shows how each category is
+              described, where overlaps exist, and which categories tend to dominate when evidence is ambiguous.
+            </p>
+          </div>
+          <span className="mono" style={{
+            fontSize: 11, color: '#00ff66', padding: '4px 12px',
+            border: '1px solid #00ff66', borderRadius: 2, letterSpacing: 1.5,
+            whiteSpace: 'nowrap', marginLeft: 16,
+          }}>
+            {showDashboard ? '▲ HIDE' : '▼ OPEN DASHBOARD'}
+          </span>
+        </div>
+
+        {showDashboard && (
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #112418' }}>
+            <PromptDashboard />
+          </div>
+        )}
+      </div>
 
       <div style={{
         background: 'rgba(255,51,68,0.06)', border: '1px solid rgba(255,51,68,0.4)',

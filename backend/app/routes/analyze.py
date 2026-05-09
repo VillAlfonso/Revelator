@@ -24,7 +24,10 @@ from ..config import (
 )
 from ..forgery.llm import get_llm_explanation
 from ..forgery.document_gate import check_is_document
-from ..forgery.gemini_vision import classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS
+from ..forgery.gemini_vision import (
+    classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS, analyze_prompts,
+    preprocess_image, triage_classify, confidence_gated_analyze,
+)
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 from ..forgery.model_tiers import (
     TIER_ANALYST, TIER_DETECTIVE, TIER_SHERLOCK, ALL_TIERS,
@@ -115,6 +118,15 @@ def get_about_info():
     }
 
 
+@router.get("/prompt-analysis")
+def get_prompt_analysis():
+    """
+    Live analysis of the Gemini prompts. Parses gemini_vision.py on each request
+    so the dashboard always reflects the current prompt state.
+    """
+    return analyze_prompts()
+
+
 @router.post("/analyze")
 def analyze_document(
     imageFile: UploadFile = File(...),
@@ -150,7 +162,7 @@ def analyze_document(
         image = Image.open(io.BytesIO(image_data))
         if image.mode != "RGB":
             image = image.convert("RGB")
-        width, height = image.size
+        original_width, original_height = image.size
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
 
@@ -166,15 +178,27 @@ def analyze_document(
             "llm_locked": False,
             "llm_required_plan": "pro",
             "annotations": [],
-            "original_image_dimensions": {"width": width, "height": height},
+            "original_image_dimensions": {"width": original_width, "height": original_height},
             "timestamp": datetime.now().isoformat(),
             "detected_category": "not_a_document",
             "detected_category_label": "Not a Document",
         }
 
-    # Tiered inference: Analyst = Gemini only. Detective/Sherlock = LLaVA + Gemini (stubs for now).
+    # ─────────────────────────────────────────────────────────────────
+    # Optimize pipeline: preprocess → triage → full classify → merge alternatives
+    # ─────────────────────────────────────────────────────────────────
+    # STAGE 0: Preprocess (50-75% image token reduction, zero accuracy impact)
+    preprocessed = preprocess_image(image)
+    print(f"[DEBUG] Image preprocessed: {image.size} → {preprocessed.size}")
+
+    # STAGE 1: Triage — used only to seed alternatives, NOT to narrow the main analysis
+    triage = triage_classify(preprocessed)
+    triage_top3 = triage.get("top_3", [])
+    print(f"[DEBUG] Triage candidates: {triage_top3}")
+
+    # STAGE 2: Full classification with complete prompt (all 19 categories)
     gemini = gemini_classify(
-        image,
+        preprocessed,
         document_type=document_type,
         suspicion_reason=suspicion_reason,
         area_of_concern=area_of_concern,
@@ -184,9 +208,44 @@ def analyze_document(
         lighting=lighting,
         physical_clues=physical_clues,
     )
+
     if gemini.get("_unavailable"):
         raise HTTPException(status_code=503, detail="Gemini Vision is temporarily unavailable. Please try again in a moment.")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
+
+    # STAGE 2.5: Merge triage candidates into alternatives
+    # Ensures categories the triage flagged (but Gemini missed) appear in alternatives
+    existing_alt_cats = {a["category"] for a in gemini.get("alternatives", [])}
+    existing_alt_cats.add(gemini.get("category", ""))
+    for cat in triage_top3:
+        if cat not in existing_alt_cats and cat in CATEGORY_LABELS:
+            gemini.setdefault("alternatives", []).append({
+                "category": cat,
+                "category_label": CATEGORY_LABELS[cat],
+                "reasoning": "Flagged as candidate by triage model — consider if primary classification seems off.",
+            })
+            existing_alt_cats.add(cat)
+    print(f"[DEBUG] Alternatives after merge: {[a['category'] for a in gemini.get('alternatives', [])]}")
+
+    # STAGE 2: Confidence-gated self-critique (only fires when model is uncertain)
+    user_ctx = ""
+    if any([document_type, suspicion_reason, area_of_concern]):
+        user_ctx = (
+            f"Document type: {document_type}\n" if document_type else ""
+        ) + (
+            f"User suspicion: {suspicion_reason}\n" if suspicion_reason else ""
+        ) + (
+            f"Focus area: {area_of_concern}\n" if area_of_concern else ""
+        )
+
+    critiqued = confidence_gated_analyze(
+        preprocessed,
+        {},
+        gemini,
+        user_context=user_ctx,
+    )
+    gemini = critiqued.get("result", gemini)
+    print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")
 
     llava_result = None
     tier_used = TIER_ANALYST
@@ -251,8 +310,8 @@ def analyze_document(
         confidence_score=confidence,
         llm_explanation=llm_explanation,
         annotations_json=json.dumps([]),
-        image_width=width,
-        image_height=height,
+        image_width=original_width,
+        image_height=original_height,
         image_path=image_path,
         training_warning=None,
         detected_category=gemini["category"],
@@ -275,7 +334,7 @@ def analyze_document(
         "llm_locked": current_user.plan not in LLM_PLANS,
         "llm_required_plan": "pro",
         "annotations": [],
-        "original_image_dimensions": {"width": width, "height": height},
+        "original_image_dimensions": {"width": original_width, "height": original_height},
         "timestamp": datetime.now().isoformat(),
         "detected_category": gemini["category"],
         "detected_category_label": gemini["category_label"],
