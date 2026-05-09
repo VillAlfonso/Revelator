@@ -32,7 +32,7 @@ export default function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 440, margin: '60px auto', position: 'relative' }}>
+    <div style={{ maxWidth: 440, margin: 'clamp(20px, 6vw, 60px) auto', position: 'relative' }}>
       <FingerprintWatermark
         size={420} opacity={0.06}
         style={{ position: 'absolute', top: -40, right: -120, zIndex: 0 }}

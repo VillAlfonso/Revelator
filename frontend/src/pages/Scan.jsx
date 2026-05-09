@@ -205,7 +205,7 @@ export default function Scan() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, maxWidth: 800 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 800 }}>
         <div className="card">
           <h3 className="oswald" style={{
             fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
@@ -216,37 +216,96 @@ export default function Scan() {
             Capture Document
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
-            <button type="button" className="btn btn-primary" onClick={handleTakePhoto} style={{ padding: '14px 16px' }}>
-              ⌖ Take Photo
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => fileRef.current.click()} style={{ padding: '14px 16px' }}>
-              ⎙ Upload
-            </button>
-          </div>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
 
-          <div
-            onClick={() => fileRef.current.click()}
-            style={{
-              border: `1px dashed ${preview ? '#1d3825' : '#1f5d39'}`,
-              borderRadius: 3, padding: preview ? 16 : 48, textAlign: 'center',
-              cursor: 'pointer', transition: 'border-color 0.2s, background 0.2s',
-              background: preview ? 'transparent' : 'rgba(0,255,102,0.02)',
-            }}
-            onMouseEnter={e => { if (!preview) { e.currentTarget.style.borderColor = '#00ff66'; e.currentTarget.style.background = 'rgba(0,255,102,0.04)'; } }}
-            onMouseLeave={e => { if (!preview) { e.currentTarget.style.borderColor = '#1f5d39'; e.currentTarget.style.background = 'rgba(0,255,102,0.02)'; } }}
-          >
-            {preview ? (
-              <img src={preview} alt="Preview" style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 3, border: '1px solid #1d3825' }} />
-            ) : (
-              <div>
-                <div className="mono glow" style={{ fontSize: 32, marginBottom: 12, color: '#00ff66' }}>+</div>
-                <p className="mono" style={{ color: '#86efac', fontSize: 13, letterSpacing: 1.5 }}>NO IMAGE LOADED</p>
-                <p style={{ color: '#3f6e4a', fontSize: 12, marginTop: 6 }}>Click to select a file, or use a button above</p>
+          {!preview ? (
+            <>
+              {/* Camera-first big primary action */}
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleTakePhoto}
+                style={{
+                  width: '100%',
+                  padding: '22px 16px',
+                  fontSize: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                  marginBottom: 12,
+                  minHeight: 64,
+                }}
+              >
+                <span style={{ fontSize: 24, lineHeight: 1 }}>⌖</span>
+                <span>Take Photo</span>
+              </button>
+
+              {/* Secondary upload — smaller */}
+              <button
+                type="button"
+                onClick={() => fileRef.current.click()}
+                style={{
+                  width: '100%', padding: '12px 16px',
+                  background: 'transparent', border: '1px dashed #1f5d39',
+                  color: '#86efac', cursor: 'pointer',
+                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                  letterSpacing: 2, fontSize: 12, borderRadius: 3,
+                  marginBottom: 16, minHeight: 44,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 14 }}>⎙</span> Or upload from gallery
+              </button>
+
+              <div style={{
+                border: '1px dashed #1f5d39', borderRadius: 3,
+                padding: 36, textAlign: 'center',
+                background: 'rgba(0,255,102,0.02)',
+              }}>
+                <div className="mono glow" style={{ fontSize: 28, marginBottom: 8, color: '#00ff66' }}>+</div>
+                <p className="mono" style={{ color: '#86efac', fontSize: 12, letterSpacing: 1.5 }}>NO IMAGE LOADED</p>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              {/* Preview with retake control */}
+              <div style={{
+                border: '1px solid #1d3825', borderRadius: 3, padding: 12,
+                background: '#000', textAlign: 'center', marginBottom: 12,
+              }}>
+                <img src={preview} alt="Preview" style={{
+                  maxWidth: '100%', maxHeight: 360, borderRadius: 2,
+                  display: 'block', margin: '0 auto',
+                }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleTakePhoto}
+                  style={{
+                    padding: '12px', minHeight: 44,
+                    background: 'transparent', border: '1px solid #1d3825',
+                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
+                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                    letterSpacing: 1.5, fontSize: 12,
+                  }}
+                >
+                  ↻ Retake
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current.click()}
+                  style={{
+                    padding: '12px', minHeight: 44,
+                    background: 'transparent', border: '1px solid #1d3825',
+                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
+                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                    letterSpacing: 1.5, fontSize: 12,
+                  }}
+                >
+                  ⎙ Upload
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Optional context — collapsed by default */}
@@ -560,20 +619,28 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
   return (
     <div className="card" style={{ borderColor: vc, boxShadow: `0 0 24px ${vc}30`, padding: 0, overflow: 'hidden' }}>
       {/* ── Verdict ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${vc}33` }}>
-        <h3 className="oswald" style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: 2.5, color: '#d8ffe6', margin: 0 }}>◆ Forensic Report</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 'clamp(10px, 3vw, 14px) clamp(12px, 3.5vw, 20px)', borderBottom: `1px solid ${vc}33` }}>
+        <h3 className="oswald" style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 2, color: '#d8ffe6', margin: 0, whiteSpace: 'nowrap' }}>◆ Forensic Report</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, minWidth: 0 }}>
           {documentTypeLabel && documentTypeLabel !== 'Other Document' && (
-            <span className="mono" style={{ fontSize: 10, color: '#6dba85', letterSpacing: 1.5 }}>
+            <span className="mono" style={{ fontSize: 9, color: '#6dba85', letterSpacing: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
               📄 {documentTypeLabel.toUpperCase()}
             </span>
           )}
-          <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>{result.scan_id}</span>
+          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{result.scan_id}</span>
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${geminiAccent}33`, boxShadow: `inset 0 0 32px ${geminiAccent}18` }}>
-        <div className="oswald" style={{ fontSize: 32, fontWeight: 700, color: geminiAccent, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${geminiAccent}99` }}>
+      <div style={{ textAlign: 'center', padding: 'clamp(20px, 5vw, 28px) clamp(14px, 4vw, 20px) clamp(18px, 4vw, 24px)', background: '#000', borderBottom: `1px solid ${geminiAccent}33`, boxShadow: `inset 0 0 32px ${geminiAccent}18` }}>
+        <div className="oswald" style={{
+          fontSize: 'clamp(18px, 5.5vw, 32px)',
+          fontWeight: 700, color: geminiAccent,
+          textTransform: 'uppercase',
+          letterSpacing: 'clamp(2px, 0.6vw, 5px)',
+          textShadow: `0 0 18px ${geminiAccent}99`,
+          lineHeight: 1.15,
+          wordBreak: 'break-word',
+        }}>
           {geminiOk ? (result.detected_category_label || cat || '—') : '—'}
         </div>
         {geminiOk && (
@@ -599,17 +666,17 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
         </div>
       )}
 
-      <div style={{ padding: '20px 20px 4px' }}>
+      <div style={{ padding: 'clamp(14px, 4vw, 20px) clamp(12px, 3.5vw, 20px) 4px' }}>
         {/* ── Gemini Vision ── */}
         {geminiOk ? (
           <div style={{ marginBottom: 20 }}>
             <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: geminiAccent, margin: '0 0 8px', textShadow: `0 0 6px ${geminiAccent}99` }}>
               ▣ GEMINI VISION · CLASSIFICATION
             </p>
-            <div style={{ background: `${geminiAccent}08`, border: `1px solid ${geminiAccent}44`, borderLeft: `3px solid ${geminiAccent}`, borderRadius: 3, padding: '12px 14px' }}>
+            <div style={{ background: `${geminiAccent}08`, border: `1px solid ${geminiAccent}44`, borderLeft: `3px solid ${geminiAccent}`, borderRadius: 3, padding: 'clamp(10px, 3vw, 14px)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                <div>
-                  <h4 className="oswald" style={{ fontSize: 17, color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 2, margin: 0 }}>
+                <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+                  <h4 className="oswald" style={{ fontSize: 'clamp(14px, 4vw, 17px)', color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 1.8, margin: 0, lineHeight: 1.25, wordBreak: 'break-word' }}>
                     {result.detected_category_label || cat}
                   </h4>
                   {result.detected_subtype && (

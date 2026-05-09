@@ -442,12 +442,31 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 }
 
 /* Mobile-first responsive */
-@media (max-width: 768px) {
-  .card { padding: 16px; }
-  .btn { padding: 12px 20px; font-size: 13px; }
+@media (max-width: 900px) {
   .nav-desktop { display: none !important; }
   .nav-burger { display: inline-flex !important; }
+}
+
+@media (max-width: 768px) {
+  .container { padding: 0 12px; }
+  .card { padding: 16px; }
+  /* Touch targets: minimum 48px tappable height */
+  .btn { padding: 14px 22px; font-size: 14px; min-height: 48px; }
+  .input { padding: 14px 16px; font-size: 16px; min-height: 48px; } /* 16px prevents iOS auto-zoom */
+  select.input { font-size: 16px; }
   body::before { background-size: 24px 24px; }
+  /* Slightly larger body text for legibility */
+  body { font-size: 15px; }
+  /* Hide desktop-only elements */
+  .hide-mobile { display: none !important; }
+  /* Disable hover lifts/glows on touch devices to avoid sticky :hover state */
+  .lift:hover { transform: none; }
+}
+
+/* Show only on mobile */
+.show-mobile { display: none; }
+@media (max-width: 768px) {
+  .show-mobile { display: revert; }
 }
 
 /* Preserve focus ring for accessibility on non-mouse */

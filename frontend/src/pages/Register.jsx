@@ -37,7 +37,7 @@ export default function Register() {
   const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block', fontFamily: "'JetBrains Mono', monospace" };
 
   return (
-    <div style={{ maxWidth: 440, margin: '40px auto', position: 'relative' }}>
+    <div style={{ maxWidth: 440, margin: 'clamp(20px, 5vw, 40px) auto', position: 'relative' }}>
       <FingerprintWatermark
         size={420} opacity={0.06}
         style={{ position: 'absolute', top: -40, left: -120, zIndex: 0 }}

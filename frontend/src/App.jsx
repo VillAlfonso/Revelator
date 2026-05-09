@@ -108,31 +108,104 @@ function BootSplash() {
 function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOffset, setDrawerOffset] = useState(0); // for swipe-drag visual feedback
+  const touchStartX = React.useRef(null);
+  const touchStartY = React.useRef(null);
+  const isDragging = React.useRef(false);
+  const DRAWER_WIDTH = 280;
 
-  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
+  // Lock body scroll while drawer is open
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [drawerOpen]);
+
+  // Close drawer on Escape
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') setDrawerOpen(false); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Swipe-from-edge to open / swipe-on-drawer to close
+  useEffect(() => {
+    if (!user) return;
+
+    function onTouchStart(e) {
+      const t = e.touches[0];
+      // Open: touch must start near left edge (within 24px) and drawer is closed
+      // Close: touch can start anywhere on drawer area when open
+      const fromEdge = t.clientX <= 24;
+      const onDrawer = drawerOpen && t.clientX <= DRAWER_WIDTH + 40;
+      if (fromEdge || onDrawer) {
+        touchStartX.current = t.clientX;
+        touchStartY.current = t.clientY;
+        isDragging.current = false;
+      }
+    }
+    function onTouchMove(e) {
+      if (touchStartX.current == null) return;
+      const t = e.touches[0];
+      const dx = t.clientX - touchStartX.current;
+      const dy = t.clientY - touchStartY.current;
+      // Only start dragging if horizontal motion dominates
+      if (!isDragging.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        isDragging.current = true;
+      }
+      if (!isDragging.current) return;
+
+      if (drawerOpen) {
+        // Closing drag: dx is negative as user swipes left; offset in [-W, 0]
+        setDrawerOffset(Math.max(-DRAWER_WIDTH, Math.min(0, dx)));
+      } else {
+        // Opening drag: dx is positive as user swipes right; offset in [0, W]
+        setDrawerOffset(Math.max(0, Math.min(DRAWER_WIDTH, dx)));
+      }
+    }
+    function onTouchEnd() {
+      if (isDragging.current) {
+        if (drawerOpen) {
+          if (drawerOffset < -DRAWER_WIDTH / 3) setDrawerOpen(false);
+        } else {
+          if (drawerOffset > DRAWER_WIDTH / 3) setDrawerOpen(true);
+        }
+      }
+      touchStartX.current = null;
+      touchStartY.current = null;
+      isDragging.current = false;
+      setDrawerOffset(0);
+    }
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [user, drawerOpen, drawerOffset]);
 
   const navItems = [
-    { path: '/scan', label: 'Scan' },
-    { path: '/history', label: 'History' },
-    { path: '/about', label: 'About' },
-    { path: '/account', label: 'Account' },
-    ...(["admin","superadmin"].includes(user?.role) ? [{ path: '/admin', label: 'Admin' }] : []),
+    { path: '/scan', label: 'Scan', icon: '⌖' },
+    { path: '/history', label: 'History', icon: '▤' },
+    { path: '/account', label: 'Account', icon: '◉' },
+    { path: '/about', label: 'About', icon: '◈' },
+    ...(["admin","superadmin"].includes(user?.role) ? [{ path: '/admin', label: 'Admin', icon: '★' }] : []),
   ];
 
-  const linkStyle = (active) => ({
-    padding: '10px 14px',
-    fontSize: 13,
-    fontFamily: "'Oswald', sans-serif",
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    color: active ? '#00ff66' : '#6dba85',
-    textDecoration: 'none',
-    borderBottom: active ? '2px solid #00ff66' : '2px solid transparent',
-    textShadow: active ? '0 0 12px rgba(0,255,102,0.55)' : 'none',
-    whiteSpace: 'nowrap',
-    transition: 'color 0.15s, text-shadow 0.15s',
-  });
+  // Translation for drawer (open + drag state)
+  // When open: drawerOffset is [-W, 0]; transform translates from 0 (rest) toward -W during close drag.
+  // When closed: drawerOffset is [0, W]; transform translates from -W (rest) toward 0 during open drag.
+  const drawerTransform = drawerOpen
+    ? `translateX(${drawerOffset}px)`
+    : `translateX(${-DRAWER_WIDTH + drawerOffset}px)`;
+  const backdropOpacity = drawerOpen
+    ? Math.max(0, 1 + drawerOffset / DRAWER_WIDTH)
+    : Math.max(0, Math.min(1, drawerOffset / DRAWER_WIDTH));
 
   return (
     <div>
@@ -141,18 +214,37 @@ function Layout({ children }) {
         background:
           'linear-gradient(180deg, rgba(8,18,12,0.95) 0%, rgba(0,0,0,0.92) 100%)',
         borderBottom: '1px solid #112418',
-        padding: '12px 16px',
+        padding: '10px 14px',
         position: 'sticky', top: 0, zIndex: 50,
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         boxShadow: '0 1px 0 rgba(0,255,102,0.08), 0 8px 24px rgba(0,0,0,0.6)',
       }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link to="/scan" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Logo size={36} glow animated />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          {/* Hamburger — left side, mobile only */}
+          {user && (
+            <button
+              className="nav-burger"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              style={{
+                background: 'rgba(0,255,102,0.06)', border: '1px solid #1d3825', color: '#00ff66',
+                width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', borderRadius: 3, padding: 0,
+                fontSize: 22, lineHeight: 1, flexShrink: 0,
+                textShadow: '0 0 8px rgba(0,255,102,0.5)',
+              }}
+            >
+              ☰
+            </button>
+          )}
+
+          <Link to="/scan" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+            <Logo size={32} glow animated />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, minWidth: 0 }}>
               <span className="oswald glow-strong" style={{
-                fontSize: 22, fontWeight: 700, color: '#00ff66', letterSpacing: 6,
+                fontSize: 20, fontWeight: 700, color: '#00ff66', letterSpacing: 5,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 REVELATOR
               </span>
@@ -164,81 +256,173 @@ function Layout({ children }) {
             </div>
           </Link>
 
+          {/* Desktop nav — only on wide screens */}
           {user && (
-            <>
-              <nav className="nav-desktop" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {navItems.map(item => (
-                  <Link key={item.path} to={item.path} style={linkStyle(location.pathname === item.path)}>
+            <nav className="nav-desktop" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {navItems.map(item => {
+                const active = location.pathname === item.path;
+                return (
+                  <Link key={item.path} to={item.path} style={{
+                    padding: '10px 14px', fontSize: 13,
+                    fontFamily: "'Oswald', sans-serif",
+                    textTransform: 'uppercase', letterSpacing: 1.5,
+                    color: active ? '#00ff66' : '#6dba85',
+                    textDecoration: 'none',
+                    borderBottom: active ? '2px solid #00ff66' : '2px solid transparent',
+                    textShadow: active ? '0 0 12px rgba(0,255,102,0.55)' : 'none',
+                    whiteSpace: 'nowrap',
+                    transition: 'color 0.15s, text-shadow 0.15s',
+                  }}>
                     {item.label}
                   </Link>
-                ))}
-                <button
-                  onClick={logout}
-                  style={{
-                    background: 'rgba(255,51,68,0.04)', border: '1px solid rgba(255,51,68,0.4)', color: '#ff7588',
-                    padding: '6px 14px', cursor: 'pointer', fontSize: 11,
-                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-                    letterSpacing: 1.5, borderRadius: 2, marginLeft: 8,
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(255,51,68,0.18)';
-                    e.currentTarget.style.color = '#ffffff';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'rgba(255,51,68,0.04)';
-                    e.currentTarget.style.color = '#ff7588';
-                  }}
-                >
-                  Logout
-                </button>
-              </nav>
-
+                );
+              })}
               <button
-                className="nav-burger"
-                onClick={() => setMenuOpen(v => !v)}
-                aria-label="Toggle menu"
+                onClick={logout}
                 style={{
-                  background: 'rgba(0,255,102,0.04)', border: '1px solid #1d3825', color: '#00ff66',
-                  padding: '8px 12px', cursor: 'pointer', borderRadius: 2,
-                  fontSize: 18, lineHeight: 1,
-                  textShadow: '0 0 8px rgba(0,255,102,0.5)',
+                  background: 'rgba(255,51,68,0.04)', border: '1px solid rgba(255,51,68,0.4)', color: '#ff7588',
+                  padding: '6px 14px', cursor: 'pointer', fontSize: 11,
+                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                  letterSpacing: 1.5, borderRadius: 2, marginLeft: 8,
                 }}
               >
-                {menuOpen ? '✕' : '☰'}
+                Logout
               </button>
-            </>
+            </nav>
           )}
         </div>
+      </header>
 
-        {user && menuOpen && (
-          <div
-            className="nav-mobile-panel"
-            style={{
-              borderTop: '1px solid #112418', marginTop: 12, paddingTop: 8,
-              display: 'flex', flexDirection: 'column',
-            }}
-          >
-            {navItems.map(item => (
-              <Link key={item.path} to={item.path} style={{ ...linkStyle(location.pathname === item.path), borderBottom: 'none', padding: '12px 16px' }}>
-                {item.label}
-              </Link>
-            ))}
+      {/* Drawer backdrop */}
+      {user && (drawerOpen || drawerOffset !== 0) && (
+        <div
+          onClick={() => setDrawerOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 60,
+            background: `rgba(0,0,0,${0.6 * backdropOpacity})`,
+            backdropFilter: `blur(${4 * backdropOpacity}px)`,
+            WebkitBackdropFilter: `blur(${4 * backdropOpacity}px)`,
+            transition: drawerOffset === 0 ? 'background 0.25s, backdrop-filter 0.25s' : 'none',
+          }}
+        />
+      )}
+
+      {/* Slide-in drawer — left edge, X/Twitter style */}
+      {user && (
+        <aside
+          aria-hidden={!drawerOpen}
+          style={{
+            position: 'fixed', top: 0, left: 0, bottom: 0,
+            width: DRAWER_WIDTH, maxWidth: '85vw', zIndex: 70,
+            background: 'linear-gradient(180deg, #06120a 0%, #02080a 100%)',
+            borderRight: '1px solid #1d3825',
+            boxShadow: drawerOpen ? '4px 0 32px rgba(0,255,102,0.12), 8px 0 60px rgba(0,0,0,0.85)' : 'none',
+            transform: drawerTransform,
+            transition: drawerOffset === 0 ? 'transform 0.28s cubic-bezier(0.32,0.72,0.4,1)' : 'none',
+            display: 'flex', flexDirection: 'column',
+            paddingTop: 'env(safe-area-inset-top, 0)',
+          }}
+        >
+          {/* Drawer header — user identity */}
+          <div style={{
+            padding: '20px 18px 18px', borderBottom: '1px solid #112418',
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 22,
+              background: 'linear-gradient(135deg, rgba(0,255,102,0.18), rgba(0,255,170,0.06))',
+              border: '1px solid #1d3825',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: "'Oswald', sans-serif", fontSize: 18, color: '#00ff66',
+              textShadow: '0 0 8px rgba(0,255,102,0.7)', flexShrink: 0,
+            }}>
+              {(user?.username || user?.email || '?').slice(0, 1).toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="oswald" style={{
+                fontSize: 14, color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 1.5,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {user?.username || 'OPERATOR'}
+              </div>
+              <div className="mono" style={{
+                fontSize: 10, color: '#6dba85', letterSpacing: 1, marginTop: 2,
+                textTransform: 'uppercase',
+              }}>
+                {user?.plan ? `${user.plan} TIER` : 'FREE TIER'}
+              </div>
+            </div>
             <button
-              onClick={() => { setMenuOpen(false); logout(); }}
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close menu"
               style={{
-                background: 'none', border: 'none', color: '#ff7588',
-                padding: '12px 16px', textAlign: 'left', cursor: 'pointer',
-                fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-                letterSpacing: 1.5, fontSize: 13,
+                background: 'transparent', border: '1px solid #1d3825',
+                color: '#6dba85', width: 32, height: 32, borderRadius: 16,
+                cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0,
               }}
             >
-              Logout
+              ✕
             </button>
           </div>
-        )}
-      </header>
-      <main style={{ padding: '24px 0', minHeight: 'calc(100vh - 80px)' }}>
+
+          {/* Drawer nav links */}
+          <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+            {navItems.map(item => {
+              const active = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '14px 18px',
+                    fontSize: 15,
+                    fontFamily: "'Oswald', sans-serif",
+                    textTransform: 'uppercase', letterSpacing: 2,
+                    color: active ? '#00ff66' : '#86efac',
+                    textDecoration: 'none',
+                    borderLeft: active ? '3px solid #00ff66' : '3px solid transparent',
+                    background: active ? 'rgba(0,255,102,0.06)' : 'transparent',
+                    textShadow: active ? '0 0 10px rgba(0,255,102,0.5)' : 'none',
+                    minHeight: 48,
+                  }}
+                >
+                  <span className="mono" style={{
+                    fontSize: 16, color: active ? '#00ff66' : '#3f6e4a', width: 20, textAlign: 'center',
+                  }}>
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Drawer footer — logout */}
+          <div style={{
+            borderTop: '1px solid #112418',
+            padding: '10px 12px',
+            paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0))',
+          }}>
+            <button
+              onClick={() => { setDrawerOpen(false); logout(); }}
+              style={{
+                width: '100%', minHeight: 48,
+                background: 'rgba(255,51,68,0.06)',
+                border: '1px solid rgba(255,51,68,0.35)', color: '#ff8a99',
+                padding: '12px', cursor: 'pointer', fontSize: 13,
+                fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                letterSpacing: 2, borderRadius: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 16 }}>⤴</span> Logout
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <main style={{ padding: '20px 0', minHeight: 'calc(100vh - 80px)' }}>
         <div className="container">
           {children}
         </div>

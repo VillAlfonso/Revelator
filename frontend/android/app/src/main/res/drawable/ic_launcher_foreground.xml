@@ -62,4 +62,13 @@
         android:fillColor="#00000000"
         android:strokeLineJoin="round"
         android:pathData="M54,32 L78,72 L30,72 Z" />
+
+    <!-- Corner brackets — evidence frame -->
+    <path
+        android:strokeColor="#00ff66"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"
+        android:strokeAlpha="0.7"
+        android:strokeLineCap="round"
+        android:pathData="M22,28 L22,22 L28,22 M80,22 L85,22 L85,28 M85,80 L85,85 L80,85 M28,85 L22,85 L22,80" />
 </vector>

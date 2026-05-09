@@ -5,27 +5,26 @@ const config: CapacitorConfig = {
   appName: 'Revelator',
   webDir: 'dist',
   backgroundColor: '#000000',
+  android: {
+    allowMixedContent: true,
+    backgroundColor: '#000000',
+    webContentsDebuggingEnabled: true,
+  },
   server: {
-    // For development: point to your backend API
-    // For production: remove this and bundle the frontend
-    // url: 'http://10.0.2.2:8000',  // Android emulator → host machine
-    androidScheme: 'https',
+    androidScheme: 'http',
+    cleartext: true,
   },
   plugins: {
     Camera: {
-      // Camera permissions for document scanning
+      permissions: ['camera', 'photos'],
     },
     SplashScreen: {
+      launchShowDuration: 1200,
       backgroundColor: '#000000',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER',
       showSpinner: false,
     },
-  },
-  android: {
-    // Allow mixed content for dev (HTTP API calls)
-    allowMixedContent: true,
-    backgroundColor: '#000000',
   },
 };
 
