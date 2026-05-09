@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { App } from '@capacitor/app';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 
@@ -11,6 +14,7 @@ export default function Account() {
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [promoCode, setPromoCode] = useState('');
+  const [pendingSession, setPendingSession] = useState(null);
 
   useEffect(() => {
     api.getPlans().then(data => setPlans(data.plans)).catch(() => {});
@@ -39,6 +43,33 @@ export default function Account() {
     }
   }, []);
 
+  // On native, verify pending payment when app comes to foreground
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && pendingSession) {
+        verifyPendingPayment();
+      }
+    });
+    return () => listener.remove();
+  }, [pendingSession]);
+
+  async function verifyPendingPayment() {
+    if (!pendingSession) return;
+    try {
+      const data = await api.verifySession(pendingSession.id, pendingSession.provider);
+      setMsg(`Payment successful! You are now on the ${data.plan} plan.`);
+      refreshUser();
+      setPendingSession(null);
+    } catch (err) {
+      if (err.message.includes('not found')) {
+        setError('Payment verification failed. If you completed the payment, it may take a moment to process.');
+      } else {
+        setError(err.message);
+      }
+    }
+  }
+
   async function saveProfile() {
     setError('');
     try {
@@ -56,7 +87,14 @@ export default function Account() {
     try {
       const data = await api.createCheckout(planId, paymentMethod);
       if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+        if (Capacitor.isNativePlatform()) {
+          // On native, open in system browser and verify when user returns
+          setPendingSession({ id: data.session_id || planId, provider: paymentMethod });
+          await Browser.open({ url: data.checkout_url });
+        } else {
+          // Web: redirect as before
+          window.location.href = data.checkout_url;
+        }
       }
     } catch (err) {
       setError(err.message);
