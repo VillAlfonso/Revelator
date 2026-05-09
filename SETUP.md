@@ -38,7 +38,16 @@ venv\Scripts\activate.bat
 
 ✅ You should see `(venv)` at the start of your prompt after activation.
 
-Create file `backend/.env` with your API keys:
+Create file `backend/.env` with your API keys. Easiest way:
+
+```bash
+# Copy the template
+copy .env.example .env
+
+# Then edit .env and fill in the keys (ask team lead)
+```
+
+Or create it manually with:
 ```
 GEMINI_API_KEY=<ask team lead>
 STRIPE_SECRET_KEY=<ask team lead>
