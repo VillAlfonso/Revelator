@@ -24,12 +24,21 @@ cd forgeguard-v2
 
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate    # Mac/Linux
 
+# Create virtual environment
+python -m venv venv
+
+# Activate it (Windows)
+venv\Scripts\activate.bat
+
+# Or on PowerShell:
+# venv\Scripts\Activate.ps1
+
+# Install dependencies
 pip install -r requirements.txt
 ```
+
+You should see `(venv)` at the start of your terminal prompt. If not, the activation failed — check the troubleshooting section below.
 
 Create `backend/.env` (get keys from team lead or `API_KEYS.md`):
 ```
@@ -97,6 +106,10 @@ Transfer to phone, install, and test.
 
 | Issue | Fix |
 |---|---|
+| `(venv)` doesn't appear after activation | Try `venv\Scripts\Activate.ps1` instead of `.bat`; or use Command Prompt instead of PowerShell |
+| `venv\Scripts\activate` not found | Run `python -m venv venv` again in the `backend/` folder |
+| Python not found | Install Python from https://www.python.org (add to PATH during install) |
+| `pip install` fails | Try `python -m pip install -r requirements.txt` instead |
 | `npm install` fails | Delete `node_modules/` and `package-lock.json`, run again |
 | Backend won't start | Check port 8000 isn't in use; ensure `.env` has API keys |
 | Frontend can't connect to backend | Edit `frontend/.env` → `VITE_API_URL=http://YOUR_PC_IP:8000` |
