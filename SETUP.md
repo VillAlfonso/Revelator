@@ -34,13 +34,11 @@ venv\Scripts\activate.bat
 # Or on PowerShell:
 # venv\Scripts\Activate.ps1
 
-# Install dependencies
-pip install -r requirements.txt
 ```
 
-You should see `(venv)` at the start of your terminal prompt. If not, the activation failed — check the troubleshooting section below.
+✅ You should see `(venv)` at the start of your prompt after activation.
 
-Create `backend/.env` (get keys from team lead or `API_KEYS.md`):
+Create file `backend/.env` with your API keys:
 ```
 GEMINI_API_KEY=<ask team lead>
 STRIPE_SECRET_KEY=<ask team lead>
@@ -49,7 +47,13 @@ GOOGLE_CLIENT_ID=<ask team lead>
 GOOGLE_CLIENT_SECRET=<ask team lead>
 ```
 
-Run: `python run.py` (backend starts at http://localhost:8000)
+Then install dependencies and run:
+```bash
+pip install -r requirements.txt
+python run.py
+```
+
+Backend starts at http://localhost:8000
 
 ### 3. Frontend Setup
 
