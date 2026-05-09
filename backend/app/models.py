@@ -81,6 +81,21 @@ class Scan(Base):
     tools_likely_used = Column(String, nullable=True)
     category_confidence = Column(Float, nullable=True)
     category_evidence = Column(Text, nullable=True)  # JSON array stored as string
+    # Extended fields — saved for full history replay
+    reasoning_steps = Column(Text, nullable=True)   # JSON array
+    anomaly_location = Column(String, nullable=True)
+    alternatives = Column(Text, nullable=True)       # JSON array
+    certainty_level = Column(String, nullable=True)  # HIGH / MEDIUM / LOW
+    model_tier_used = Column(String, nullable=True)
+    model_tier_requested = Column(String, nullable=True)
+    # User context inputs
+    suspicion_reason = Column(Text, nullable=True)
+    area_of_concern = Column(String, nullable=True)
+    image_source = Column(String, nullable=True)
+    shot_type = Column(String, nullable=True)
+    lighting = Column(String, nullable=True)
+    physical_clues = Column(String, nullable=True)
+    is_forged_belief = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

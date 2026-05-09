@@ -320,6 +320,19 @@ def analyze_document(
         tools_likely_used=gemini["tools_likely_used"],
         category_confidence=gemini["confidence"],
         category_evidence=json.dumps(gemini["evidence"]),
+        reasoning_steps=json.dumps(gemini.get("reasoning_steps", [])),
+        anomaly_location=gemini.get("anomaly_location"),
+        alternatives=json.dumps(gemini.get("alternatives", [])),
+        certainty_level=gemini.get("certainty_level"),
+        model_tier_used=tier_used,
+        model_tier_requested=tier,
+        suspicion_reason=suspicion_reason,
+        area_of_concern=area_of_concern,
+        image_source=image_source,
+        shot_type=shot_type,
+        lighting=lighting,
+        physical_clues=physical_clues,
+        is_forged_belief=is_forged_belief,
     )
     db.add(scan)
     current_user.scans_this_month += 1
@@ -419,13 +432,26 @@ def get_scan_detail(
         "tools_likely_used": scan.tools_likely_used,
         "category_confidence": scan.category_confidence,
         "category_evidence": json.loads(scan.category_evidence) if scan.category_evidence else [],
-        "certainty_level": (
+        "certainty_level": scan.certainty_level or (
             "HIGH" if (scan.category_confidence or 0) >= 0.85
             else "MEDIUM" if (scan.category_confidence or 0) >= 0.60
             else "LOW"
         ) if scan.category_confidence else None,
+        "reasoning_steps": json.loads(scan.reasoning_steps) if scan.reasoning_steps else [],
+        "anomaly_location": scan.anomaly_location,
+        "alternatives": json.loads(scan.alternatives) if scan.alternatives else [],
+        "model_tier_used": scan.model_tier_used,
+        "model_tier_requested": scan.model_tier_requested,
+        "model_tier_fallback": scan.model_tier_used != scan.model_tier_requested if scan.model_tier_used and scan.model_tier_requested else False,
         "document_type": scan.document_type,
         "document_type_label": DOCUMENT_TYPES.get(scan.document_type, {}).get("title") if scan.document_type else None,
+        "suspicion_reason": scan.suspicion_reason,
+        "area_of_concern": scan.area_of_concern,
+        "image_source": scan.image_source,
+        "shot_type": scan.shot_type,
+        "lighting": scan.lighting,
+        "physical_clues": scan.physical_clues,
+        "is_forged_belief": scan.is_forged_belief,
         "created_at": scan.created_at.isoformat() if scan.created_at else "",
     }
 

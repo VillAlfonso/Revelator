@@ -75,6 +75,32 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN category_evidence TEXT"))
             if "document_type" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN document_type VARCHAR"))
+            if "reasoning_steps" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN reasoning_steps TEXT"))
+            if "anomaly_location" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN anomaly_location VARCHAR"))
+            if "alternatives" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN alternatives TEXT"))
+            if "certainty_level" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN certainty_level VARCHAR"))
+            if "model_tier_used" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN model_tier_used VARCHAR"))
+            if "model_tier_requested" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN model_tier_requested VARCHAR"))
+            if "suspicion_reason" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN suspicion_reason TEXT"))
+            if "area_of_concern" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN area_of_concern VARCHAR"))
+            if "image_source" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN image_source VARCHAR"))
+            if "shot_type" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN shot_type VARCHAR"))
+            if "lighting" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN lighting VARCHAR"))
+            if "physical_clues" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN physical_clues VARCHAR"))
+            if "is_forged_belief" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN is_forged_belief VARCHAR"))
 
         # Create admin_audit_logs table if it doesn't exist (for logging admin actions)
         if "admin_audit_logs" not in table_names:
