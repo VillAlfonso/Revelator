@@ -1,77 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
-import { App } from '@capacitor/app';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 
 export default function Account() {
   const { user, refreshUser } = useAuth();
-  const [plans, setPlans] = useState([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ full_name: '', username: '' });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('stripe');
-  const [promoCode, setPromoCode] = useState('');
-  const [pendingSession, setPendingSession] = useState(null);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyMsg, setApiKeyMsg] = useState('');
   const [apiKeyError, setApiKeyError] = useState('');
 
   useEffect(() => {
-    api.getPlans().then(data => setPlans(data.plans)).catch(() => {});
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
   }, [user]);
-
-  // Verify payment on success redirect
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'success') {
-      const sessionId = params.get('session_id');
-      const provider = params.get('provider') || 'stripe';
-      window.history.replaceState({}, '', '/account');
-      api.verifySession(sessionId, provider)
-        .then(data => {
-          setMsg(`Payment successful! You are now on the ${data.plan} plan.`);
-          refreshUser();
-        })
-        .catch(() => {
-          setMsg('Payment received! Your plan may take a moment to update.');
-          refreshUser();
-        });
-    } else if (params.get('payment') === 'cancelled') {
-      setError('Payment was cancelled.');
-      window.history.replaceState({}, '', '/account');
-    }
-  }, []);
-
-  // On native, verify pending payment when app comes to foreground
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    const listener = App.addListener('appStateChange', ({ isActive }) => {
-      if (isActive && pendingSession) {
-        verifyPendingPayment();
-      }
-    });
-    return () => listener.remove();
-  }, [pendingSession]);
-
-  async function verifyPendingPayment() {
-    if (!pendingSession) return;
-    try {
-      const data = await api.verifySession(pendingSession.id, pendingSession.provider);
-      setMsg(`Payment successful! You are now on the ${data.plan} plan.`);
-      refreshUser();
-      setPendingSession(null);
-    } catch (err) {
-      if (err.message.includes('not found')) {
-        setError('Payment verification failed. If you completed the payment, it may take a moment to process.');
-      } else {
-        setError(err.message);
-      }
-    }
-  }
 
   async function saveProfile() {
     setError('');
@@ -81,35 +24,6 @@ export default function Account() {
       setEditing(false);
       setMsg('Profile updated.');
       setTimeout(() => setMsg(''), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleUpgrade(planId) {
-    try {
-      const data = await api.createCheckout(planId, paymentMethod);
-      if (data.checkout_url) {
-        if (Capacitor.isNativePlatform()) {
-          // On native, open in system browser and verify when user returns
-          setPendingSession({ id: data.session_id || planId, provider: paymentMethod });
-          await Browser.open({ url: data.checkout_url });
-        } else {
-          // Web: redirect as before
-          window.location.href = data.checkout_url;
-        }
-      }
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleCancel() {
-    if (!confirm('Cancel your subscription? You will keep access until the end of your billing period.')) return;
-    try {
-      await api.cancelSubscription();
-      setMsg('Subscription cancelled. Access continues until end of billing period.');
-      refreshUser();
     } catch (err) {
       setError(err.message);
     }
@@ -256,13 +170,6 @@ export default function Account() {
             {usageDisplay}
           </span>
         </div>
-        {user?.plan !== 'free' && (
-          <button onClick={handleCancel} style={{
-            background: 'none', border: 'none', color: '#ff8a99', cursor: 'pointer',
-            fontSize: 11, fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-            letterSpacing: 2, marginTop: 14, padding: 0,
-          }}>Cancel Subscription</button>
-        )}
       </div>
 
       {/* Redeem Code */}
@@ -339,116 +246,6 @@ export default function Account() {
         )}
       </div>
 
-      {/* Payment Method Selection */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Payment Method</h2>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button
-            onClick={() => setPaymentMethod('stripe')}
-            style={{
-              flex: 1, padding: '12px 14px', borderRadius: 3, cursor: 'pointer',
-              border: paymentMethod === 'stripe' ? '2px solid #00ff66' : '1px solid #1d3825',
-              background: paymentMethod === 'stripe' ? 'rgba(0,255,102,0.08)' : 'transparent',
-              color: paymentMethod === 'stripe' ? '#00ff66' : '#86efac',
-              fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', fontSize: 12, letterSpacing: 1,
-              transition: 'all 0.2s',
-            }}
-          >
-            💳 Stripe (Global)
-          </button>
-          <button
-            onClick={() => setPaymentMethod('paymongo')}
-            style={{
-              flex: 1, padding: '12px 14px', borderRadius: 3, cursor: 'pointer',
-              border: paymentMethod === 'paymongo' ? '2px solid #00ff66' : '1px solid #1d3825',
-              background: paymentMethod === 'paymongo' ? 'rgba(0,255,102,0.08)' : 'transparent',
-              color: paymentMethod === 'paymongo' ? '#00ff66' : '#86efac',
-              fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', fontSize: 12, letterSpacing: 1,
-              transition: 'all 0.2s',
-            }}
-          >
-            🇵🇭 PayMongo (PH)
-          </button>
-        </div>
-        <p style={{ fontSize: 12, color: '#3f6e4a', marginTop: 10, fontFamily: "'JetBrains Mono', monospace" }}>
-          {paymentMethod === 'paymongo' ? 'Pay with cards, GCash, or other e-wallets' : 'Pay with Visa, Mastercard, and more'}
-        </p>
-      </div>
-
-      {/* Plans */}
-      <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Plans</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-        {plans.map(plan => {
-          const isCurrent = user?.plan === plan.id;
-          const isPremium = plan.id === 'premium';
-          return (
-            <div key={plan.id} className="card" style={{
-              borderColor: isCurrent ? '#00ff66' : (isPremium ? '#8b5cf6' : '#112418'),
-              opacity: isCurrent ? 0.85 : 1,
-              position: 'relative',
-              boxShadow: isCurrent
-                ? '0 0 18px rgba(0,255,102,0.18)'
-                : isPremium ? '0 0 14px rgba(139,92,246,0.15)' : 'none',
-            }}>
-              {isPremium && !isCurrent && (
-                <span className="mono" style={{
-                  position: 'absolute', top: -10, right: 14,
-                  background: '#8b5cf6', color: '#fff', fontSize: 9,
-                  padding: '3px 8px', borderRadius: 2, letterSpacing: 1.5,
-                  boxShadow: '0 0 10px rgba(139,92,246,0.6)',
-                }}>BEST VALUE</span>
-              )}
-              <h3 className="oswald" style={{ fontSize: 18, textTransform: 'uppercase', letterSpacing: 3, color: '#d8ffe6' }}>{plan.name}</h3>
-              <div style={{ margin: '12px 0' }}>
-                <span className="mono" style={{
-                  fontSize: 30, fontWeight: 700, color: '#00ff66',
-                  textShadow: '0 0 10px rgba(0,255,102,0.5)',
-                }}>
-                  ${plan.price}
-                </span>
-                {plan.price > 0 && <span style={{ color: '#3f6e4a', fontSize: 13 }}>/mo</span>}
-              </div>
-              <div className="mono" style={{
-                fontSize: 10, color: plan.unlimited ? '#00ff66' : '#86efac',
-                marginBottom: 10, letterSpacing: 2, textTransform: 'uppercase',
-              }}>
-                {plan.unlimited ? '∞ UNLIMITED SCANS' : `${plan.scans_per_month} SCANS / MONTH`}
-              </div>
-              {plan.llm_included && (
-                <div className="mono" style={{
-                  display: 'inline-block', fontSize: 10, padding: '3px 8px',
-                  background: 'rgba(139,92,246,0.18)', color: '#a78bfa',
-                  borderRadius: 2, letterSpacing: 1.5, marginBottom: 10,
-                  border: '1px solid rgba(139,92,246,0.4)',
-                }}>
-                  ✨ AI EXPLANATION
-                </div>
-              )}
-              <ul style={{ listStyle: 'none', padding: 0, marginBottom: 16 }}>
-                {plan.features.map(f => (
-                  <li key={f} style={{ padding: '4px 0', fontSize: 13, color: '#d8ffe6', display: 'flex', gap: 8 }}>
-                    <span style={{ color: '#00ff66', textShadow: '0 0 6px rgba(0,255,102,0.6)' }}>✓</span><span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              {isCurrent ? (
-                <div className="mono" style={{
-                  textAlign: 'center', color: '#00ff66', fontSize: 11, textTransform: 'uppercase', letterSpacing: 2,
-                  textShadow: '0 0 6px rgba(0,255,102,0.6)',
-                }}>● Current Plan</div>
-              ) : plan.price > 0 ? (
-                <button className="btn btn-primary" onClick={() => handleUpgrade(plan.id)} style={{ width: '100%', padding: '12px' }}>
-                  {user?.plan === 'free' ? '▶ Upgrade' : '⇄ Switch'}
-                </button>
-              ) : (
-                <div className="mono" style={{ textAlign: 'center', color: '#3f6e4a', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5 }}>
-                  Free tier
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
