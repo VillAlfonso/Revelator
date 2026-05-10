@@ -8,6 +8,7 @@ export default function Account() {
   const [form, setForm] = useState({ full_name: '', username: '' });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [promoCode, setPromoCode] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyMsg, setApiKeyMsg] = useState('');
   const [apiKeyError, setApiKeyError] = useState('');
@@ -79,11 +80,7 @@ export default function Account() {
     }
   }
 
-  const planLimits = { free: 10, pro: -1, premium: -1 };
-  const userLimit = planLimits[user?.plan] ?? 10;
-  const usageDisplay = userLimit === -1
-    ? `${user?.scans_this_month || 0} scans this month · unlimited`
-    : `${user?.scans_this_month || 0} / ${userLimit} scans used this month`;
+  const usageDisplay = `${user?.scans_this_month || 0} scans this month`;
 
   return (
     <div style={{ maxWidth: 760 }}>
