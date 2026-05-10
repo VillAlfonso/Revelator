@@ -242,37 +242,37 @@ def extract_rules_from_prompt():
         rules = []
 
         # Extract BANK CHECK RULE
-        bank_match = re.search(r'⚠ BANK CHECK RULE:\s*(.+?)(?=⚠|KEY TIEBREAKER:|CONFIDENCE SCALE)', content, re.DOTALL)
+        bank_match = re.search(r'⚠ BANK CHECK RULE:\s*(.+?)(?=\n\s{2}⚠|\n\s{2}CONFIDENCE)', content, re.DOTALL)
         if bank_match:
             text = bank_match.group(1).strip()
             rules.append({"title": "BANK CHECK RULE:", "text": text})
 
         # Extract INK LAYERING RULE
-        ink_match = re.search(r'⚠ INK LAYERING RULE:\s*(.+?)(?=⚠|INCOMPLETE)', content, re.DOTALL)
+        ink_match = re.search(r'⚠ INK LAYERING RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
         if ink_match:
             text = ink_match.group(1).strip()
             rules.append({"title": "INK LAYERING RULE:", "text": text})
 
         # Extract INCOMPLETE WORD RULE
-        incomplete_match = re.search(r'⚠ INCOMPLETE WORD RULE:\s*(.+?)(?=⚠|SEMANTIC)', content, re.DOTALL)
+        incomplete_match = re.search(r'⚠ INCOMPLETE WORD RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
         if incomplete_match:
             text = incomplete_match.group(1).strip()
             rules.append({"title": "INCOMPLETE WORD RULE:", "text": text})
 
         # Extract SEMANTIC CONFLICT / CHEMICAL ERASURE RULE
-        semantic_match = re.search(r'⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:\s*(.+?)(?=⚠|GHOST TEXT)', content, re.DOTALL)
+        semantic_match = re.search(r'⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
         if semantic_match:
             text = semantic_match.group(1).strip()
             rules.append({"title": "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:", "text": text})
 
         # Extract GHOST TEXT vs. SYMPATHETIC INK RULE
-        ghost_match = re.search(r'⚠ GHOST TEXT vs\. SYMPATHETIC INK RULE:\s*(.+?)(?=CONFIDENCE SCALE)', content, re.DOTALL)
+        ghost_match = re.search(r'⚠ GHOST TEXT vs\. SYMPATHETIC INK RULE:\s*(.+?)(?=\n\nCONFIDENCE)', content, re.DOTALL)
         if ghost_match:
             text = ghost_match.group(1).strip()
             rules.append({"title": "GHOST TEXT VS. SYMPATHETIC INK RULE:", "text": text})
 
         return rules
-    except Exception:
+    except Exception as e:
         return []
 
 
