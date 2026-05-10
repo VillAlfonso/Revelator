@@ -17,11 +17,7 @@ import json
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
-VALID_PLANS = {"free", "basic", "pro"}
-
-
 class UserUpdate(BaseModel):
-    plan: Optional[str] = None
     role: Optional[str] = None  # user | admin | superadmin
     is_active: Optional[bool] = None
     full_name: Optional[str] = None
@@ -36,13 +32,10 @@ def _user_row(u: User) -> dict:
         "email": u.email,
         "username": u.username,
         "full_name": u.full_name or "",
-        "plan": u.plan,
         "role": u.role or "user",
         "is_active": bool(u.is_active),
         "is_verified": bool(u.is_verified),
         "scans_this_month": u.scans_this_month,
-        "stripe_customer_id": u.stripe_customer_id,
-        "stripe_subscription_id": u.stripe_subscription_id,
         "created_at": u.created_at.isoformat() if u.created_at else "",
         "updated_at": u.updated_at.isoformat() if u.updated_at else "",
     }
@@ -52,13 +45,11 @@ def _user_row(u: User) -> dict:
 def stats(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     total_users = db.query(func.count(User.id)).scalar() or 0
     total_scans = db.query(func.count(Scan.id)).scalar() or 0
-    plan_counts = dict(db.query(User.plan, func.count(User.id)).group_by(User.plan).all())
     admin_count = db.query(func.count(User.id)).filter(User.role.in_(("admin", "superadmin"))).scalar() or 0
     return {
         "total_users": total_users,
         "total_scans": total_scans,
         "admins": admin_count,
-        "plans": {p: plan_counts.get(p, 0) for p in ("free", "basic", "pro")},
     }
 
 
@@ -67,7 +58,6 @@ def list_users(
     _: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
-    plan: Optional[str] = None,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -75,8 +65,6 @@ def list_users(
     if q:
         like = f"%{q}%"
         query = query.filter(or_(User.email.ilike(like), User.username.ilike(like), User.full_name.ilike(like)))
-    if plan:
-        query = query.filter(User.plan == plan)
 
     total = query.count()
     rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
@@ -104,11 +92,6 @@ def update_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    if body.plan is not None:
-        if body.plan not in VALID_PLANS:
-            raise HTTPException(status_code=400, detail=f"Invalid plan. Options: {sorted(VALID_PLANS)}")
-        user.plan = body.plan
 
     if body.role is not None:
         if body.role not in ("user", "admin", "superadmin"):
