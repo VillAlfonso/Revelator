@@ -209,7 +209,7 @@ export default function Account() {
             cursor: 'pointer', fontWeight: 600, userSelect: 'none',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span>⚡ How to get a key (step-by-step tutorial)</span>
+            <span>▸ How to get a key (step-by-step tutorial)</span>
           </summary>
           <div style={{ display: 'grid', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
             {[
@@ -421,9 +421,6 @@ export default function Account() {
 
         {/* Add key row */}
         <div style={{ borderTop: apiKeys.length > 0 ? '1px solid #112418' : 'none', paddingTop: apiKeys.length > 0 ? 16 : 0 }}>
-          <div style={{ fontSize: 11, color: '#3f6e4a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-            Add a key <span style={{ color: '#6dba85', fontStyle: 'italic' }}>(from a different Google account)</span>
-          </div>
           <div style={{ display: 'grid', gap: 10, marginBottom: 10 }}>
             <div>
               <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Key Name</label>

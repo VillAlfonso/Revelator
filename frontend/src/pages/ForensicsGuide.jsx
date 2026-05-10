@@ -4,7 +4,7 @@ const GROUPS = [
   {
     id: 'traced',
     label: 'Traced Signatures',
-    icon: '✍',
+    icon: '◈',
     color: '#c4b5fd',
     description: 'A genuine signature is physically reproduced using an intermediary guide — carbon paper, light table, or projector. The forger follows a real signature rather than inventing one, producing subtle artifacts from the tracing method.',
     categories: [
@@ -31,7 +31,7 @@ const GROUPS = [
   {
     id: 'alteration',
     label: 'Document Alteration',
-    icon: '✏',
+    icon: '◆',
     color: '#fbbf24',
     description: 'An authentic document is modified after the fact — text is added between lines or inside words, or existing content is erased (chemically or mechanically) and replaced. The original paper and its surrounding content remain genuine.',
     categories: [
@@ -64,7 +64,7 @@ const GROUPS = [
   {
     id: 'digital',
     label: 'Digital Fabrication',
-    icon: '⬛',
+    icon: '▣',
     color: '#38bdf8',
     description: 'Software is used to create or manipulate document content. A document may be fabricated entirely from scratch, or genuine elements (signatures, stamps) may be digitally transplanted onto another document.',
     categories: [
@@ -139,7 +139,7 @@ const GROUPS = [
   {
     id: 'currency',
     label: 'Currency Counterfeit',
-    icon: '₱',
+    icon: '◇',
     color: '#fbbf24',
     description: 'Suspected counterfeit banknotes or currency documents. The system evaluates security features, print quality, substrate characteristics, and known anti-counterfeiting elements for the suspected denomination.',
     categories: [
