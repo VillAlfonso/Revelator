@@ -144,8 +144,11 @@ def analyze_document(
     preprocessed = preprocess_image(image)
     print(f"[DEBUG] Image preprocessed: {image.size} → {preprocessed.size}")
 
+    # Get user's API key if available, otherwise use backend key
+    api_key = current_user.gemini_api_key or None
+
     # STAGE 1: Triage — used only to seed alternatives, NOT to narrow the main analysis
-    triage = triage_classify(preprocessed)
+    triage = triage_classify(preprocessed, api_key=api_key)
     triage_top3 = triage.get("top_3", [])
     print(f"[DEBUG] Triage candidates: {triage_top3}")
 
@@ -160,6 +163,7 @@ def analyze_document(
         shot_type=shot_type,
         lighting=lighting,
         physical_clues=physical_clues,
+        api_key=api_key,
     )
 
     if gemini.get("_unavailable"):
@@ -196,6 +200,7 @@ def analyze_document(
         {},
         gemini,
         user_context=user_ctx,
+        api_key=api_key,
     )
     gemini = critiqued.get("result", gemini)
     print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")

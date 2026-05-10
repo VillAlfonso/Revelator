@@ -118,6 +118,10 @@ export const api = {
     return request('/auth/me', { method: 'PUT', body: JSON.stringify(data) });
   },
 
+  setApiKey(apiKey) {
+    return request('/auth/api-key', { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) });
+  },
+
   // Analysis
   getCategories() {
     return request('/categories');

@@ -38,6 +38,7 @@ class User(Base):
     paymongo_source_id = Column(String, nullable=True)
     scans_this_month = Column(Integer, default=0)
     scan_reset_date = Column(DateTime, nullable=True)
+    gemini_api_key = Column(String, nullable=True)  # User's own Gemini API key
 
     # Relationships
     scans = relationship("Scan", back_populates="user", cascade="all, delete-orphan")

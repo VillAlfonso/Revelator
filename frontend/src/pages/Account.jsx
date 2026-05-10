@@ -15,6 +15,9 @@ export default function Account() {
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [promoCode, setPromoCode] = useState('');
   const [pendingSession, setPendingSession] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeyMsg, setApiKeyMsg] = useState('');
+  const [apiKeyError, setApiKeyError] = useState('');
 
   useEffect(() => {
     api.getPlans().then(data => setPlans(data.plans)).catch(() => {});
@@ -126,6 +129,39 @@ export default function Account() {
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function handleSetApiKey() {
+    setApiKeyError('');
+    setApiKeyMsg('');
+    if (!apiKeyInput.trim()) {
+      setApiKeyError('Please paste your API key');
+      return;
+    }
+    if (!apiKeyInput.trim().startsWith('AIza')) {
+      setApiKeyError('Invalid API key format. Gemini API keys start with "AIza".');
+      return;
+    }
+    try {
+      const result = await api.setApiKey(apiKeyInput.trim());
+      setApiKeyMsg(result.message);
+      setApiKeyInput('');
+      setTimeout(() => setApiKeyMsg(''), 3000);
+    } catch (err) {
+      setApiKeyError(err.message);
+    }
+  }
+
+  async function handleClearApiKey() {
+    setApiKeyError('');
+    setApiKeyMsg('');
+    try {
+      const result = await api.setApiKey('');
+      setApiKeyMsg(result.message);
+      setTimeout(() => setApiKeyMsg(''), 3000);
+    } catch (err) {
+      setApiKeyError(err.message);
     }
   }
 
@@ -245,6 +281,62 @@ export default function Account() {
             Redeem
           </button>
         </div>
+      </div>
+
+      {/* API Key Management */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Gemini API Key</h2>
+        <p style={{ fontSize: 12, color: '#86efac', marginBottom: 12 }}>
+          Use your own free-tier Google Gemini API key for unlimited scans. Get your key at{' '}
+          <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" style={{
+            color: '#00ff66', textDecoration: 'underline', cursor: 'pointer'
+          }}>aistudio.google.com/api-keys</a>
+        </p>
+        {apiKeyMsg && (
+          <div style={{
+            background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66', padding: 10, borderRadius: 2,
+            marginBottom: 12, fontSize: 12, color: '#86efac',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            ✓ {apiKeyMsg}
+          </div>
+        )}
+        {apiKeyError && (
+          <div style={{
+            background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 10, borderRadius: 2,
+            marginBottom: 12, fontSize: 12, color: '#ff8a99',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            ⚠ {apiKeyError}
+          </div>
+        )}
+        {user?.gemini_api_key ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{
+              padding: 12, background: 'rgba(0,255,102,0.08)', border: '1px solid rgba(0,255,102,0.2)',
+              borderRadius: 3, fontSize: 13, color: '#86efac'
+            }}>
+              ✓ You have an API key configured. Using your personal free-tier quota.
+            </div>
+            <button className="btn btn-secondary" onClick={handleClearApiKey} style={{ padding: '10px 24px' }}>
+              Remove API Key
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              className="input"
+              placeholder="Paste your API key here (starts with AIza...)"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              type="password"
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-primary" onClick={handleSetApiKey} style={{ padding: '10px 24px' }}>
+              Save
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Payment Method Selection */}

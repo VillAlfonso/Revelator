@@ -566,12 +566,13 @@ def _build_user_context_block(
     )
 
 
-def _client():
-    if not GEMINI_API_KEY:
+def _client(api_key: Optional[str] = None):
+    key = api_key or GEMINI_API_KEY
+    if not key:
         return None
     try:
         from google import genai
-        return genai.Client(api_key=GEMINI_API_KEY)
+        return genai.Client(api_key=key)
     except ImportError:
         return None
 
@@ -685,6 +686,7 @@ def classify(
     physical_clues: Optional[str] = None,
     use_cache: bool = False,
     system_prompt_override: Optional[str] = None,
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run Gemini Vision against the document image.
@@ -694,8 +696,9 @@ def classify(
 
     Args:
         use_cache: If True, use prompt caching (90% discount on system prompt for 5 min window).
+        api_key: Optional user's API key. If provided, uses that instead of the backend key.
     """
-    client = _client()
+    client = _client(api_key=api_key)
     if client is None:
         return _fallback("API key not configured or google-genai not installed")
 
@@ -782,9 +785,9 @@ def preprocess_image(image: Image.Image) -> Image.Image:
     return image
 
 
-def triage_classify(image: Image.Image) -> Dict[str, Any]:
+def triage_classify(image: Image.Image, api_key: Optional[str] = None) -> Dict[str, Any]:
     """Quick top-3 classification using TRIAGE_PROMPT. Returns {"top_3": [...]}."""
-    client = _client()
+    client = _client(api_key=api_key)
     if client is None:
         return {"top_3": []}
 
@@ -827,6 +830,7 @@ def confidence_gated_analyze(
     primary: Dict[str, Any],
     user_context: str = "",
     threshold: float = 0.80,
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run self-critique only when confidence is below threshold.
@@ -836,7 +840,7 @@ def confidence_gated_analyze(
     if confidence >= threshold:
         return {"result": primary, "path": "direct", "tokens_estimate": 0}
 
-    client = _client()
+    client = _client(api_key=api_key)
     if client is None:
         return {"result": primary, "path": "direct", "tokens_estimate": 0}
 

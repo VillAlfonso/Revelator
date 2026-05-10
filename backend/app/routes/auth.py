@@ -258,3 +258,31 @@ def redeem_code(
         "message": f"Plan upgraded to {promo.plan}",
         "user": user_to_dict(current_user),
     }
+
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
+
+
+@router.put("/api-key")
+def set_api_key(
+    body: ApiKeyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save user's Gemini API key for quota management."""
+    api_key = body.api_key.strip() if body.api_key else None
+
+    # Validate format (should start with "AIza" for Gemini free tier keys)
+    if api_key and not api_key.startswith("AIza"):
+        raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
+
+    current_user.gemini_api_key = api_key
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "success": True,
+        "message": "API key saved" if api_key else "API key removed",
+        "has_api_key": bool(current_user.gemini_api_key),
+    }
