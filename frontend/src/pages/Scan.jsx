@@ -116,7 +116,6 @@ export default function Scan() {
         file,
         null,
         documentType !== 'other' ? documentType : null,
-        null,
         {
           suspicionReason: suspicionReason.trim() || null,
           areaOfConcern: areaOfConcern || null,
