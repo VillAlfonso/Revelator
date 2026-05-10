@@ -234,48 +234,51 @@ def get_about_info():
 
 
 def extract_rules_from_prompt():
-    """Extract critical rules dynamically from gemini_vision.py"""
+    """Read critical rules from gemini_vision.py at runtime."""
     try:
-        gemini_module_path = Path(__file__).parent.parent / "forgery" / "gemini_vision.py"
-        content = gemini_module_path.read_text()
-        lines = content.split('\n')
+        gemini_path = Path(__file__).parent.parent / "forgery" / "gemini_vision.py"
+        lines = gemini_path.read_text(encoding="utf-8").split("\n")
 
         rules = []
 
-        for i, line in enumerate(lines):
-            # BANK CHECK RULE
-            if '⚠ BANK CHECK RULE:' in line:
-                text = line.split('⚠ BANK CHECK RULE:')[1].strip()
-                rules.append({"title": "BANK CHECK RULE:", "text": text})
+        # Collect the multi-line CRITICAL BRANCHING RULE block
+        critical_lines = []
+        in_critical = False
+        for line in lines:
+            if "CRITICAL BRANCHING RULE" in line and line.strip().startswith("CRITICAL"):
+                in_critical = True
+            if in_critical:
+                s = line.strip()
+                if s:
+                    critical_lines.append(s)
+                if s.startswith("NO") and "digital" in s:
+                    break
+        if critical_lines:
+            rules.append({
+                "title": "CRITICAL BRANCHING RULE — FIRST DECISION:",
+                "text": " ".join(critical_lines),
+            })
 
-            # INK LAYERING RULE
-            elif '⚠ INK LAYERING RULE:' in line:
-                text = line.split('⚠ INK LAYERING RULE:')[1].strip()
-                rules.append({"title": "INK LAYERING RULE:", "text": text})
-
-            # INCOMPLETE WORD RULE
-            elif '⚠ INCOMPLETE WORD RULE:' in line:
-                text = line.split('⚠ INCOMPLETE WORD RULE:')[1].strip()
-                rules.append({"title": "INCOMPLETE WORD RULE:", "text": text})
-
-            # SEMANTIC CONFLICT / CHEMICAL ERASURE RULE
-            elif '⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:' in line:
-                text = line.split('⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:')[1].strip()
-                rules.append({"title": "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:", "text": text})
-
-            # GHOST TEXT vs. SYMPATHETIC INK RULE
-            elif '⚠ GHOST TEXT vs. SYMPATHETIC INK RULE:' in line:
-                text = line.split('⚠ GHOST TEXT vs. SYMPATHETIC INK RULE:')[1].strip()
-                rules.append({"title": "GHOST TEXT VS. SYMPATHETIC INK RULE:", "text": text})
+        # Collect single-line ⚠ XXXX RULE: text lines
+        # These rule names we want — filter out DISTINCTION blocks
+        target_rules = ["BANK CHECK RULE", "INK LAYERING RULE", "INCOMPLETE WORD RULE",
+                        "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE", "GHOST TEXT vs. SYMPATHETIC INK RULE"]
+        for line in lines:
+            s = line.strip().lstrip("⚠️").strip()  # strip ⚠ and variation selector
+            for rule_name in target_rules:
+                if s.startswith(rule_name + ":"):
+                    body = s[len(rule_name) + 1:].strip()
+                    rules.append({"title": rule_name + ":", "text": body})
+                    break
 
         return rules
-    except Exception as e:
+    except Exception:
         return []
 
 
 @router.get("/prompt-analysis")
 def get_prompt_analysis():
-    """Dynamic prompt analysis data for the PromptDashboard component."""
+    """Prompt analysis data — rules read live from gemini_vision.py."""
     rules = extract_rules_from_prompt()
     return {
         "system_prompt": {"total_words": 2847},
