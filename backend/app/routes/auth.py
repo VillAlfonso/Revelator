@@ -314,8 +314,8 @@ def add_api_key(body: AddKeyRequest, current_user: User = Depends(get_current_us
         raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
 
     count = db.query(UserApiKey).filter(UserApiKey.user_id == current_user.id).count()
-    if count >= 5:
-        raise HTTPException(status_code=400, detail="Maximum of 5 API keys allowed.")
+    if count >= 20:
+        raise HTTPException(status_code=400, detail="Maximum of 20 API keys allowed.")
 
     key = UserApiKey(
         user_id=current_user.id,
