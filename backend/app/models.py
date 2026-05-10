@@ -86,8 +86,6 @@ class Scan(Base):
     anomaly_location = Column(String, nullable=True)
     alternatives = Column(Text, nullable=True)       # JSON array
     certainty_level = Column(String, nullable=True)  # HIGH / MEDIUM / LOW
-    model_tier_used = Column(String, nullable=True)
-    model_tier_requested = Column(String, nullable=True)
     # User context inputs
     suspicion_reason = Column(Text, nullable=True)
     area_of_concern = Column(String, nullable=True)

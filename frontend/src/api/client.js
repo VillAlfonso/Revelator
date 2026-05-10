@@ -123,12 +123,11 @@ export const api = {
     return request('/categories');
   },
 
-  analyze(file, category, documentType, modelTier, extras = {}) {
+  analyze(file, category, documentType, extras = {}) {
     const form = new FormData();
     form.append('imageFile', file);
     if (category) form.append('category', category);
     if (documentType) form.append('document_type', documentType);
-    if (modelTier) form.append('model_tier', modelTier);
     if (extras.suspicionReason) form.append('suspicion_reason', extras.suspicionReason);
     if (extras.areaOfConcern) form.append('area_of_concern', extras.areaOfConcern);
     if (extras.imageSource) form.append('image_source', extras.imageSource);
@@ -141,10 +140,6 @@ export const api = {
 
   getDocumentTypes() {
     return request('/document-types', { noAuth: true });
-  },
-
-  getModelTiers() {
-    return request('/tiers');
   },
 
   preliminary(file) {

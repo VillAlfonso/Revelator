@@ -83,10 +83,6 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN alternatives TEXT"))
             if "certainty_level" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN certainty_level VARCHAR"))
-            if "model_tier_used" not in scan_cols:
-                conn.execute(text("ALTER TABLE scans ADD COLUMN model_tier_used VARCHAR"))
-            if "model_tier_requested" not in scan_cols:
-                conn.execute(text("ALTER TABLE scans ADD COLUMN model_tier_requested VARCHAR"))
             if "suspicion_reason" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN suspicion_reason TEXT"))
             if "area_of_concern" not in scan_cols:

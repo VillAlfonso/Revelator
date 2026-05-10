@@ -29,10 +29,6 @@ from ..forgery.gemini_vision import (
     preprocess_image, triage_classify, confidence_gated_analyze,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
-from ..forgery.model_tiers import (
-    TIER_ANALYST, TIER_DETECTIVE, TIER_SHERLOCK, ALL_TIERS,
-    TIER_AVAILABLE, TIER_META, get_tiers_response, is_tier_allowed,
-)
 from ..forgery import llava_client
 
 router = APIRouter(prefix="/api", tags=["analysis"])
@@ -95,18 +91,11 @@ def get_document_types():
     return get_document_types_response()
 
 
-@router.get("/tiers")
-def get_model_tiers(current_user: User = Depends(get_current_user)):
-    return get_tiers_response(user_plan=current_user.plan)
-
-
-
 @router.post("/analyze")
 def analyze_document(
     imageFile: UploadFile = File(...),
     category: Optional[str] = Form(None),
     document_type: Optional[str] = Form(None),
-    model_tier: Optional[str] = Form(None),
     suspicion_reason: Optional[str] = Form(None),
     area_of_concern: Optional[str] = Form(None),
     image_source: Optional[str] = Form(None),
@@ -117,16 +106,6 @@ def analyze_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Resolve & validate model tier
-    tier = (model_tier or TIER_ANALYST).lower()
-    if tier not in ALL_TIERS:
-        raise HTTPException(status_code=400, detail=f"Invalid model_tier. Options: {ALL_TIERS}")
-    if not is_tier_allowed(current_user.plan, tier):
-        raise HTTPException(
-            status_code=403,
-            detail=f"The {TIER_META[tier]['name']} tier requires a higher plan. "
-                   f"Upgrade to {TIER_META[tier]['plans'][0]} or above.",
-        )
 
     check_scan_limit(current_user)
 
@@ -221,38 +200,6 @@ def analyze_document(
     gemini = critiqued.get("result", gemini)
     print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")
 
-    llava_result = None
-    tier_used = TIER_ANALYST
-
-    if tier == TIER_DETECTIVE and TIER_AVAILABLE[TIER_DETECTIVE]:
-        llava_result = llava_client.classify_detective(image, document_type=document_type)
-        if llava_result is not None:
-            tier_used = TIER_DETECTIVE
-    elif tier == TIER_SHERLOCK and TIER_AVAILABLE[TIER_SHERLOCK]:
-        llava_result = llava_client.classify_sherlock(image, document_type=document_type)
-        if llava_result is not None:
-            tier_used = TIER_SHERLOCK
-
-    # Ensemble blend if LLaVA returned a result
-    if llava_result is not None:
-        agreement = llava_result["category"] == gemini["category"]
-        avg_conf = (llava_result["confidence"] + gemini["confidence"]) / 2
-        gemini = {
-            **gemini,
-            "category": llava_result["category"],
-            "category_label": llava_result.get("category_label", gemini["category_label"]),
-            "subtype": llava_result.get("subtype", gemini["subtype"]),
-            "confidence": avg_conf if agreement else min(llava_result["confidence"], gemini["confidence"]),
-            "explanation": (
-                f"{llava_result['explanation']}\n\nVerification: {gemini['explanation']}"
-            ),
-            "evidence": (llava_result.get("evidence") or []) + gemini.get("evidence", []),
-            "tools_likely_used": llava_result.get("tools_likely_used", gemini["tools_likely_used"]),
-            "certainty_level": "HIGH" if agreement and avg_conf >= 0.85 else (
-                "MEDIUM" if agreement and avg_conf >= 0.60 else "LOW"
-            ),
-        }
-
     verdict, confidence = _verdict_from_gemini(gemini)
 
     # LLM explanation — pro feature
@@ -298,8 +245,6 @@ def analyze_document(
         anomaly_location=gemini.get("anomaly_location"),
         alternatives=json.dumps(gemini.get("alternatives", [])),
         certainty_level=gemini.get("certainty_level"),
-        model_tier_used=tier_used,
-        model_tier_requested=tier,
         suspicion_reason=suspicion_reason,
         area_of_concern=area_of_concern,
         image_source=image_source,
@@ -334,9 +279,6 @@ def analyze_document(
         "reasoning_steps": gemini.get("reasoning_steps", []),
         "anomaly_location": gemini.get("anomaly_location"),
         "alternatives": gemini.get("alternatives", []),
-        "model_tier_requested": tier,
-        "model_tier_used": tier_used,
-        "model_tier_fallback": tier != tier_used,
     }
 
 
@@ -414,9 +356,6 @@ def get_scan_detail(
         "reasoning_steps": json.loads(scan.reasoning_steps) if scan.reasoning_steps else [],
         "anomaly_location": scan.anomaly_location,
         "alternatives": json.loads(scan.alternatives) if scan.alternatives else [],
-        "model_tier_used": scan.model_tier_used,
-        "model_tier_requested": scan.model_tier_requested,
-        "model_tier_fallback": scan.model_tier_used != scan.model_tier_requested if scan.model_tier_used and scan.model_tier_requested else False,
         "document_type": scan.document_type,
         "document_type_label": DOCUMENT_TYPES.get(scan.document_type, {}).get("title") if scan.document_type else None,
         "suspicion_reason": scan.suspicion_reason,

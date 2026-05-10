@@ -15,8 +15,6 @@ export default function Scan() {
   const [error, setError] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [documentTypes, setDocumentTypes] = useState([]);
-  const [modelTier, setModelTier] = useState('analyst');
-  const [tiers, setTiers] = useState([]);
   const [showExtras, setShowExtras] = useState(false);
   const [suspicionReason, setSuspicionReason] = useState('');
   const [areaOfConcern, setAreaOfConcern] = useState('');
@@ -28,15 +26,11 @@ export default function Scan() {
   const fileRef = useRef();
   const canvasRef = useRef();
 
-  // Load document types and model tiers on mount
+  // Load document types on mount
   React.useEffect(() => {
     api.getDocumentTypes()
       .then(data => setDocumentTypes(data.document_types))
       .catch(err => console.error('Failed to load document types:', err));
-
-    api.getModelTiers()
-      .then(data => setTiers(data.tiers || []))
-      .catch(err => console.error('Failed to load model tiers:', err));
   }, []);
 
   function resetScan() {
@@ -120,7 +114,7 @@ export default function Scan() {
         file,
         null,
         documentType !== 'other' ? documentType : null,
-        modelTier,
+        null,
         {
           suspicionReason: suspicionReason.trim() || null,
           areaOfConcern: areaOfConcern || null,
@@ -161,49 +155,6 @@ export default function Scan() {
           Upload a document image — all 16 forgery detectors will run automatically.
         </p>
       </div>
-
-      {/* Compact tier selector — sits below header, above the form cards */}
-      {tiers.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, whiteSpace: 'nowrap' }}>MODEL</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {tiers.map(t => {
-              const isActive = modelTier === t.key;
-              const isUnlocked = t.unlocked !== false;
-              const isComingSoon = !t.available;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  title={`${t.tagline}${isComingSoon ? ' — Coming soon' : !isUnlocked ? ' — Upgrade required' : ''}`}
-                  onClick={() => !isComingSoon && isUnlocked && setModelTier(t.key)}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: 11,
-                    fontFamily: "'Oswald', sans-serif",
-                    letterSpacing: 1.5,
-                    textTransform: 'uppercase',
-                    border: `1px solid ${isActive ? '#00ff66' : '#1d3825'}`,
-                    borderRadius: 2,
-                    background: isActive ? 'rgba(0,255,102,0.1)' : 'transparent',
-                    color: isActive ? '#00ff66' : (isUnlocked && !isComingSoon) ? '#6dba85' : '#3f6e4a',
-                    cursor: (!isComingSoon && isUnlocked) ? 'pointer' : 'not-allowed',
-                    opacity: (isUnlocked && !isComingSoon) ? 1 : 0.45,
-                    transition: 'all 0.15s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                >
-                  {isComingSoon ? '' : !isUnlocked ? '🔒 ' : ''}{t.name}
-                  {isComingSoon && <span style={{ fontSize: 8, color: '#ffaa00', letterSpacing: 1 }}>COMING SOON</span>}
-                </button>
-              );
-            })}
-          </div>
-          <span style={{ fontSize: 11, color: '#3f6e4a', fontStyle: 'italic' }}>— choose model</span>
-        </div>
-      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 800 }}>
         <div className="card">
@@ -674,8 +625,54 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
               ▣ GEMINI VISION · CLASSIFICATION
             </p>
             <div style={{ background: `${geminiAccent}08`, border: `1px solid ${geminiAccent}44`, borderLeft: `3px solid ${geminiAccent}`, borderRadius: 3, padding: 'clamp(10px, 3vw, 14px)' }}>
+              {(() => {
+                const conf = result.category_confidence || 0;
+                const altCount = result.alternatives?.length || 0;
+                if (conf >= 0.90) return null;
+
+                const isInconclusive = conf < 0.50;
+                const isUncertain = conf < 0.85;
+                const color = isInconclusive ? '#ff5555' : '#ffa040';
+                const label = isInconclusive ? 'INCONCLUSIVE — NOT A DEFINITIVE ANSWER'
+                              : isUncertain ? 'UNCERTAIN — TREAT AS A LEAD, NOT A VERDICT'
+                              : 'BORDERLINE CONFIDENCE';
+                const message = isInconclusive
+                  ? `The model could not determine a definitive forgery type. It guessed "${result.detected_category_label}" but only at ${(conf * 100).toFixed(0)}% confidence. ${altCount > 0 ? `The result could realistically be one of ${altCount} other types listed below.` : 'Manual review by a forensic examiner is recommended.'}`
+                  : isUncertain
+                  ? `The model picked "${result.detected_category_label}" as its best guess at ${(conf * 100).toFixed(0)}% confidence — below the 85% threshold for a definitive call. ${altCount > 0 ? `It also seriously considered ${altCount} other forgery type${altCount > 1 ? 's' : ''} (see "Could Also Be" below). The image evidence is not strong enough to rule them out.` : 'Consider re-scanning with a higher-resolution image or adding context.'}`
+                  : `Confidence is ${(conf * 100).toFixed(0)}% — close to definitive but not quite. Review the alternatives before acting on this result.`;
+
+                return (
+                  <div style={{
+                    background: `${color}12`,
+                    border: `1px solid ${color}55`,
+                    borderLeft: `3px solid ${color}`,
+                    borderRadius: 2,
+                    padding: '10px 12px',
+                    marginBottom: 12,
+                  }}>
+                    <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color, margin: '0 0 6px', fontWeight: 700 }}>
+                      ⚠ {label}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#ffd680', margin: 0, lineHeight: 1.6 }}>
+                      {message}
+                    </p>
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                 <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+                  {(() => {
+                    const conf = result.category_confidence || 0;
+                    if (conf >= 0.90) return null;
+                    const prefix = conf < 0.50 ? 'STRONGEST GUESS' : 'MOST LIKELY';
+                    const color = conf < 0.50 ? '#ff5555' : '#ffa040';
+                    return (
+                      <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color, margin: '0 0 4px' }}>
+                        {prefix}:
+                      </p>
+                    );
+                  })()}
                   <h4 className="oswald" style={{ fontSize: 'clamp(14px, 4vw, 17px)', color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 1.8, margin: 0, lineHeight: 1.25, wordBreak: 'break-word' }}>
                     {result.detected_category_label || cat}
                   </h4>
@@ -718,33 +715,98 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
                 </details>
               )}
 
-              {/* Alternative hypotheses */}
-              {result.alternatives?.length > 0 && (
-                <div style={{
-                  marginTop: 12, borderTop: '1px solid #1d3825', paddingTop: 10,
-                }}>
-                  <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#ffa040', margin: '0 0 8px' }}>
-                    ⚠ ALTERNATIVE {result.alternatives.length > 1 ? `HYPOTHESES (${result.alternatives.length})` : 'HYPOTHESIS'}
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {result.alternatives.map((alt, i) => (
-                      <div key={i} style={{
-                        background: 'rgba(255,160,64,0.04)', borderRadius: 2, padding: '8px 12px',
-                        border: '1px solid rgba(255,160,64,0.2)',
-                      }}>
-                        <p style={{ fontSize: 13, color: '#ffc888', margin: 0, lineHeight: 1.6 }}>
-                          <strong style={{ color: '#ffd680', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1, fontSize: 11 }}>
-                            {alt.category_label}
-                          </strong>
-                          {alt.reasoning && (
-                            <span style={{ color: '#c4a45a' }}> — {alt.reasoning}</span>
-                          )}
+              {/* Ambiguity + Confidence + Capture Tips */}
+              {(() => {
+                const conf = result.category_confidence || 0;
+                const dims = result.original_image_dimensions;
+                const w = dims?.width || result.image_width || 0;
+                const h = dims?.height || result.image_height || 0;
+                const minDim = Math.min(w, h);
+                const alts = result.alternatives || [];
+
+                // Build confidence reasons
+                const confReasons = [];
+                if (minDim > 0 && minDim < 600) {
+                  confReasons.push(`Image resolution is very low (${w}×${h}px) — forensic artifacts like halos, fiber texture, and compression noise are difficult to distinguish below 600px on the shortest side.`);
+                } else if (minDim > 0 && minDim < 1000) {
+                  confReasons.push(`Image resolution is moderate (${w}×${h}px) — some fine forensic details may be lost. Recommended minimum: 1000px on shortest side.`);
+                }
+                if (alts.length > 0) {
+                  const altNames = alts.slice(0, 2).map(a => a.category_label).join(' and ');
+                  confReasons.push(`Visual indicators overlap with ${altNames} — these categories share similar surface characteristics that are hard to separate without higher image quality or context.`);
+                }
+                if (!result.anomaly_location) {
+                  confReasons.push('No specific anomaly location was identified, which limits certainty.');
+                }
+                const hasContext = result.document_type && result.document_type !== 'other';
+                if (!hasContext) {
+                  confReasons.push('No document type was provided. Adding context (bank check, ID, certificate, etc.) helps the model focus on the right forgery patterns.');
+                }
+
+                // Capture tips
+                const captureTips = [];
+                if (minDim < 1000) {
+                  captureTips.push('Shoot closer or use higher camera resolution. Target at least 1000×1000px — phone cameras at close range easily achieve this.');
+                }
+                captureTips.push('Use even, diffuse lighting. Avoid harsh shadows or glare — tilt the document slightly if a flash is washing out surface texture.');
+                captureTips.push('Lay the document flat on a plain surface. Creases and perspective distortion make edge artifacts harder to detect.');
+                captureTips.push('If examining a signature or stamp, zoom in on just that area for a second scan — localized detail is more useful than the whole page at low resolution.');
+                if (!hasContext) {
+                  captureTips.push('Fill in the Additional Context section before scanning — document type and your suspicion reason significantly narrow the analysis.');
+                }
+
+                const showSection = alts.length > 0 || confReasons.length > 0;
+                if (!showSection) return null;
+
+                return (
+                  <div style={{ marginTop: 12, borderTop: '1px solid #1d3825', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                    {/* Could it be something else? */}
+                    {alts.length > 0 && (
+                      <div>
+                        <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#ffa040', margin: '0 0 8px' }}>
+                          ⚠ COULD ALSO BE ({alts.length})
                         </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {alts.map((alt, i) => (
+                            <div key={i} style={{ background: 'rgba(255,160,64,0.04)', borderRadius: 2, padding: '8px 12px', border: '1px solid rgba(255,160,64,0.18)' }}>
+                              <p style={{ fontSize: 12, color: '#ffd680', margin: '0 0 3px', fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1 }}>
+                                {alt.category_label}
+                              </p>
+                              {alt.reasoning && (
+                                <p style={{ fontSize: 12, color: '#c4a45a', margin: 0, lineHeight: 1.6 }}>{alt.reasoning}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Why this confidence? */}
+                    {confReasons.length > 0 && (
+                      <details style={{ borderTop: '1px solid #1d3825', paddingTop: 10 }}>
+                        <summary className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#6dba85', cursor: 'pointer', marginBottom: 0 }}>
+                          ▸ WHY {(conf * 100).toFixed(0)}% CONFIDENCE?
+                        </summary>
+                        <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: '#86efac', lineHeight: 1.7 }}>
+                          {confReasons.map((r, i) => <li key={i}>{r}</li>)}
+                        </ul>
+                      </details>
+                    )}
+
+                    {/* How to improve */}
+                    <details style={{ borderTop: '1px solid #1d3825', paddingTop: 10 }}>
+                      <summary className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#6dba85', cursor: 'pointer' }}>
+                        ▸ HOW TO GET A BETTER RESULT
+                      </summary>
+                      <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: '#86efac', lineHeight: 1.7 }}>
+                        {captureTips.map((t, i) => <li key={i}>{t}</li>)}
+                      </ul>
+                    </details>
+
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         ) : (

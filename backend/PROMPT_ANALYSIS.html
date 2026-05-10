@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Revelator — Prompt Analysis & Overlap Visualizer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0a0a0f;
+    color: #e6e6e6;
+    line-height: 1.4;
+    overflow-x: hidden;
+  }
+  header {
+    padding: 24px 32px;
+    background: linear-gradient(180deg, #1a1a25, #0a0a0f);
+    border-bottom: 1px solid #2a2a3a;
+  }
+  header h1 { font-size: 22px; color: #fff; }
+  header p { color: #888; font-size: 13px; margin-top: 4px; }
+  .container { display: grid; grid-template-columns: 1fr 380px; gap: 0; min-height: calc(100vh - 100px); }
+  .main { padding: 24px; }
+  .sidebar {
+    background: #12121c;
+    border-left: 1px solid #2a2a3a;
+    padding: 24px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+  }
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid #2a2a3a; }
+  .tab {
+    padding: 10px 20px; cursor: pointer; color: #888;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    font-size: 13px;
+  }
+  .tab:hover { color: #ccc; }
+  .tab.active { color: #fff; border-bottom-color: #5b8def; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  h2 { font-size: 16px; margin-bottom: 16px; color: #fff; }
+  h3 { font-size: 14px; margin-bottom: 8px; color: #aab; margin-top: 18px; }
+
+  /* Bar chart */
+  .bar-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .bar-row:hover { background: #1a1a28; }
+  .bar-row.selected { background: #1f1f30; }
+  .bar-label { font-size: 12px; color: #ccc; }
+  .bar-track { height: 18px; background: #1a1a28; border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; transition: width 0.3s; }
+  .bar-value { font-size: 11px; color: #888; text-align: right; }
+
+  /* Group colors */
+  .group-traced { background: #e74c3c; color: #fff; }
+  .group-alteration { background: #f39c12; color: #fff; }
+  .group-digital { background: #5b8def; color: #fff; }
+  .group-obliteration { background: #9b59b6; color: #fff; }
+  .group-sympathetic { background: #1abc9c; color: #fff; }
+  .group-currency { background: #95a5a6; color: #fff; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .legend-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    background: #1a1a28;
+  }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+
+  /* Network graph */
+  .graph-container {
+    background: #0d0d18;
+    border: 1px solid #1f1f2c;
+    border-radius: 8px;
+    position: relative;
+    height: 600px;
+    overflow: hidden;
+  }
+  svg { width: 100%; height: 100%; cursor: grab; }
+  svg.dragging { cursor: grabbing; }
+  .node circle {
+    cursor: pointer;
+    transition: stroke-width 0.2s;
+    stroke: #0a0a0f;
+    stroke-width: 2;
+  }
+  .node circle:hover { stroke-width: 4; stroke: #fff; }
+  .node.selected circle { stroke: #fff; stroke-width: 3; }
+  .node text {
+    fill: #ddd;
+    font-size: 10px;
+    text-anchor: middle;
+    pointer-events: none;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .link {
+    stroke-opacity: 0.4;
+    transition: stroke-opacity 0.2s;
+  }
+  .link.faded { stroke-opacity: 0.05; }
+  .link.highlighted { stroke-opacity: 1; }
+
+  .controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    background: #1a1a28cc;
+    backdrop-filter: blur(8px);
+    padding: 8px;
+    border-radius: 6px;
+  }
+  .btn {
+    padding: 6px 12px;
+    background: #2a2a3a;
+    border: 1px solid #3a3a4a;
+    color: #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .btn:hover { background: #3a3a4a; color: #fff; }
+  .btn.active { background: #5b8def; border-color: #5b8def; color: #fff; }
+
+  /* Sidebar details */
+  .detail-box {
+    background: #1a1a28;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-left: 3px solid #444;
+  }
+  .detail-box.traced { border-left-color: #e74c3c; }
+  .detail-box.alteration { border-left-color: #f39c12; }
+  .detail-box.digital { border-left-color: #5b8def; }
+  .detail-box.obliteration { border-left-color: #9b59b6; }
+  .detail-box.sympathetic { border-left-color: #1abc9c; }
+  .detail-box.currency { border-left-color: #95a5a6; }
+
+  .detail-title {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .detail-meta {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .indicator-list {
+    list-style: none;
+    padding: 0;
+  }
+  .indicator-list li {
+    font-size: 12px;
+    padding: 4px 0 4px 16px;
+    color: #bbb;
+    position: relative;
+  }
+  .indicator-list li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: #5b8def;
+  }
+  .overlap-list li {
+    font-size: 12px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    background: #14141f;
+    border-radius: 4px;
+    border-left: 2px solid #f39c12;
+    list-style: none;
+    color: #ccc;
+  }
+  .overlap-list .strength {
+    font-weight: bold;
+    color: #f39c12;
+  }
+  .overlap-list .reason {
+    color: #888;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .severity-high { border-left-color: #e74c3c !important; }
+  .severity-high .strength { color: #e74c3c !important; }
+
+  .variable-card {
+    background: #14141f;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .variable-card .var-name { color: #5b8def; font-weight: bold; }
+  .variable-card .var-desc { color: #aaa; font-size: 11px; margin-top: 2px; }
+  .variable-card .var-influence { color: #f39c12; font-size: 10px; margin-top: 4px; }
+
+  .stat {
+    background: #14141f;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .stat-label { font-size: 11px; color: #888; }
+  .stat-value { font-size: 18px; color: #fff; font-weight: bold; margin-top: 2px; }
+  .stat-detail { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+  .placeholder {
+    text-align: center;
+    color: #555;
+    padding: 40px 20px;
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .alert {
+    background: #2d1f1f;
+    border-left: 3px solid #e74c3c;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #ffb3b3;
+  }
+  .alert strong { color: #ff8888; }
+
+  .info {
+    background: #1a2435;
+    border-left: 3px solid #5b8def;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #cce0ff;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Revelator — Prompt Analysis & Category Overlap Visualizer</h1>
+  <p>Interactive analysis of the Gemini Vision system prompt — detail level, overlap relationships, dominance patterns</p>
+</header>
+
+<div class="container">
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active" data-tab="overview">Overview</div>
+      <div class="tab" data-tab="detail">Detail Levels</div>
+      <div class="tab" data-tab="graph">Overlap Graph</div>
+      <div class="tab" data-tab="dominance">Dominance Matrix</div>
+      <div class="tab" data-tab="variables">User Variables</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="panel active" id="panel-overview">
+      <div class="alert"><strong>Big finding:</strong> The prompt is severely unbalanced. Some categories get 500+ words of detail, others get 5. The most detailed categories tend to "win" when evidence is ambiguous, because the model has more cues to latch onto.</div>
+
+      <h3>Detail-level imbalance (visualized below as bar chart)</h3>
+      <div id="overview-bars"></div>
+
+      <div class="info" style="margin-top: 20px;"><strong>Why this matters:</strong> When a forgery has overlapping indicators across multiple categories, the model gravitates toward the category with the richest description. This is "prompt mass bias" — more text = more attractor power.</div>
+
+      <h3>Top dominance issues</h3>
+      <div id="overview-issues"></div>
+    </div>
+
+    <!-- DETAIL -->
+    <div class="panel" id="panel-detail">
+      <h3>Word count per category (click to inspect)</h3>
+      <div class="legend">
+        <div class="legend-chip"><div class="legend-dot group-traced"></div>Traced</div>
+        <div class="legend-chip"><div class="legend-dot group-alteration"></div>Alteration</div>
+        <div class="legend-chip"><div class="legend-dot group-digital"></div>Digital</div>
+        <div class="legend-chip"><div class="legend-dot group-obliteration"></div>Obliteration</div>
+        <div class="legend-chip"><div class="legend-dot group-sympathetic"></div>Sympathetic</div>
+        <div class="legend-chip"><div class="legend-dot group-currency"></div>Currency</div>
+      </div>
+      <div id="detail-bars"></div>
+    </div>
+
+    <!-- GRAPH -->
+    <div class="panel" id="panel-graph">
+      <h3>Category overlap network — thicker line = stronger overlap</h3>
+      <p style="color:#888;font-size:12px;margin-bottom:12px;">Click a node to highlight its overlaps. Drag nodes to reposition. Edge thickness = overlap severity (0-1 scale).</p>
+      <div class="graph-container">
+        <svg id="graph"></svg>
+        <div class="controls">
+          <button class="btn" id="reset-btn">Reset Layout</button>
+          <button class="btn" id="strong-btn">Show only strong overlaps</button>
+          <button class="btn" id="all-btn">Show all</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMINANCE -->
+    <div class="panel" id="panel-dominance">
+      <h3>Dominance pairs — when X overlaps with Y, who tends to win?</h3>
+      <p style="color:#888;font-size:12px;margin-bottom:16px;">For each high-overlap pair, the category with more prompt detail tends to dominate when evidence is ambiguous.</p>
+      <div id="dominance-list"></div>
+    </div>
+
+    <!-- VARIABLES -->
+    <div class="panel" id="panel-variables">
+      <h3>User-context variables that bias classification</h3>
+      <p style="color:#888;font-size:12px;margin-bottom:16px;">These come from the Scan form and are injected into the prompt as USER-PROVIDED CONTEXT. Each one nudges the model toward certain categories.</p>
+      <div id="variables-list"></div>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <h2>Inspector</h2>
+    <div id="inspector">
+      <div class="placeholder">Click a category, edge, or variable to see details here.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────────
+
+const categories = [
+  // TRACED
+  { id: "traced_carbon", label: "Traced — Carbon", group: "traced", wordCount: 70, indicators: ["faint carbon residue along strokes","hesitation/tremor following blueprint","uniform line weight","misalignment from carbon transfer"], detail: "MEDIUM", explanation: "Carbon paper placed under genuine signature; forger traces with stylus, transfers carbon 'blueprint', then inks over." },
+  { id: "traced_indentation", label: "Traced — Indentation", group: "traced", wordCount: 50, indicators: ["halo/colorless depression around strokes","ink not filling indented path","hesitation or tremor"], detail: "MEDIUM", explanation: "Pressure indentation/canal light effect — pen pressed into paper creates groove around strokes." },
+  { id: "traced_projection", label: "Traced — Projection", group: "traced", wordCount: 300, indicators: ["uniform/monotonous pen pressure","micro-tremors","frequent pen lifts","no carbon residue","no grooves","suspiciously perfect match"], detail: "VERY HIGH", explanation: "Light table or projector throws genuine signature onto paper; forger inks over projected lines.", flags: ["Has 2 critical-distinction blocks vs digital_cut_paste and digital_scanned"] },
+
+  // ALTERATION
+  { id: "addition_insertion", label: "Addition — Insertion", group: "alteration", wordCount: 500, indicators: ["crowding/tight spacing","ink density mismatch","stroke rhythm inconsistency","baseline misalignment","logical value conflict","ink texture mismatch (printed vs wet)","stroke layering / Z-axis","morphological inconsistency"], detail: "VERY HIGH", explanation: "Characters added inside a word/number to change meaning. Has TWO subtypes: A) digit in blank space, B) char converted by added stroke.", flags: ["Largest single category in the prompt — over 500 words","Has bank check rule + ink layering rule"] },
+  { id: "addition_interlineation", label: "Addition — Interlineation", group: "alteration", wordCount: 30, indicators: ["smaller text","different baseline","different ink"], detail: "LOW", explanation: "New writing squeezed BETWEEN existing lines (in whitespace, not inside a word)." },
+  { id: "erasure_chemical", label: "Erasure — Chemical", group: "alteration", wordCount: 150, indicators: ["halo/tide mark","ink ghosting","paper fiber damage","new text on damaged background","oblique-light sheen difference"], detail: "HIGH", explanation: "Original ink dissolved with solvent (bleach, acetone, eradicator), then new text written/printed in cleaned area." },
+  { id: "erasure_mechanical", label: "Erasure — Mechanical", group: "alteration", wordCount: 250, indicators: ["abraded fibers ('fuzzy patch')","shadow patch / sheen","ghost particles","paper thinning","jagged void boundary","ink feathering","logical word truncation"], detail: "HIGH", explanation: "Original ink scraped off with razor/sandpaper/eraser, then replacement written/printed on scraped area." },
+
+  // DIGITAL
+  { id: "digital_cut_paste", label: "Digital — Cut & Paste", group: "digital", wordCount: 200, indicators: ["halo/fringe","pixelation/aliasing","background inconsistency","compression artefacts","DPI mismatch","shadow/lighting","perfect leveling"], detail: "HIGH", explanation: "Genuine element (signature, stamp) digitally lifted and composited onto otherwise real document." },
+  { id: "digital_desktop", label: "Digital — Desktop", group: "digital", wordCount: 200, indicators: ["perfect digital typography","font consistency across doc","forms & templates","signature-quality mismatch","zero physical realism"], detail: "HIGH", explanation: "ENTIRE document fabricated from scratch in software (Word, Canva, Photoshop)." },
+  { id: "digital_scanned", label: "Digital — Scanned", group: "digital", wordCount: 200, indicators: ["scan-noise inconsistency","stamp/signature flatness","global tilt vs local alignment","compression-level mismatch","resolution halo","font/field inconsistency"], detail: "HIGH", explanation: "Real document scanned, then digital elements composited onto scan image (stamp, signature, dates)." },
+
+  // OBLITERATION
+  { id: "obliteration_ink", label: "Obliteration — Ink", group: "obliteration", wordCount: 5, indicators: ["ink scribbled over original"], detail: "VERY LOW", explanation: "Original text scribbled out with ink.", flags: ["Almost no detail in prompt — model has minimal cues"] },
+  { id: "obliteration_whiteout", label: "Obliteration — White Out", group: "obliteration", wordCount: 5, indicators: ["correction fluid covering text"], detail: "VERY LOW", explanation: "Correction fluid covering text.", flags: ["Almost no detail in prompt"] },
+  { id: "obliteration_pigment", label: "Obliteration — Pigment", group: "obliteration", wordCount: 5, indicators: ["opaque marker/paint"], detail: "VERY LOW", explanation: "Opaque marker, paint, or pigment covering text.", flags: ["Almost no detail in prompt"] },
+
+  // SYMPATHETIC
+  { id: "sympathetic_indented", label: "Sympathetic — Indented", group: "sympathetic", wordCount: 15, indicators: ["pressure indentations on paper","no visible ink","raking light reveals"], detail: "VERY LOW", explanation: "Indented writing visible only via raking light. No ink in the grooves.", flags: ["⚠ HIDDEN OVERLAP with traced_indentation — both have grooves; sympathetic has NO ink filling them"] },
+  { id: "sympathetic_special", label: "Sympathetic — Special Ink", group: "sympathetic", wordCount: 200, indicators: ["heat-activated (browned/charred)","chemical-activated (color reaction)","UV/fluorescent","specific substances (lemon, milk, phenolphthalein)"], detail: "HIGH", explanation: "Invisible ink revealed by external stimulus (heat, reagent, UV)." },
+
+  // CURRENCY
+  { id: "currency_analysis", label: "Currency", group: "currency", wordCount: 5, indicators: ["counterfeit banknote suspected"], detail: "VERY LOW", explanation: "Suspected counterfeit banknote.", flags: ["Almost no detail in prompt"] },
+];
+
+const overlaps = [
+  // TRACED ↔ TRACED (similar physical evidence)
+  { source: "traced_carbon", target: "traced_indentation", strength: 0.65, severity: "MEDIUM", reason: "Both hand-drawn with hesitation/tremor. Carbon has residue; indentation has groove. Easy to confuse on low-res images." },
+  { source: "traced_carbon", target: "traced_projection", strength: 0.55, severity: "MEDIUM", reason: "Both show uniform line weight from following a guide. Carbon = paper underneath; projection = light from above." },
+  { source: "traced_indentation", target: "traced_projection", strength: 0.55, severity: "MEDIUM", reason: "Both hand-drawn from a visual reference. Indentation creates physical groove; projection does not." },
+
+  // TRACED ↔ DIGITAL (high-risk crossover — already caused problems)
+  { source: "traced_projection", target: "digital_cut_paste", strength: 0.85, severity: "HIGH", reason: "Both produce 'perfect-looking' signatures. Distinguish: physical pen marks vs digital halo/pixelation. Has explicit ⚠ distinction block." },
+  { source: "traced_projection", target: "digital_scanned", strength: 0.85, severity: "HIGH", reason: "Both look unnaturally clean. Distinguish: paper-fiber interaction vs flat-on-scan-grain. Has explicit ⚠ distinction block." },
+  { source: "traced_indentation", target: "digital_desktop", strength: 0.75, severity: "HIGH", reason: "OLD BIAS (now patched): the prompt used to say 'mechanical-looking text = traced'. Software-generated docs naturally look mechanical. Caused misclassification." },
+  { source: "traced_carbon", target: "digital_cut_paste", strength: 0.45, severity: "LOW", reason: "Both can show ghost-like residue. Carbon = real ink residue; cut/paste = digital halo." },
+
+  // SYMPATHETIC ↔ TRACED (UNADDRESSED OVERLAP!)
+  { source: "sympathetic_indented", target: "traced_indentation", strength: 0.85, severity: "HIGH", reason: "BOTH involve indentation/grooves. Difference: sympathetic_indented has grooves WITHOUT ink. traced_indentation has grooves WITH ink filling them. The prompt does NOT explicitly distinguish these — risk of confusion." },
+
+  // DIGITAL ↔ DIGITAL
+  { source: "digital_cut_paste", target: "digital_desktop", strength: 0.7, severity: "MEDIUM", reason: "Both software-generated. Cut/paste = element on real doc; desktop = whole doc fabricated." },
+  { source: "digital_cut_paste", target: "digital_scanned", strength: 0.75, severity: "HIGH", reason: "Both insert elements digitally. Cut/paste = onto authentic doc; scanned = onto a scan of authentic doc. Subtle distinction." },
+  { source: "digital_desktop", target: "digital_scanned", strength: 0.6, severity: "MEDIUM", reason: "Both software-generated. Desktop = built from scratch; scanned = built over a real scan as base." },
+
+  // ALTERATION ↔ ALTERATION
+  { source: "addition_insertion", target: "erasure_chemical", strength: 0.65, severity: "MEDIUM", reason: "Both alter character meaning. Insertion = add ink (paper intact); erasure = remove + replace (paper damaged)." },
+  { source: "addition_insertion", target: "erasure_mechanical", strength: 0.65, severity: "MEDIUM", reason: "Same logic — paper damage distinguishes erasure from insertion." },
+  { source: "erasure_chemical", target: "erasure_mechanical", strength: 0.8, severity: "HIGH", reason: "Both remove + replace. Chemical = solvent (smooth, stained); mechanical = abrasion (rough, fuzzy fibers)." },
+
+  // ERASURE ↔ OBLITERATION (smudges look similar)
+  { source: "erasure_chemical", target: "obliteration_ink", strength: 0.7, severity: "MEDIUM", reason: "Both can show ink smudges. Erasure smudge = at EDGE of blank where char used to be. Obliteration = covering text intentionally." },
+
+  // OBLITERATION ↔ OBLITERATION (under-detailed, easy to confuse)
+  { source: "obliteration_ink", target: "obliteration_whiteout", strength: 0.5, severity: "LOW", reason: "Both cover text. Different materials but only 5 words of detail each — model has minimal cues to distinguish." },
+  { source: "obliteration_ink", target: "obliteration_pigment", strength: 0.5, severity: "LOW", reason: "Both use covering material. Lack of detail makes distinction fragile." },
+  { source: "obliteration_whiteout", target: "obliteration_pigment", strength: 0.6, severity: "MEDIUM", reason: "Whiteout = white correction fluid; pigment = colored marker/paint. Visually similar covering function." },
+];
+
+const variables = [
+  { name: "document_type", desc: "Type of document (passport, check, contract, ID, etc.). Selected from a fixed list.", influence: "Activates document-specific rules (e.g., bank check rule, ID security features). Strong nudge toward category-relevant indicators." },
+  { name: "suspicion_reason", desc: "User's free-text description of why they suspect forgery (max 300 chars).", influence: "Free text bias. Can mention specific words like 'erased', 'pasted', 'traced' that anchor classification. The prompt explicitly tells the model to verify against image." },
+  { name: "area_of_concern", desc: "Where the user wants the model to focus (e.g., 'signature', 'date field').", influence: "Directs attention. Doesn't force a category but biases toward forgery types common in that region." },
+  { name: "image_source", desc: "Phone photo / scan / screenshot / not sure.", influence: "Strong influence. Screenshot → digital_desktop more likely. Phone photo → physical forgeries more likely." },
+  { name: "is_forged_belief", desc: "User believes it IS forged / NOT forged / not sure.", influence: "Weak suggestion. Prompt warns model not to be pressured by user's belief — must verify against image." },
+  { name: "shot_type", desc: "Close-up / full document / not sure.", influence: "Affects what evidence is visible. Close-up = micro-tremors, fiber details. Full doc = layout, font consistency." },
+  { name: "lighting", desc: "Natural / raking / bright / not sure.", influence: "Critical for sympathetic_indented (needs raking light) and erasure detection (oblique light shows sheen)." },
+  { name: "physical_clues", desc: "Specific clue user thinks they observed (16 options: indentation_grooves, carbon_streaks, ink_halo, paper_thinning, etc.).", influence: "STRONGEST per-variable bias. Each clue maps to a category. The prompt tells the model to verify but it nudges hard." },
+];
+
+const groupColors = {
+  traced: "#e74c3c",
+  alteration: "#f39c12",
+  digital: "#5b8def",
+  obliteration: "#9b59b6",
+  sympathetic: "#1abc9c",
+  currency: "#95a5a6",
+};
+
+// ─────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'graph') drawGraph();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// OVERVIEW PANEL
+// ─────────────────────────────────────────────────────────────────
+
+function renderOverview() {
+  // Mini bars
+  const sorted = [...categories].sort((a,b) => b.wordCount - a.wordCount);
+  const max = sorted[0].wordCount;
+  const html = sorted.slice(0, 8).map(c => `
+    <div class="bar-row" data-id="${c.id}">
+      <div class="bar-label">${c.label}</div>
+      <div class="bar-track">
+        <div class="bar-fill group-${c.group}" style="width:${(c.wordCount/max)*100}%"></div>
+      </div>
+      <div class="bar-value">${c.wordCount} words</div>
+    </div>
+  `).join('') + `<p style="color:#666;font-size:11px;margin-top:8px;">… plus 8 more categories with ≤30 words. See "Detail Levels" tab for the full picture.</p>`;
+  document.getElementById('overview-bars').innerHTML = html;
+
+  // Top dominance issues
+  const issues = [
+    {pair: "addition_insertion vs everything else", text: "<strong>500 words</strong> for addition_insertion; the prompt's gravitational center. When evidence is ambiguous and there's any check/numeric field, model leans here."},
+    {pair: "traced_projection vs digital_cut_paste / digital_scanned", text: "<strong>300+ words</strong> for traced_projection with TWO critical-distinction blocks. High-overlap area; previously misclassified digital as traced (now patched)."},
+    {pair: "obliteration_ink/whiteout/pigment", text: "<strong>5 words each</strong>. Model can barely distinguish them. Any complex coverage situation falls back to obliteration_ink as default."},
+    {pair: "sympathetic_indented vs traced_indentation", text: "<strong>UNADDRESSED OVERLAP.</strong> Both involve grooves. Difference (ink vs no ink in grooves) is not explicit in prompt. 15-word definition for sympathetic, 50 for traced — bias toward traced."},
+  ];
+  document.getElementById('overview-issues').innerHTML = issues.map(i => `
+    <div class="overlap-list" style="list-style:none;">
+      <li class="severity-high">
+        <div class="strength">${i.pair}</div>
+        <div class="reason">${i.text}</div>
+      </li>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('#overview-bars .bar-row').forEach(row => {
+    row.addEventListener('click', () => selectCategory(row.dataset.id));
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DETAIL PANEL
+// ─────────────────────────────────────────────────────────────────
+
+function renderDetail() {
+  const sorted = [...categories].sort((a,b) => b.wordCount - a.wordCount);
+  const max = sorted[0].wordCount;
+  const html = sorted.map(c => `
+    <div class="bar-row" data-id="${c.id}">
+      <div class="bar-label">${c.label}</div>
+      <div class="bar-track">
+        <div class="bar-fill group-${c.group}" style="width:${(c.wordCount/max)*100}%"></div>
+      </div>
+      <div class="bar-value">${c.wordCount} words · ${c.detail}</div>
+    </div>
+  `).join('');
+  document.getElementById('detail-bars').innerHTML = html;
+  document.querySelectorAll('#detail-bars .bar-row').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.bar-row').forEach(r => r.classList.remove('selected'));
+      row.classList.add('selected');
+      selectCategory(row.dataset.id);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// GRAPH (force-directed network)
+// ─────────────────────────────────────────────────────────────────
+
+let graphState = { nodes: [], links: [], svg: null, drawn: false, filterStrong: false };
+
+function drawGraph() {
+  if (graphState.drawn) return;
+  graphState.drawn = true;
+
+  const svg = document.getElementById('graph');
+  graphState.svg = svg;
+  const w = svg.clientWidth || 800;
+  const h = svg.clientHeight || 600;
+
+  // Build nodes & links
+  const nodes = categories.map((c, i) => ({
+    ...c,
+    x: w/2 + Math.cos(i / categories.length * 2 * Math.PI) * 200,
+    y: h/2 + Math.sin(i / categories.length * 2 * Math.PI) * 200,
+    vx: 0, vy: 0,
+    radius: 8 + Math.sqrt(c.wordCount) * 1.5,
+  }));
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const links = overlaps.map(o => ({
+    ...o,
+    source: nodeMap[o.source],
+    target: nodeMap[o.target],
+  }));
+
+  graphState.nodes = nodes;
+  graphState.links = links;
+
+  // Simple force simulation
+  function tick() {
+    // Repulsion
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i+1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        const force = 4000 / (dist*dist);
+        a.vx -= (dx/dist) * force;
+        a.vy -= (dy/dist) * force;
+        b.vx += (dx/dist) * force;
+        b.vy += (dy/dist) * force;
+      }
+    }
+    // Attraction along links
+    for (const l of links) {
+      const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const desired = 100 + (1-l.strength)*120;
+      const force = (dist - desired) * 0.02 * l.strength;
+      l.source.vx += (dx/dist) * force;
+      l.source.vy += (dy/dist) * force;
+      l.target.vx -= (dx/dist) * force;
+      l.target.vy -= (dy/dist) * force;
+    }
+    // Center gravity
+    for (const n of nodes) {
+      n.vx += (w/2 - n.x) * 0.005;
+      n.vy += (h/2 - n.y) * 0.005;
+      n.vx *= 0.7;
+      n.vy *= 0.7;
+      if (!n.fixed) {
+        n.x += n.vx;
+        n.y += n.vy;
+      }
+      n.x = Math.max(n.radius, Math.min(w - n.radius, n.x));
+      n.y = Math.max(n.radius, Math.min(h - n.radius, n.y));
+    }
+    render();
+  }
+
+  function render() {
+    const linkSvg = links.map(l => {
+      const opacity = graphState.filterStrong && l.strength < 0.7 ? 0 : 0.4;
+      const stroke = l.severity === "HIGH" ? "#e74c3c" : l.severity === "MEDIUM" ? "#f39c12" : "#666";
+      return `<line class="link" data-src="${l.source.id}" data-tgt="${l.target.id}"
+        x1="${l.source.x}" y1="${l.source.y}" x2="${l.target.x}" y2="${l.target.y}"
+        stroke="${stroke}" stroke-width="${1 + l.strength*5}" stroke-opacity="${opacity}"></line>`;
+    }).join('');
+    const nodeSvg = nodes.map(n => `
+      <g class="node" data-id="${n.id}" transform="translate(${n.x},${n.y})">
+        <circle r="${n.radius}" fill="${groupColors[n.group]}"></circle>
+        <text dy="${n.radius + 12}">${n.label.replace(/^.+— /,'')}</text>
+      </g>
+    `).join('');
+    svg.innerHTML = linkSvg + nodeSvg;
+    attachNodeEvents();
+  }
+
+  function attachNodeEvents() {
+    svg.querySelectorAll('.node').forEach(g => {
+      const id = g.dataset.id;
+      g.addEventListener('click', e => {
+        e.stopPropagation();
+        selectCategory(id);
+        highlightNeighbors(id);
+      });
+      g.addEventListener('mousedown', e => {
+        const node = nodeMap[id];
+        node.fixed = true;
+        const move = ev => {
+          const rect = svg.getBoundingClientRect();
+          node.x = ev.clientX - rect.left;
+          node.y = ev.clientY - rect.top;
+          node.vx = 0; node.vy = 0;
+        };
+        const up = () => {
+          node.fixed = false;
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+      });
+    });
+  }
+
+  function highlightNeighbors(id) {
+    svg.querySelectorAll('.link').forEach(l => {
+      if (l.dataset.src === id || l.dataset.tgt === id) {
+        l.classList.add('highlighted');
+        l.classList.remove('faded');
+      } else {
+        l.classList.add('faded');
+        l.classList.remove('highlighted');
+      }
+    });
+  }
+
+  // Run simulation
+  let frame = 0;
+  function loop() {
+    tick();
+    frame++;
+    if (frame < 1000) requestAnimationFrame(loop);
+  }
+  loop();
+
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    graphState.drawn = false;
+    drawGraph();
+  });
+  document.getElementById('strong-btn').addEventListener('click', () => {
+    graphState.filterStrong = true;
+    render();
+  });
+  document.getElementById('all-btn').addEventListener('click', () => {
+    graphState.filterStrong = false;
+    render();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DOMINANCE MATRIX
+// ─────────────────────────────────────────────────────────────────
+
+function renderDominance() {
+  const sorted = [...overlaps].sort((a,b) => b.strength - a.strength);
+  const html = sorted.map(o => {
+    const src = categories.find(c => c.id === o.source);
+    const tgt = categories.find(c => c.id === o.target);
+    const dominant = src.wordCount > tgt.wordCount ? src : tgt;
+    const weaker = src.wordCount > tgt.wordCount ? tgt : src;
+    const ratio = (dominant.wordCount / Math.max(weaker.wordCount, 1)).toFixed(1);
+    const sevClass = o.severity === "HIGH" ? "severity-high" : "";
+    return `
+      <ul class="overlap-list">
+        <li class="${sevClass}">
+          <div><span class="strength">${dominant.label}</span> dominates <span style="color:#aaa">${weaker.label}</span></div>
+          <div class="reason">
+            <strong>Strength:</strong> ${o.strength} (${o.severity}) ·
+            <strong>Detail ratio:</strong> ${dominant.wordCount} : ${weaker.wordCount} (${ratio}× more)<br>
+            ${o.reason}
+          </div>
+        </li>
+      </ul>
+    `;
+  }).join('');
+  document.getElementById('dominance-list').innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// VARIABLES
+// ─────────────────────────────────────────────────────────────────
+
+function renderVariables() {
+  const html = variables.map(v => `
+    <div class="variable-card" data-name="${v.name}">
+      <div class="var-name">${v.name}</div>
+      <div class="var-desc">${v.desc}</div>
+      <div class="var-influence"><strong>Influence:</strong> ${v.influence}</div>
+    </div>
+  `).join('');
+  document.getElementById('variables-list').innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INSPECTOR
+// ─────────────────────────────────────────────────────────────────
+
+function selectCategory(id) {
+  const c = categories.find(x => x.id === id);
+  if (!c) return;
+  const myOverlaps = overlaps.filter(o => o.source === id || o.target === id);
+
+  const overlapHtml = myOverlaps.length === 0
+    ? '<p style="color:#666;font-size:12px;">No documented overlaps.</p>'
+    : myOverlaps.map(o => {
+        const other = o.source === id ? o.target : o.source;
+        const otherCat = categories.find(c => c.id === other);
+        const sevClass = o.severity === "HIGH" ? "severity-high" : "";
+        return `
+          <li class="${sevClass}">
+            <div><span class="strength">${o.strength}</span> · ${otherCat.label} <span style="color:#666">[${o.severity}]</span></div>
+            <div class="reason">${o.reason}</div>
+          </li>
+        `;
+      }).join('');
+
+  const flagsHtml = c.flags ? c.flags.map(f =>
+    `<div class="alert" style="margin-top:8px;">${f}</div>`
+  ).join('') : '';
+
+  document.getElementById('inspector').innerHTML = `
+    <div class="detail-box ${c.group}">
+      <div class="detail-title">${c.label}</div>
+      <div class="detail-meta">${c.id} · group: ${c.group} · detail: <strong>${c.detail}</strong> · words: ${c.wordCount}</div>
+      <p style="font-size:12px;color:#bbb;margin-bottom:12px;">${c.explanation}</p>
+      ${flagsHtml}
+      <h3>Indicators in prompt</h3>
+      <ul class="indicator-list">
+        ${c.indicators.map(i => `<li>${i}</li>`).join('')}
+      </ul>
+    </div>
+
+    <h3>Overlaps with other categories</h3>
+    <ul class="overlap-list" style="padding:0">
+      ${overlapHtml}
+    </ul>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+
+renderOverview();
+renderDetail();
+renderDominance();
+renderVariables();
+</script>
+</body>
+</html>

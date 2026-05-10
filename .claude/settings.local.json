@@ -61,7 +61,11 @@
       "Bash(cp extracted_real/train/labels/* synthetic/train/labels/)",
       "Bash(cp extracted_real/val/images/* synthetic/valid/images/)",
       "Bash(cp extracted_real/val/labels/* synthetic/valid/labels/)",
-      "Bash(gh api *)"
+      "Bash(gh api *)",
+      "Bash(ipconfig)",
+      "Bash(findstr /i \"IPv4\")",
+      "Bash(.\\\\gradlew.bat assembleDebug)",
+      "PowerShell(Get-Item \"C:\\\\Revelator\\\\frontend\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\debug\\\\app-debug.apk\" | Select-Object Name, @{Name='Size MB';Expression={[math]::Round\\($_.Length/1MB, 2\\)}}, LastWriteTime)"
     ]
   }
 }
