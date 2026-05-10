@@ -131,9 +131,11 @@ export default function Scan() {
         setTimeout(() => drawAnnotations(data.annotations, data.original_image_dimensions.width, data.original_image_dimensions.height), 100);
       }
     } catch (err) {
-      if (err.message === 'quota_exhausted') {
+      if (err.message === 'quota_exhausted' || err.message === 'no_api_key') {
         setQuotaExhausted(true);
         localStorage.setItem('fg_quota_exhausted', 'true');
+        localStorage.setItem('fg_highlight_key_input', 'true');
+        localStorage.setItem('fg_no_api_key', err.message === 'no_api_key' ? 'true' : 'false');
       } else {
         setError(err.message);
       }
@@ -152,27 +154,15 @@ export default function Scan() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 24, textAlign: 'center' }}>
         <p className="classification-bar" style={{ marginBottom: 6 }}>FORENSIC · SCAN · PIPELINE</p>
         <h2 className="oswald glow" style={{ fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0 }}>
           Scan Forgery
         </h2>
-        <p style={{ color: '#6dba85', fontSize: 13, marginTop: 6 }}>
-          Upload a document image — all 16 forgery detectors will run automatically.
-        </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 800 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 800, margin: '0 auto' }}>
         <div className="card">
-          <h3 className="oswald" style={{
-            fontSize: 13, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 16,
-            color: '#6dba85',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <MagnifierIcon size={16} color="#6dba85" />
-            Capture Document
-          </h3>
-
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
 
           {!preview ? (
@@ -492,44 +482,35 @@ export default function Scan() {
           </div>
         )}
 
-        {quotaExhausted && (
-          <div style={{
-            background: 'rgba(255,160,64,0.08)', border: '1px solid #ffa040', padding: 16, borderRadius: 3,
-            fontFamily: "'JetBrains Mono', monospace",
-          }}>
-            <div style={{ fontSize: 14, color: '#ffa040', fontWeight: 700, marginBottom: 10 }}>
-              ⚠ API Quota Exhausted
-            </div>
-            <p style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: '0 0 10px 0' }}>
-              Your current API key has used up its free daily quota (1,500 requests/day).
-              It will <strong style={{ color: '#ffa040' }}>reset automatically in ~24 hours</strong>.
-            </p>
-            <p style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: '0 0 10px 0' }}>
-              <strong style={{ color: '#00ff66' }}>To keep scanning right now:</strong>
-            </p>
-            <ol style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: '0 0 14px 0', paddingLeft: 24 }}>
-              <li style={{ marginBottom: 8 }}>Go to <a href="/account" style={{ color: '#00ff66', textDecoration: 'underline' }}>Account → Gemini API Keys</a></li>
-              <li style={{ marginBottom: 8 }}>Open <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" style={{ color: '#00ff66', textDecoration: 'underline' }}>Google AI Studio</a> <strong>in a different Google account</strong></li>
-              <li style={{ marginBottom: 8 }}>Copy the API key and paste it in the add key field</li>
-              <li>Tap "Add" then activate the new key — no need to switch accounts on Revelator</li>
-            </ol>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        {quotaExhausted && (() => {
+          const isNoKey = localStorage.getItem('fg_no_api_key') === 'true';
+          return (
+            <div style={{
+              background: 'rgba(255,160,64,0.08)', border: '1px solid #ffa040', padding: 16, borderRadius: 3,
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              <div style={{ fontSize: 14, color: '#ffa040', fontWeight: 700, marginBottom: 10 }}>
+                {isNoKey ? '⚠ API Key Not Set Up' : '⚠ API Quota Exhausted'}
+              </div>
+              <p style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: '0 0 14px 0' }}>
+                {isNoKey
+                  ? "It seems your API key isn't set up yet. Head to the Account tab to paste in your Gemini API key — it's free from Google AI Studio."
+                  : <>Your current API key has used up its free daily quota (1,500 requests/day). It will <strong style={{ color: '#ffa040' }}>reset automatically in ~24 hours</strong>, or add a key from a different Google account to keep scanning now.</>
+                }
+              </p>
               <a
                 href="/account"
-                onClick={() => localStorage.setItem('fg_highlight_key_input', 'true')}
                 style={{
-                  padding: '8px 16px', background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66',
+                  display: 'inline-block', padding: '10px 20px',
+                  background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66',
                   borderRadius: 3, color: '#00ff66', textDecoration: 'none', fontSize: 12,
-                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
+                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1.5,
                 }}>
-                → Go to Account
+                → Go to Account Tab
               </a>
-              <div style={{ fontSize: 11, color: '#3f6e4a' }}>
-                or wait ~24h for your current key to reset
-              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {result && (
           <ForensicResultCard

@@ -307,6 +307,11 @@ class AddKeyRequest(BaseModel):
     label: str = "My Key"
 
 
+class UpdateKeyRequest(BaseModel):
+    label: str = None
+    api_key: str = None
+
+
 @router.post("/api-keys")
 def add_api_key(body: AddKeyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     api_key = body.api_key.strip()
@@ -349,3 +354,27 @@ def activate_api_key(key_id: str, current_user: User = Depends(get_current_user)
         k.is_active = (k.id == key_id)
     db.commit()
     return {"success": True}
+
+
+@router.put("/api-keys/{key_id}")
+def update_api_key(
+    key_id: str,
+    body: UpdateKeyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    key = db.query(UserApiKey).filter(UserApiKey.id == key_id, UserApiKey.user_id == current_user.id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="Key not found")
+
+    if body.label is not None:
+        key.label = body.label.strip()
+
+    if body.api_key is not None:
+        api_key = body.api_key.strip()
+        if not api_key.startswith("AIza"):
+            raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
+        key.api_key = api_key
+
+    db.commit()
+    return _key_to_dict(key)

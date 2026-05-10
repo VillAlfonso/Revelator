@@ -135,6 +135,9 @@ export const api = {
   activateApiKey(keyId) {
     return request(`/auth/api-keys/${keyId}/activate`, { method: 'PUT' });
   },
+  updateApiKey(keyId, patch) {
+    return request(`/auth/api-keys/${keyId}`, { method: 'PUT', body: JSON.stringify(patch) });
+  },
 
   // Analysis
   getCategories() {

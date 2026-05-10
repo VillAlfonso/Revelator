@@ -2,6 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 
+const darkInput = {
+  background: '#0a0f0c',
+  border: '2px solid rgba(0,255,102,0.5)',
+  color: '#ffffff',
+  width: '100%',
+};
+
 export default function Account() {
   const { user, refreshUser } = useAuth();
   const [editing, setEditing] = useState(false);
@@ -11,9 +18,13 @@ export default function Account() {
 
   const [apiKeys, setApiKeys] = useState([]);
   const [newKeyValue, setNewKeyValue] = useState('');
+  const [newKeyLabel, setNewKeyLabel] = useState('');
   const [keyError, setKeyError] = useState('');
   const [keyMsg, setKeyMsg] = useState('');
   const [highlightKeyInput, setHighlightKeyInput] = useState(() => localStorage.getItem('fg_highlight_key_input') === 'true');
+  const [editingKeyId, setEditingKeyId] = useState(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editKeyValue, setEditKeyValue] = useState('');
 
   useEffect(() => {
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
@@ -52,11 +63,14 @@ export default function Account() {
   async function handleAddKey() {
     setKeyError('');
     const trimmed = newKeyValue.trim();
+    const labelTrimmed = newKeyLabel.trim();
     if (!trimmed) { setKeyError('Paste your API key first'); return; }
     if (!trimmed.startsWith('AIza')) { setKeyError('Invalid format — key must start with "AIza"'); return; }
+    if (!labelTrimmed) { setKeyError('Give your key a name (e.g., "Account 1", "Backup")'); return; }
     try {
-      await api.addApiKey(trimmed, '');
+      await api.addApiKey(trimmed, labelTrimmed);
       setNewKeyValue('');
+      setNewKeyLabel('');
       setKeyMsg('Key added!');
       await loadKeys();
       setTimeout(() => setKeyMsg(''), 3000);
@@ -81,6 +95,36 @@ export default function Account() {
     } catch (err) {
       setKeyError(err.message);
     }
+  }
+
+  function startEdit(key) {
+    setEditingKeyId(key.id);
+    setEditLabel(key.label || '');
+    setEditKeyValue(''); // User must re-paste the key if they want to change it
+  }
+
+  async function handleSaveEdit(keyId) {
+    setKeyError('');
+    if (!editLabel.trim()) { setKeyError('Key name is required'); return; }
+    const trimmedKey = editKeyValue.trim();
+    if (trimmedKey && !trimmedKey.startsWith('AIza')) { setKeyError('Invalid key format — must start with "AIza"'); return; }
+    try {
+      const patch = { label: editLabel.trim() };
+      if (trimmedKey) patch.api_key = trimmedKey;
+      await api.updateApiKey(keyId, patch);
+      setEditingKeyId(null);
+      setKeyMsg('Key updated!');
+      await loadKeys();
+      setTimeout(() => setKeyMsg(''), 3000);
+    } catch (err) {
+      setKeyError(err.message);
+    }
+  }
+
+  function cancelEdit() {
+    setEditingKeyId(null);
+    setEditLabel('');
+    setEditKeyValue('');
   }
 
   return (
@@ -207,82 +251,142 @@ export default function Account() {
           <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
             {apiKeys.map(k => {
               const exhausted = k.quota_exhausted && k.hours_until_reset > 0;
+              const isEditing = editingKeyId === k.id;
               return (
-                <div
-                  key={k.id}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 3,
-                    border: k.is_active
-                      ? (exhausted ? '1px solid #ff3344' : '1px solid #00ff66')
-                      : '1px solid #1a2e1f',
-                    background: k.is_active ? 'rgba(0,255,102,0.05)' : 'transparent',
-                    opacity: k.is_active ? 1 : 0.45,
-                    transition: 'opacity 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {/* Active indicator dot */}
-                  <div style={{
-                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                    background: k.is_active ? (exhausted ? '#ff3344' : '#00ff66') : '#2a4a30',
-                    boxShadow: k.is_active && !exhausted ? '0 0 8px rgba(0,255,102,0.9)' : 'none',
-                  }} />
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: '#d8ffe6', fontWeight: 600, marginBottom: 2 }}>
-                      {k.label}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace" }}>
-                      {k.key_preview}
-                      {k.is_active && !exhausted && (
-                        <span style={{ color: '#00ff66', marginLeft: 10, letterSpacing: 1 }}>● ACTIVE</span>
-                      )}
-                      {k.is_active && exhausted && (
-                        <span style={{ color: '#ff8a99', marginLeft: 10 }}>
-                          ⚠ QUOTA EXHAUSTED — resets in ~{k.hours_until_reset}h
-                        </span>
-                      )}
-                      {!k.is_active && exhausted && (
-                        <span style={{ color: '#ff8a99', marginLeft: 10 }}>⚠ quota exhausted</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    {!k.is_active && (
-                      <button
-                        onClick={() => handleActivate(k.id)}
-                        style={{
-                          padding: '5px 12px', background: 'none', border: '1px solid #1d3825',
-                          color: '#86efac', cursor: 'pointer', borderRadius: 3, fontSize: 11,
-                          fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
-                        }}
-                      >
-                        Activate
-                      </button>
-                    )}
-                    {k.is_active && (
-                      <div style={{
-                        padding: '5px 12px', fontSize: 11, color: '#00ff66',
-                        fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
-                      }}>
-                        In Use
+                <div key={k.id}>
+                  {isEditing ? (
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: 3,
+                      border: '1px solid rgba(0,255,102,0.4)',
+                      background: 'rgba(0,10,5,0.5)',
+                      display: 'grid', gap: 12,
+                    }}>
+                      <div>
+                        <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Key Name</label>
+                        <input
+                          className="input"
+                          value={editLabel}
+                          onChange={e => setEditLabel(e.target.value)}
+                          type="text"
+                          autoComplete="off"
+                        />
                       </div>
-                    )}
-                    <button
-                      onClick={() => handleDelete(k.id)}
+                      <div>
+                        <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>API Key (optional)</label>
+                        <input
+                          className="input"
+                          placeholder="Leave blank to keep current key, or paste new one"
+                          value={editKeyValue}
+                          onChange={e => setEditKeyValue(e.target.value)}
+                          type="password"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => handleSaveEdit(k.id)}
+                          style={{ padding: '8px 16px', flex: 1 }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={cancelEdit}
+                          style={{ padding: '8px 16px', flex: 1 }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
                       style={{
-                        padding: '5px 10px', background: 'none', border: '1px solid rgba(255,51,68,0.25)',
-                        color: '#ff8a99', cursor: 'pointer', borderRadius: 3, fontSize: 13, lineHeight: 1,
+                        padding: '12px 14px',
+                        borderRadius: 3,
+                        border: k.is_active
+                          ? (exhausted ? '1px solid #ff3344' : '1px solid #00ff66')
+                          : '1px solid #1a2e1f',
+                        background: k.is_active ? 'rgba(0,255,102,0.05)' : 'transparent',
+                        opacity: k.is_active ? 1 : 0.45,
+                        transition: 'opacity 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        flexWrap: 'wrap',
                       }}
-                    >✕</button>
-                  </div>
+                    >
+                      {/* Active indicator dot */}
+                      <div style={{
+                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        background: k.is_active ? (exhausted ? '#ff3344' : '#00ff66') : '#2a4a30',
+                        boxShadow: k.is_active && !exhausted ? '0 0 8px rgba(0,255,102,0.9)' : 'none',
+                      }} />
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: '#d8ffe6', fontWeight: 600, marginBottom: 2 }}>
+                          {k.label}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {k.key_preview}
+                          {k.is_active && !exhausted && (
+                            <span style={{ color: '#00ff66', marginLeft: 10, letterSpacing: 1 }}>● ACTIVE</span>
+                          )}
+                          {k.is_active && exhausted && (
+                            <span style={{ color: '#ff8a99', marginLeft: 10 }}>
+                              ⚠ QUOTA EXHAUSTED — resets in ~{k.hours_until_reset}h
+                            </span>
+                          )}
+                          {!k.is_active && exhausted && (
+                            <span style={{ color: '#ff8a99', marginLeft: 10 }}>⚠ quota exhausted</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                          onClick={() => startEdit(k)}
+                          style={{
+                            padding: '5px 12px', background: 'none', border: '1px solid #1d3825',
+                            color: '#86efac', cursor: 'pointer', borderRadius: 3, fontSize: 11,
+                            fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
+                          }}
+                        >
+                          Edit
+                        </button>
+                        {!k.is_active && (
+                          <button
+                            onClick={() => handleActivate(k.id)}
+                            style={{
+                              padding: '5px 12px', background: 'none', border: '1px solid #1d3825',
+                              color: '#86efac', cursor: 'pointer', borderRadius: 3, fontSize: 11,
+                              fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
+                            }}
+                          >
+                            Activate
+                          </button>
+                        )}
+                        {k.is_active && (
+                          <div style={{
+                            padding: '5px 12px', fontSize: 11, color: '#00ff66',
+                            fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
+                          }}>
+                            In Use
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleDelete(k.id)}
+                          style={{
+                            padding: '5px 10px', background: 'none', border: '1px solid rgba(255,51,68,0.25)',
+                            color: '#ff8a99', cursor: 'pointer', borderRadius: 3, fontSize: 13, lineHeight: 1,
+                          }}
+                        >✕</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -291,31 +395,49 @@ export default function Account() {
 
         {/* Add key row */}
         <div style={{ borderTop: apiKeys.length > 0 ? '1px solid #112418' : 'none', paddingTop: apiKeys.length > 0 ? 16 : 0 }}>
-          <div style={{ fontSize: 11, color: '#3f6e4a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: '#3f6e4a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
             Add a key <span style={{ color: '#6dba85', fontStyle: 'italic' }}>(from a different Google account)</span>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="input"
-              placeholder="Paste API key (AIza...)"
-              value={newKeyValue}
-              onChange={e => setNewKeyValue(e.target.value)}
-              type="password"
-              style={{
-                flex: 1,
-                boxShadow: highlightKeyInput ? '0 0 8px rgba(0,255,102,0.5), inset 0 0 6px rgba(0,255,102,0.15)' : 'none',
-                transition: 'box-shadow 0.3s',
-              }}
-              autoFocus={highlightKeyInput}
-            />
-            <button
-              className="btn btn-primary"
-              onClick={handleAddKey}
-              style={{ padding: '10px 20px', whiteSpace: 'nowrap' }}
-            >
-              Add
-            </button>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>Key Name</label>
+              <input
+                className="input"
+                placeholder="e.g., Account 1, Backup, Personal"
+                value={newKeyLabel}
+                onChange={e => setNewKeyLabel(e.target.value)}
+                type="text"
+                style={{ width: '100%' }}
+                autoComplete="one-time-code"
+                name="gemini-key-label"
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>API Key</label>
+              <input
+                className="input"
+                placeholder="Paste API key (AIza...)"
+                value={newKeyValue}
+                onChange={e => setNewKeyValue(e.target.value)}
+                type="password"
+                style={{
+                  width: '100%',
+                  boxShadow: highlightKeyInput ? '0 0 8px rgba(0,255,102,0.5), inset 0 0 6px rgba(0,255,102,0.15)' : 'none',
+                  transition: 'box-shadow 0.3s',
+                }}
+                autoComplete="new-password"
+                name="gemini-api-key"
+                autoFocus={highlightKeyInput}
+              />
+            </div>
           </div>
+          <button
+            className="btn btn-primary"
+            onClick={handleAddKey}
+            style={{ width: '100%', padding: '12px' }}
+          >
+            Add Key
+          </button>
         </div>
       </div>
     </div>

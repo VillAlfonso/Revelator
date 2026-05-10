@@ -435,7 +435,7 @@ def analyze_document(
                 status_code=429,
                 detail="quota_exhausted",
             )
-        raise HTTPException(status_code=503, detail="Gemini Vision is temporarily unavailable. Please try again in a moment.")
+        raise HTTPException(status_code=503, detail="no_api_key")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
 
     # STAGE 2.5: Merge triage candidates into alternatives

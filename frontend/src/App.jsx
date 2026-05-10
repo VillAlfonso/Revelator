@@ -11,6 +11,7 @@ import SampleGallery from './pages/SampleGallery';
 import History from './pages/History';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import ForensicsGuide from './pages/ForensicsGuide';
 import Logo from './components/Logo';
 
 // ── Auth Context ────────────────────────────────────
@@ -109,6 +110,7 @@ function BootSplash() {
 function Layout({ children }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerOffset, setDrawerOffset] = useState(0); // for swipe-drag visual feedback
   const [quotaExhausted, setQuotaExhausted] = useState(() => localStorage.getItem('fg_quota_exhausted') === 'true');
@@ -122,6 +124,7 @@ function Layout({ children }) {
     if (location.pathname === '/account') {
       setQuotaExhausted(false);
       localStorage.removeItem('fg_quota_exhausted');
+      localStorage.removeItem('fg_no_api_key');
     }
   }, [location.pathname]);
 
@@ -202,6 +205,7 @@ function Layout({ children }) {
   const navItems = [
     { path: '/scan', label: 'Scan', icon: '⌖' },
     { path: '/history', label: 'History', icon: '▤' },
+    { path: '/guide', label: 'Guide', icon: '◈' },
     { path: '/account', label: 'Account', icon: '◉' },
     ...(["admin","superadmin"].includes(user?.role) ? [{ path: '/admin', label: 'Admin', icon: '★' }] : []),
   ];
@@ -237,11 +241,16 @@ function Layout({ children }) {
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu"
               style={{
-                background: 'rgba(0,255,102,0.06)', border: '1px solid #1d3825', color: '#00ff66',
+                background: quotaExhausted ? 'rgba(0,255,102,0.18)' : 'rgba(0,255,102,0.06)',
+                border: quotaExhausted ? '1px solid #00ff66' : '1px solid #1d3825',
+                color: '#00ff66',
                 width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', borderRadius: 3, padding: 0,
                 fontSize: 22, lineHeight: 1, flexShrink: 0,
                 textShadow: '0 0 8px rgba(0,255,102,0.5)',
+                boxShadow: quotaExhausted ? '0 0 0 2px rgba(0,255,102,0.5), 0 0 20px rgba(0,255,102,0.6)' : 'none',
+                animation: quotaExhausted ? 'spotlight-pulse 1.5s ease-in-out infinite' : 'none',
+                position: 'relative', zIndex: quotaExhausted ? 51 : 'auto',
               }}
             >
               ☰
@@ -273,23 +282,33 @@ function Layout({ children }) {
                   0%, 100% { box-shadow: 0 0 8px rgba(0,255,102,0.8), 0 0 16px rgba(0,255,102,0.6); }
                   50% { box-shadow: 0 0 4px rgba(0,255,102,0.3), 0 0 8px rgba(0,255,102,0.2); }
                 }
+                @keyframes spotlight-pulse {
+                  0%, 100% { box-shadow: 0 0 0 2px rgba(0,255,102,0.7), 0 0 28px rgba(0,255,102,0.9), 0 0 60px rgba(0,255,102,0.3); }
+                  50% { box-shadow: 0 0 0 2px rgba(0,255,102,0.4), 0 0 14px rgba(0,255,102,0.5), 0 0 30px rgba(0,255,102,0.15); }
+                }
               `}</style>
               {navItems.map(item => {
                 const active = location.pathname === item.path;
                 const isAccount = item.path === '/account';
                 const shouldFlicker = quotaExhausted && isAccount;
+                const shouldDim = quotaExhausted && !isAccount && !active;
                 return (
                   <Link key={item.path} to={item.path} style={{
                     padding: '10px 14px', fontSize: 13,
                     fontFamily: "'Oswald', sans-serif",
                     textTransform: 'uppercase', letterSpacing: 1.5,
-                    color: active ? '#00ff66' : shouldFlicker ? '#00ff66' : '#6dba85',
+                    color: shouldDim ? '#2a4a30' : active ? '#00ff66' : shouldFlicker ? '#00ff66' : '#6dba85',
                     textDecoration: 'none',
                     borderBottom: active ? '2px solid #00ff66' : shouldFlicker ? '2px solid #00ff66' : '2px solid transparent',
-                    textShadow: active ? '0 0 12px rgba(0,255,102,0.55)' : shouldFlicker ? '0 0 8px rgba(0,255,102,0.8)' : 'none',
+                    textShadow: active ? '0 0 12px rgba(0,255,102,0.55)' : shouldFlicker ? '0 0 12px rgba(0,255,102,0.9)' : 'none',
                     whiteSpace: 'nowrap',
                     transition: 'color 0.15s, text-shadow 0.15s',
-                    animation: shouldFlicker ? 'flicker-glow 1s ease-in-out infinite' : 'none',
+                    animation: shouldFlicker ? 'spotlight-pulse 1.5s ease-in-out infinite' : 'none',
+                    borderRadius: shouldFlicker ? 3 : 0,
+                    background: shouldFlicker ? 'rgba(0,255,102,0.1)' : 'transparent',
+                    position: 'relative', zIndex: shouldFlicker ? 51 : 'auto',
+                    pointerEvents: shouldDim ? 'none' : 'auto',
+                    opacity: shouldDim ? 0.25 : 1,
                   }}>
                     {item.label}
                   </Link>
@@ -310,6 +329,65 @@ function Layout({ children }) {
           )}
         </div>
       </header>
+
+      {/* API key tutorial overlay — dims everything below the header */}
+      {user && quotaExhausted && !drawerOpen && (
+        <div
+          onClick={() => { navigate('/account'); }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 48,
+            background: 'rgba(0,0,0,0.82)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            paddingBottom: 40,
+          }}
+        >
+          {/* Mobile floating hint */}
+          <div
+            className="nav-burger"
+            style={{
+              background: 'rgba(0,0,0,0.92)', border: '1px solid rgba(0,255,102,0.5)',
+              borderRadius: 8, padding: '16px 20px', maxWidth: 300, textAlign: 'center',
+              boxShadow: '0 0 30px rgba(0,255,102,0.25)',
+              pointerEvents: 'none',
+            }}
+          >
+            <div className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#00ff66', marginBottom: 8, textTransform: 'uppercase' }}>
+              ▲ API KEY REQUIRED
+            </div>
+            <div style={{ color: '#d8ffe6', fontSize: 13, lineHeight: 1.7, marginBottom: 10 }}>
+              Tap the <strong style={{ color: '#00ff66' }}>☰</strong> menu icon above then go to <strong style={{ color: '#00ff66' }}>Account</strong> to add your Gemini API key.
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1 }}>
+              Tap anywhere to go there now →
+            </div>
+          </div>
+
+          {/* Desktop hint — arrow pointing at Account nav */}
+          <div
+            className="nav-desktop"
+            style={{
+              position: 'absolute', top: 66, right: 0,
+              display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+              paddingRight: 24, pointerEvents: 'none',
+            }}
+          >
+            <div style={{ fontSize: 20, color: '#00ff66', lineHeight: 1, marginBottom: 4, textShadow: '0 0 10px rgba(0,255,102,0.8)' }}>▲</div>
+            <div style={{
+              background: 'rgba(0,0,0,0.92)', border: '1px solid rgba(0,255,102,0.4)',
+              borderRadius: 6, padding: '10px 14px', maxWidth: 220,
+              boxShadow: '0 0 20px rgba(0,255,102,0.2)',
+            }}>
+              <div className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#00ff66', marginBottom: 6, textTransform: 'uppercase' }}>
+                API Key Required
+              </div>
+              <div style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6 }}>
+                Go to <strong style={{ color: '#00ff66' }}>Account</strong> and paste your Gemini API key to start scanning.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drawer backdrop */}
       {user && (drawerOpen || drawerOffset !== 0) && (
@@ -390,11 +468,16 @@ function Layout({ children }) {
                 0%, 100% { box-shadow: inset 0 0 8px rgba(0,255,102,0.4); }
                 50% { box-shadow: inset 0 0 4px rgba(0,255,102,0.1); }
               }
+              @keyframes spotlight-drawer {
+                0%, 100% { box-shadow: inset 0 0 16px rgba(0,255,102,0.3), 0 0 20px rgba(0,255,102,0.4); background: rgba(0,255,102,0.12); }
+                50% { box-shadow: inset 0 0 8px rgba(0,255,102,0.1), 0 0 10px rgba(0,255,102,0.2); background: rgba(0,255,102,0.06); }
+              }
             `}</style>
             {navItems.map(item => {
               const active = location.pathname === item.path;
               const isAccount = item.path === '/account';
               const shouldFlicker = quotaExhausted && isAccount;
+              const shouldDimDrawer = quotaExhausted && !isAccount;
               return (
                 <Link
                   key={item.path}
@@ -405,13 +488,15 @@ function Layout({ children }) {
                     fontSize: 15,
                     fontFamily: "'Oswald', sans-serif",
                     textTransform: 'uppercase', letterSpacing: 2,
-                    color: active ? '#00ff66' : shouldFlicker ? '#00ff66' : '#86efac',
+                    color: shouldDimDrawer ? '#1d3825' : active ? '#00ff66' : shouldFlicker ? '#00ff66' : '#86efac',
                     textDecoration: 'none',
                     borderLeft: active ? '3px solid #00ff66' : shouldFlicker ? '3px solid #00ff66' : '3px solid transparent',
-                    background: active ? 'rgba(0,255,102,0.06)' : shouldFlicker ? 'rgba(0,255,102,0.04)' : 'transparent',
-                    textShadow: active ? '0 0 10px rgba(0,255,102,0.5)' : shouldFlicker ? '0 0 8px rgba(0,255,102,0.6)' : 'none',
+                    background: shouldFlicker ? 'rgba(0,255,102,0.12)' : active ? 'rgba(0,255,102,0.06)' : 'transparent',
+                    textShadow: active ? '0 0 10px rgba(0,255,102,0.5)' : shouldFlicker ? '0 0 14px rgba(0,255,102,0.9)' : 'none',
                     minHeight: 48,
-                    animation: shouldFlicker ? 'flicker-glow-drawer 1s ease-in-out infinite' : 'none',
+                    opacity: shouldDimDrawer ? 0.2 : 1,
+                    pointerEvents: shouldDimDrawer ? 'none' : 'auto',
+                    animation: shouldFlicker ? 'spotlight-drawer 1.5s ease-in-out infinite' : 'none',
                   }}
                 >
                   <span className="mono" style={{
@@ -485,6 +570,7 @@ export default function App() {
               <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
               <Route path="/samples/:categoryId" element={<ProtectedRoute><SampleGallery /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+              <Route path="/guide" element={<ProtectedRoute><ForensicsGuide /></ProtectedRoute>} />
               <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               <Route path="*" element={<Navigate to="/scan" replace />} />
