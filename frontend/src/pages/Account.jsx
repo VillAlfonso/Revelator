@@ -11,7 +11,6 @@ export default function Account() {
 
   const [apiKeys, setApiKeys] = useState([]);
   const [newKeyValue, setNewKeyValue] = useState('');
-  const [newKeyLabel, setNewKeyLabel] = useState('');
   const [keyError, setKeyError] = useState('');
   const [keyMsg, setKeyMsg] = useState('');
 
@@ -47,9 +46,8 @@ export default function Account() {
     if (!trimmed) { setKeyError('Paste your API key first'); return; }
     if (!trimmed.startsWith('AIza')) { setKeyError('Invalid format — key must start with "AIza"'); return; }
     try {
-      await api.addApiKey(trimmed, newKeyLabel.trim() || `Key ${apiKeys.length + 1}`);
+      await api.addApiKey(trimmed, '');
       setNewKeyValue('');
-      setNewKeyLabel('');
       setKeyMsg('Key added!');
       await loadKeys();
       setTimeout(() => setKeyMsg(''), 3000);
@@ -285,30 +283,22 @@ export default function Account() {
           <div style={{ fontSize: 11, color: '#3f6e4a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             Add a key
           </div>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <input
               className="input"
-              placeholder="Label (e.g. Gmail Account 1)"
-              value={newKeyLabel}
-              onChange={e => setNewKeyLabel(e.target.value)}
+              placeholder="Paste API key (AIza...)"
+              value={newKeyValue}
+              onChange={e => setNewKeyValue(e.target.value)}
+              type="password"
+              style={{ flex: 1 }}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                placeholder="Paste API key (AIza...)"
-                value={newKeyValue}
-                onChange={e => setNewKeyValue(e.target.value)}
-                type="password"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={handleAddKey}
-                style={{ padding: '10px 20px', whiteSpace: 'nowrap' }}
-              >
-                Add
-              </button>
-            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleAddKey}
+              style={{ padding: '10px 20px', whiteSpace: 'nowrap' }}
+            >
+              Add
+            </button>
           </div>
         </div>
       </div>
