@@ -1,8 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../App';
-import { TIER_COLORS, TIER_META, categoriesByTier } from '../categories';
-import { FingerprintWatermark, EyeMark, FingerprintScan } from '../components/ForensicMotifs';
 import PromptDashboard from '../components/PromptDashboard';
 
 const PLANS = ['free', 'basic', 'pro'];
@@ -22,12 +20,10 @@ export default function Admin() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  const [datasetTotals, setDatasetTotals] = useState({});
-  const [trainedKeys, setTrainedKeys] = useState({});
-  const [scanCat, setScanCat] = useState(null); // category to scan in modal
-  const [geminiStatus, setGeminiStatus] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [logsStats, setLogsStats] = useState({ admin_actions_total: 0, scans_total: 0, total: 0 });
   const [logsLoading, setLogsLoading] = useState(false);
+  const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan'
   const [banningUserId, setBanningUserId] = useState(null);
 
   const load = useCallback(async () => {
@@ -53,36 +49,23 @@ export default function Admin() {
     setLogsLoading(true);
     setError('');
     try {
-      const data = await api.adminViewLogs();
+      const kind = logsFilter === 'all' ? null : logsFilter;
+      const data = await api.adminViewLogs(200, 0, kind);
       setLogs(data.logs || []);
+      setLogsStats({
+        admin_actions_total: data.admin_actions_total || 0,
+        scans_total: data.scans_total || 0,
+        total: data.total || 0,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
       setLogsLoading(false);
     }
-  }, []);
+  }, [logsFilter]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (tab === 'logs' && isSuperAdmin) loadLogs(); }, [tab, loadLogs, isSuperAdmin]);
-  useEffect(() => {
-    if (tab === 'dataset') {
-      api.getCategories().then(data => {
-        const totals = {};
-        const keys = {};
-        Object.values(data.categories || {}).forEach(arr => {
-          arr.forEach(item => {
-            totals[item.api_key] = item.dataset_count || 0;
-            keys[item.api_key] = !!item.is_trained;
-          });
-        });
-        setDatasetTotals(totals);
-        setTrainedKeys(keys);
-      }).catch(() => {});
-      api.adminGeminiStatus()
-        .then(setGeminiStatus)
-        .catch(() => setGeminiStatus({ configured: false, model: 'gemini-2.5-flash', calls_today: 0, daily_limit: 1500, calls_remaining_today: 1500, rpm_limit: 10, total_calls_ever: 0, resets_in_hours: 0 }));
-    }
-  }, [tab]);
+  useEffect(() => { if (tab === 'logs') loadLogs(); }, [tab, loadLogs]);
 
   async function saveEdit() {
     setSaving(true);
@@ -144,29 +127,44 @@ export default function Admin() {
     }
   }
 
+  async function promoteUser(userId) {
+    setError('');
+    try {
+      await api.adminPromoteAdmin(userId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function demoteUser(userId) {
+    setError('');
+    try {
+      await api.adminDemoteAdmin(userId);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <p className="classification-bar" style={{ marginBottom: 6 }}>
-            CONTROL · ADMIN · CONSOLE
-          </p>
-          <h1 className="oswald glow" style={{
-            fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0,
-          }}>
-            Admin Panel
-          </h1>
-        </div>
-        <span className="mono" style={{ fontSize: 11, color: '#86efac', letterSpacing: 2, textTransform: 'uppercase' }}>
-          {total} OPERATOR{total === 1 ? '' : 'S'}
-        </span>
+      <div style={{ marginBottom: 20 }}>
+        <p className="classification-bar" style={{ marginBottom: 6 }}>
+          CONTROL · ADMIN · CONSOLE
+        </p>
+        <h1 className="oswald glow" style={{
+          fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0,
+        }}>
+          Admin Panel
+        </h1>
       </div>
 
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           <StatCard label="Total Users" value={stats.total_users} />
-          <StatCard label="Total Scans" value={stats.total_scans} />
-          <StatCard label="Admins" value={stats.admins} />
+          <StatCard label="Admins" value={stats.admins ?? 0} />
+          <StatCard label="Super Admins" value={stats.super_admins ?? 0} />
         </div>
       )}
 
@@ -184,35 +182,18 @@ export default function Admin() {
         >
           Users
         </button>
-        {isSuperAdmin && (
-          <>
-            <button
-              className="mono"
-              onClick={() => setTab('logs')}
-              style={{
-                padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-                color: tab === 'logs' ? '#00ff66' : '#86efac',
-                textTransform: 'uppercase', letterSpacing: 1,
-                borderBottom: tab === 'logs' ? '2px solid #00ff66' : 'none',
-                marginBottom: '-12px',
-              }}
-            >
-              Audit Logs
-            </button>
-          </>
-        )}
         <button
           className="mono"
-          onClick={() => setTab('dataset')}
+          onClick={() => setTab('logs')}
           style={{
             padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === 'dataset' ? '#00ff66' : '#86efac',
+            color: tab === 'logs' ? '#00ff66' : '#86efac',
             textTransform: 'uppercase', letterSpacing: 1,
-            borderBottom: tab === 'dataset' ? '2px solid #00ff66' : 'none',
+            borderBottom: tab === 'logs' ? '2px solid #00ff66' : 'none',
             marginBottom: '-12px',
           }}
         >
-          Dataset
+          Audit Logs
         </button>
         <button
           className="mono"
@@ -257,10 +238,13 @@ export default function Admin() {
             key={u.id}
             user={u}
             isMe={u.id === me?.id}
+            isSuperAdmin={isSuperAdmin}
             onEdit={() => setEditing({ ...u, _password: '' })}
             onDelete={() => setDeleteId(u.id)}
             onBan={() => banUser(u.id)}
             onUnban={() => unbanUser(u.id)}
+            onPromote={() => promoteUser(u.id)}
+            onDemote={() => demoteUser(u.id)}
             isBanning={banningUserId === u.id}
           />
         ))}
@@ -319,77 +303,15 @@ export default function Admin() {
       </div>
       )}
 
-      {tab === 'dataset' && (
-        <div>
-          {/* hero */}
-          <div style={{ position: 'relative', textAlign: 'center', marginBottom: 36, padding: '12px 0 4px' }}>
-            <FingerprintWatermark size={420} opacity={0.045} style={{ position: 'absolute', top: -40, left: '50%', transform: 'translateX(-50%)', zIndex: 0 }} />
-            <div style={{ position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-                <FingerprintScan size={150} color="#00ff66" />
-              </div>
-              <p className="classification-bar" style={{ marginBottom: 14 }}>CASE FILE · FORENSIC PIPELINE · CLASSIFIED</p>
-              <h2 className="oswald glow-strong" style={{ fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 700, letterSpacing: 5, marginBottom: 12, color: '#00ff66', textTransform: 'uppercase' }}>
-                Dataset Overview
-              </h2>
-              <p style={{ color: '#86efac', maxWidth: 580, margin: '0 auto', lineHeight: 1.7, fontSize: 14 }}>
-                Sixteen forgery detectors. Click any trained category to run a scan with its YOLOv8 model.
-              </p>
-              <div style={{ display: 'inline-flex', gap: 24, marginTop: 20, padding: '10px 22px', border: '1px solid #1d3825', borderRadius: 2, background: 'rgba(0,255,102,0.03)', boxShadow: 'inset 0 0 18px rgba(0,255,102,0.06)' }}>
-                <DStat label="DETECTORS" value="16" color="#00ff66" />
-                <DDivider />
-                <DStat label="TRAINED" value={String(Object.values(trainedKeys).filter(Boolean).length)} color="#00ffaa" />
-                <DDivider />
-                <DStat label="TIERS" value="3" color="#a3e635" />
-              </div>
-            </div>
-          </div>
-
-          {geminiStatus && <GeminiStatusBar status={geminiStatus} />}
-
-          {[1, 2, 3].map(tier => (
-            <DatasetTierBucket
-              key={tier}
-              tier={tier}
-              categories={categoriesByTier(tier)}
-              datasetTotals={datasetTotals}
-              trainedKeys={trainedKeys}
-              onScan={cat => setScanCat(cat)}
-            />
-          ))}
-        </div>
-      )}
-
-      {scanCat && (
-        <ScanModal cat={scanCat} onClose={() => setScanCat(null)} />
-      )}
-
-      {tab === 'logs' && isSuperAdmin && (
-      <div>
-        <h3 className="oswald" style={{ fontSize: 16, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Admin Audit Logs</h3>
-        {logsLoading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading logs...</div>}
-        {!logsLoading && logs.length === 0 && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No audit logs yet.</div>}
-        {logs.map(log => (
-          <div key={log.id} className="card" style={{ marginBottom: 12, padding: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ color: '#e5e5e5', fontWeight: 600 }}>
-                {log.admin?.username} · <span style={{ color: '#86efac' }}>{log.action.replace(/_/g, ' ').toUpperCase()}</span>
-              </div>
-              <div style={{ color: '#737373', fontSize: 11 }}>{new Date(log.created_at).toLocaleString()}</div>
-            </div>
-            {log.target && (
-              <div style={{ color: '#86efac', fontSize: 12, marginBottom: 4 }}>
-                Target: <span style={{ color: '#d8ffe6' }}>{log.target.email}</span> (@{log.target.username})
-              </div>
-            )}
-            {log.details && (
-              <div style={{ color: '#737373', fontSize: 11, marginTop: 4, fontFamily: 'monospace' }}>
-                {JSON.stringify(log.details, null, 2)}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {tab === 'logs' && (
+        <LogsView
+          logs={logs}
+          logsStats={logsStats}
+          loading={logsLoading}
+          filter={logsFilter}
+          onFilterChange={setLogsFilter}
+          onRefresh={loadLogs}
+        />
       )}
 
       {tab === 'prompt' && (
@@ -436,8 +358,11 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, onEdit, onDelete, onBan, onUnban, isBanning }) {
+function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
+  const targetIsSuperAdmin = user.role === 'superadmin';
+  // Regular admins are read-only. Super admins cannot act on other super admins.
+  const canMutate = isSuperAdmin && !targetIsSuperAdmin;
   return (
     <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
       <div style={{ flex: '1 1 240px', minWidth: 0 }}>
@@ -458,39 +383,73 @@ function UserRow({ user, isMe, onEdit, onDelete, onBan, onUnban, isBanning }) {
           {user.scans_this_month} scans this month · joined {(user.created_at || '').slice(0, 10)}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <button className="btn" onClick={onEdit}>Edit</button>
-        {user.is_active ? (
+      {canMutate && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn" onClick={onEdit} disabled={isMe} title={isMe ? 'You cannot edit your own account here' : 'Edit user'}>
+            Edit
+          </button>
+          {user.role === 'user' && (
+            <button
+              className="btn"
+              onClick={onPromote}
+              style={{ borderColor: '#a78bfa', color: '#c4b5fd' }}
+              title="Promote to admin"
+            >
+              Promote → Admin
+            </button>
+          )}
+          {user.role === 'admin' && (
+            <button
+              className="btn"
+              onClick={onDemote}
+              style={{ borderColor: '#a78bfa', color: '#c4b5fd' }}
+              title="Demote to regular user"
+            >
+              Demote → User
+            </button>
+          )}
+          {user.is_active ? (
+            <button
+              className="btn"
+              onClick={onBan}
+              disabled={isMe || isBanning}
+              style={{ borderColor: isMe ? '#1d3825' : '#ff9500', color: isMe ? '#3f6e4a' : '#ffa500' }}
+              title={isMe ? 'You cannot ban your own account' : 'Ban user'}
+            >
+              {isBanning ? 'Banning...' : 'Ban'}
+            </button>
+          ) : (
+            <button
+              className="btn"
+              onClick={onUnban}
+              disabled={isBanning}
+              style={{ borderColor: '#00cc88', color: '#00ff99' }}
+              title="Unban user"
+            >
+              {isBanning ? 'Unbanning...' : 'Unban'}
+            </button>
+          )}
           <button
             className="btn"
-            onClick={onBan}
-            disabled={isMe || isBanning}
-            style={{ borderColor: isMe ? '#1d3825' : '#ff9500', color: isMe ? '#3f6e4a' : '#ffa500' }}
-            title={isMe ? 'You cannot ban your own account' : 'Ban user'}
+            onClick={onDelete}
+            disabled={isMe}
+            style={{ borderColor: isMe ? '#1d3825' : '#ff3344', color: isMe ? '#3f6e4a' : '#ff8a99' }}
+            title={isMe ? 'You cannot delete your own account' : 'Delete user'}
           >
-            {isBanning ? 'Banning...' : 'Ban'}
+            Delete
           </button>
-        ) : (
-          <button
-            className="btn"
-            onClick={onUnban}
-            disabled={isBanning}
-            style={{ borderColor: '#00cc88', color: '#00ff99' }}
-            title="Unban user"
-          >
-            {isBanning ? 'Unbanning...' : 'Unban'}
-          </button>
-        )}
-        <button
-          className="btn"
-          onClick={onDelete}
-          disabled={isMe}
-          style={{ borderColor: isMe ? '#1d3825' : '#ff3344', color: isMe ? '#3f6e4a' : '#ff8a99' }}
-          title={isMe ? 'You cannot delete your own account' : 'Delete user'}
-        >
-          Delete
-        </button>
-      </div>
+        </div>
+      )}
+      {!isSuperAdmin && (
+        <span className="mono" style={{ fontSize: 10, color: '#737373', letterSpacing: 1.5, padding: '4px 8px', border: '1px solid #1d3825', borderRadius: 2 }}>
+          READ-ONLY
+        </span>
+      )}
+      {isSuperAdmin && targetIsSuperAdmin && !isMe && (
+        <span className="mono" style={{ fontSize: 10, color: '#a3e635', letterSpacing: 1.5, padding: '4px 8px', border: '1px solid #a3e635', borderRadius: 2 }}>
+          PROTECTED
+        </span>
+      )}
     </div>
   );
 }
@@ -529,364 +488,241 @@ function Modal({ title, children, onClose }) {
   );
 }
 
-function GeminiStatusBar({ status }) {
-  const pct = status.daily_limit > 0 ? (status.calls_today / status.daily_limit) * 100 : 0;
-  const barColor = pct > 85 ? '#ff4444' : pct > 60 ? '#ffa040' : '#00ff66';
+
+// ─────────────────────────────────────────────────────────────────
+// AUDIT LOG VIEW
+// ─────────────────────────────────────────────────────────────────
+
+const ACTION_COLORS = {
+  ban_user:       '#ff8a99',
+  unban_user:     '#86efac',
+  promote_admin:  '#c4b5fd',
+  demote_admin:   '#ffa040',
+  update_user:    '#86efac',
+  delete_user:    '#ff8a99',
+  user_scan:      '#00ff66',
+};
+
+function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh }) {
   return (
-    <div style={{
-      border: '1px solid #1d3825', borderLeft: `3px solid ${status.configured ? '#a78bfa' : '#555'}`,
-      background: 'rgba(167,139,250,0.04)', borderRadius: 2, padding: '12px 16px',
-      marginBottom: 28, display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center',
-    }}>
-      <div>
-        <span className="mono" style={{ fontSize: 9, color: '#a78bfa', letterSpacing: 2, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>Gemini Vision</span>
-        <span className="mono" style={{ fontSize: 12, color: status.configured ? '#c4b5fd' : '#666' }}>
-          {status.configured ? status.model : 'NOT CONFIGURED'}
-        </span>
-      </div>
-      {status.configured && (
-        <>
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span className="mono" style={{ fontSize: 10, color: '#86efac' }}>Today's requests</span>
-              <span className="mono" style={{ fontSize: 10, color: barColor }}>{status.calls_today} / {status.daily_limit}</span>
-            </div>
-            <div style={{ height: 4, background: '#1d3825', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: barColor, transition: 'width 0.4s ease' }} />
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className="mono" style={{ fontSize: 10, color: '#6dba85', display: 'block' }}>{status.calls_remaining_today} remaining</span>
-            <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>resets in {status.resets_in_hours}h · {status.rpm_limit} RPM limit</span>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className="mono" style={{ fontSize: 10, color: '#6dba85', display: 'block' }}>All-time</span>
-            <span className="mono" style={{ fontSize: 12, color: '#c4b5fd' }}>{status.total_calls_ever} calls</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function DStat({ label, value, color }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div className="oswald" style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1, textShadow: `0 0 10px ${color}80` }}>{value}</div>
-      <div className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', marginTop: 2 }}>{label}</div>
-    </div>
-  );
-}
-
-function DDivider() {
-  return <div style={{ width: 1, background: '#1d3825', alignSelf: 'stretch', minHeight: 28 }} />;
-}
-
-function DatasetTierBucket({ tier, categories, datasetTotals, trainedKeys, onScan }) {
-  const accent = TIER_COLORS[tier];
-  const meta = TIER_META[tier];
-  const trainedCount = categories.filter(c => trainedKeys[c.apiKey]).length;
-
-  return (
-    <section style={{ marginBottom: 36 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${accent}33` }}>
-        <div className="eye-blink" style={{ width: 40, height: 40, background: `${accent}18`, border: `1px solid ${accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, boxShadow: `0 0 14px ${accent}50`, padding: 7 }}>
-          <EyeMark size={24} color={accent} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h3 className="oswald" style={{ fontSize: 17, fontWeight: 700, letterSpacing: 3, margin: 0, color: accent, textTransform: 'uppercase', textShadow: `0 0 10px ${accent}66` }}>{meta.label}</h3>
-          <p style={{ fontSize: 12, color: '#6dba85', margin: '2px 0 0', lineHeight: 1.4 }}>{meta.sublabel}</p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <span className="mono" style={{ fontSize: 9, color: accent, padding: '3px 8px', border: `1px solid ${accent}66`, borderRadius: 2, letterSpacing: 1.5 }}>{categories.length} CLASSES</span>
-          <span className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 1.5 }}>{trainedCount}/{categories.length} TRAINED</span>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-        {categories.map((cat, i) => (
-          <DatasetCategoryCard
-            key={cat.id}
-            cat={cat}
-            index={i + 1}
-            datasetCount={datasetTotals[cat.apiKey] || 0}
-            trained={trainedKeys[cat.apiKey]}
-            onScan={() => onScan(cat)}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function DatasetCategoryCard({ cat, index, datasetCount = 0, trained, onScan }) {
-  const [hover, setHover] = useState(false);
-  const accent = cat.color;
-
-  return (
-    <div
-      role={trained ? 'button' : undefined}
-      tabIndex={trained ? 0 : undefined}
-      onClick={trained ? onScan : undefined}
-      onKeyDown={trained ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onScan(); } } : undefined}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: hover && trained
-          ? `linear-gradient(135deg, ${accent}10 0%, transparent 70%), #0a120c`
-          : 'linear-gradient(135deg, rgba(0,255,102,0.015) 0%, transparent 70%), #0a120c',
-        border: `1px solid ${hover && trained ? accent : '#112418'}`,
-        borderLeft: `3px solid ${accent}`,
-        padding: 0, textAlign: 'left',
-        cursor: trained ? 'pointer' : 'default',
-        transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden',
-        borderRadius: 3, color: 'inherit', font: 'inherit', width: '100%',
-        boxShadow: hover && trained
-          ? `0 6px 28px ${accent}30, 0 0 18px ${accent}20, inset 0 1px 0 ${accent}25`
-          : `inset 0 1px 0 ${accent}10`,
-        transform: hover && trained ? 'translateY(-2px)' : 'translateY(0)',
-        opacity: trained ? 1 : 0.6,
-      }}
-    >
-      <div className="oswald" style={{
-        position: 'absolute', top: 12, right: 12, width: 28, height: 28,
-        color: '#001005', fontWeight: 800, fontSize: 11,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: accent, boxShadow: hover && trained ? `0 0 14px ${accent}` : 'none',
-        transition: 'box-shadow 0.2s', fontFamily: "'JetBrains Mono', monospace",
-      }}>
-        {String(index).padStart(2, '0')}
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 }}>
+        <StatCard label="Total Scans" value={logsStats.scans_total ?? 0} />
+        <StatCard label="Admin Actions" value={logsStats.admin_actions_total ?? 0} />
+        <StatCard label="Total Events" value={logsStats.total ?? 0} />
       </div>
 
-      {hover && trained && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-          animation: 'scan-pulse 1.4s ease-in-out infinite',
-        }} />
-      )}
-
-      <div style={{ padding: '18px 18px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10, paddingRight: 36 }}>
-          <span style={{ fontSize: 24, color: accent, textShadow: `0 0 ${hover ? 14 : 8}px ${accent}99`, transition: 'text-shadow 0.2s', lineHeight: 1, marginTop: 2 }}>{cat.icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="mono" style={{ fontSize: 9, letterSpacing: 2.5, margin: 0, color: accent, textShadow: `0 0 6px ${accent}80` }}>{cat.code}</p>
-            <h3 className="oswald" style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: 1, color: '#d8ffe6', textTransform: 'uppercase' }}>{cat.title}</h3>
-          </div>
-        </div>
-        <p style={{ fontSize: 12, color: '#86efac', margin: 0, lineHeight: 1.5, opacity: 0.85 }}>{cat.description}</p>
-      </div>
-
-      <div style={{ borderTop: '1px solid #112418', padding: '10px 16px', background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <span className="mono" style={{ fontSize: 9, letterSpacing: 1.5, color: trained ? accent : '#3f6e4a', textShadow: trained ? `0 0 6px ${accent}80` : 'none' }}>
-            {trained ? '● TRAINED' : '○ PENDING'}
-          </span>
-          <span className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 1.5 }}>
-            {datasetCount.toLocaleString()} IMG
-          </span>
-        </div>
-        {trained && (
-          <span className="mono" style={{ fontSize: 9, color: accent, letterSpacing: 1.5, padding: '3px 7px', border: `1px solid ${accent}40`, borderRadius: 2 }}>
-            ▶ SCAN
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ScanModal({ cat, onClose }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [scanError, setScanError] = useState('');
-  const fileRef = useRef();
-  const canvasRef = useRef();
-  const accent = cat.color;
-
-  function handleFileChange(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    setFile(f);
-    setResult(null);
-    setScanError('');
-    const reader = new FileReader();
-    reader.onload = ev => setPreview(ev.target.result);
-    reader.readAsDataURL(f);
-  }
-
-  async function handleScan() {
-    if (!file) return;
-    setLoading(true);
-    setScanError('');
-    setResult(null);
-    try {
-      const data = await api.analyze(file, cat.apiKey);
-      setResult(data);
-      if (data.annotations?.length > 0) {
-        setTimeout(() => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          const img = new Image();
-          img.onload = () => {
-            const maxW = Math.min(canvas.parentElement.offsetWidth - 32, 700);
-            const scale = maxW / data.original_image_dimensions.width;
-            canvas.width = data.original_image_dimensions.width * scale;
-            canvas.height = data.original_image_dimensions.height * scale;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            data.annotations.forEach((ann, idx) => {
-              const c = ann.coordinates;
-              const x = c.x_min * scale, y = c.y_min * scale;
-              const w = (c.x_max - c.x_min) * scale, h = (c.y_max - c.y_min) * scale;
-              ctx.shadowColor = ann.color || accent;
-              ctx.shadowBlur = 8;
-              ctx.strokeStyle = ann.color || accent;
-              ctx.lineWidth = 2;
-              ctx.strokeRect(x, y, w, h);
-              ctx.shadowBlur = 0;
-              ctx.fillStyle = ann.color || accent;
-              ctx.font = 'bold 12px JetBrains Mono';
-              const label = `${idx + 1}. ${ann.title} (${(ann.confidence * 100).toFixed(0)}%)`;
-              const tw = ctx.measureText(label).width + 8;
-              ctx.fillRect(x, y - 18, tw, 18);
-              ctx.fillStyle = '#000';
-              ctx.fillText(label, x + 4, y - 5);
-            });
-          };
-          img.src = preview;
-        }, 100);
-      }
-    } catch (err) {
-      setScanError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const verdictColors = { forged: '#ff3344', suspicious: '#ffa040', no_forgery_detected: '#00ff66', not_a_document: '#737373' };
-  const verdictLabels = { forged: 'Forged', suspicious: 'Suspicious', no_forgery_detected: 'No Forgery Detected', not_a_document: 'Not a Document' };
-
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, zIndex: 1000, overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 640, marginTop: 40 }}>
-        {/* header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: `1px solid ${accent}33`, paddingBottom: 14 }}>
-          <div>
-            <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: accent, margin: 0 }}>▣ CATEGORY · {cat.code}</p>
-            <h3 className="oswald" style={{ fontSize: 20, letterSpacing: 2, textTransform: 'uppercase', margin: '4px 0 0', color: '#d8ffe6' }}>{cat.title}</h3>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#86efac', fontSize: 24, cursor: 'pointer', lineHeight: 1 }}>×</button>
-        </div>
-
-        {/* upload */}
-        <div style={{ marginBottom: 16 }}>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-          <button type="button" className="btn btn-secondary" onClick={() => fileRef.current.click()} style={{ marginBottom: 12, width: '100%', padding: '12px 0' }}>
-            ⎙ Select Document Image
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, textTransform: 'uppercase', marginRight: 4 }}>FILTER</span>
+        {[
+          { id: 'all',   label: 'All' },
+          { id: 'admin', label: 'Admin Actions' },
+          { id: 'scan',  label: 'User Scans' },
+        ].map(opt => (
+          <button
+            key={opt.id}
+            className="mono"
+            onClick={() => onFilterChange(opt.id)}
+            style={{
+              padding: '6px 12px', fontSize: 11, cursor: 'pointer',
+              background: filter === opt.id ? 'rgba(0,255,102,0.1)' : 'transparent',
+              border: `1px solid ${filter === opt.id ? '#00ff66' : '#1d3825'}`,
+              color: filter === opt.id ? '#00ff66' : '#86efac',
+              letterSpacing: 1, textTransform: 'uppercase', borderRadius: 2,
+            }}
+          >
+            {opt.label}
           </button>
-          <div onClick={() => fileRef.current.click()} style={{ border: `1px dashed ${preview ? '#1d3825' : '#1f5d39'}`, borderRadius: 3, padding: preview ? 12 : 36, textAlign: 'center', cursor: 'pointer', background: preview ? 'transparent' : 'rgba(0,255,102,0.02)' }}>
-            {preview
-              ? <img src={preview} alt="Preview" style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 3, border: '1px solid #1d3825' }} />
-              : <div>
-                  <div className="mono glow" style={{ fontSize: 28, marginBottom: 8, color: '#00ff66' }}>+</div>
-                  <p className="mono" style={{ color: '#86efac', fontSize: 12, letterSpacing: 1.5 }}>NO IMAGE LOADED</p>
-                </div>
-            }
-          </div>
+        ))}
+        <button
+          className="btn"
+          onClick={onRefresh}
+          disabled={loading}
+          style={{ marginLeft: 'auto', fontSize: 11 }}
+        >
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
+      </div>
+
+      {loading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading logs...</div>}
+      {!loading && logs.length === 0 && (
+        <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No log entries.</div>
+      )}
+      {logs.map(log => (
+        <LogRow key={log.id} log={log} />
+      ))}
+    </div>
+  );
+}
+
+function LogRow({ log }) {
+  const [expanded, setExpanded] = useState(false);
+  const isScan = log.kind === 'scan';
+  const accent = ACTION_COLORS[log.action] || '#86efac';
+  const timestamp = log.created_at ? new Date(log.created_at).toLocaleString() : '';
+
+  return (
+    <div className="card" style={{
+      marginBottom: 10, padding: 12, borderLeft: `3px solid ${accent}`,
+    }}>
+      <div
+        onClick={() => setExpanded(s => !s)}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+          <span className="mono" style={{
+            fontSize: 9, padding: '3px 8px', borderRadius: 2, letterSpacing: 1.5,
+            background: `${accent}1a`, color: accent, border: `1px solid ${accent}66`, textTransform: 'uppercase',
+          }}>
+            {isScan ? 'SCAN' : 'ADMIN'}
+          </span>
+          <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 13 }}>
+            {log.actor?.username || '—'}
+          </span>
+          {log.actor?.role && (
+            <span className="mono" style={{ fontSize: 9, color: '#6dba85', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+              {log.actor.role}
+            </span>
+          )}
+          <span style={{ color: '#86efac', fontSize: 12 }}>·</span>
+          <span style={{ color: '#86efac', fontSize: 12, letterSpacing: 0.5 }}>
+            {log.action.replace(/_/g, ' ')}
+          </span>
+          {log.target && (
+            <>
+              <span style={{ color: '#3f6e4a', fontSize: 12 }}>→</span>
+              <span style={{ color: '#d8ffe6', fontSize: 12 }}>@{log.target.username}</span>
+            </>
+          )}
+          {isScan && log.scan && (
+            <>
+              <span style={{ color: '#3f6e4a', fontSize: 12 }}>·</span>
+              <span className="mono" style={{ fontSize: 11, color: accent, letterSpacing: 1 }}>
+                {log.scan.verdict?.toUpperCase()}
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: '#6dba85' }}>
+                {(log.scan.confidence_score * 100).toFixed(0)}%
+              </span>
+            </>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: '#737373', fontSize: 11, whiteSpace: 'nowrap' }}>{timestamp}</span>
+          <span className="mono" style={{ fontSize: 11, color: '#00ff66' }}>{expanded ? '▲' : '▼'}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #112418' }}>
+          {isScan && log.scan ? (
+            <ScanLogDetail scan={log.scan} />
+          ) : (
+            <pre style={{
+              color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
+              background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+            }}>
+              {JSON.stringify(log.details ?? {}, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScanLogDetail({ scan }) {
+  const imageUrl = scan.has_image ? api.adminScanImageUrl(scan.scan_id) : null;
+  const verdictColors = { forged: '#ff3344', suspicious: '#ffa040', no_forgery_detected: '#00ff66', not_a_document: '#737373' };
+  const vc = verdictColors[scan.verdict] || '#86efac';
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: imageUrl ? '220px 1fr' : '1fr', gap: 16 }}>
+      {imageUrl && (
+        <div>
+          <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 6px', textTransform: 'uppercase' }}>
+            Scan Image
+          </p>
+          <img
+            src={imageUrl}
+            alt={scan.filename}
+            style={{ width: '100%', border: '1px solid #1d3825', borderRadius: 2 }}
+          />
+          <p className="mono" style={{ fontSize: 10, color: '#6dba85', margin: '6px 0 0', wordBreak: 'break-all' }}>
+            {scan.filename}
+          </p>
+          <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', margin: '2px 0 0' }}>
+            {scan.image_width} × {scan.image_height}
+          </p>
+        </div>
+      )}
+      <div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
+          <Pill label="Scan ID" value={scan.scan_id} mono />
+          <Pill label="Verdict" value={scan.verdict?.toUpperCase()} color={vc} />
+          <Pill label="Confidence" value={`${(scan.confidence_score * 100).toFixed(1)}%`} />
+          {scan.detected_category && <Pill label="Category" value={scan.detected_category} />}
+          {scan.certainty_level && <Pill label="Certainty" value={scan.certainty_level} />}
+          {scan.document_type && <Pill label="Doc Type" value={scan.document_type} />}
         </div>
 
-        <button className="btn btn-primary" onClick={handleScan} disabled={!file || loading} style={{ width: '100%', fontSize: 15, padding: '16px 0', marginBottom: 16 }}>
-          {loading ? '◌ Running detection…' : `▶ Scan with ${cat.title} Detector`}
-        </button>
-
-        {scanError && (
-          <div style={{ background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 12, borderRadius: 2, marginBottom: 16, fontSize: 13, color: '#ff8a99', fontFamily: "'JetBrains Mono', monospace" }}>
-            ⚠ {scanError}
+        {scan.category_explanation && (
+          <div style={{ marginBottom: 10 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
+              Gemini Explanation
+            </p>
+            <p style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{scan.category_explanation}</p>
           </div>
         )}
 
-        {result && (() => {
-          const vc = verdictColors[result.verdict] || '#1d3825';
-          const cat = result.detected_category;
-          const geminiOk = typeof result.category_confidence === 'number' && result.category_confidence > 0;
-          const geminiForgery = geminiOk && cat !== 'no_forgery_detected' && cat !== 'not_a_document';
-          const ga = !cat || !geminiOk ? '#737373' : cat === 'no_forgery_detected' ? '#00ff66' : cat === 'not_a_document' ? '#737373' : cat === 'other' ? '#ffa040' : '#a78bfa';
-          const categoryMatch = !result.category_analyzed || result.detected_category === result.category_analyzed;
-          const hasYolo = result.annotations?.length > 0 && geminiForgery && categoryMatch;
-          return (
-            <div style={{ border: `1px solid ${vc}`, borderRadius: 3, overflow: 'hidden', boxShadow: `0 0 24px ${vc}30` }}>
-              {/* verdict */}
-              <div style={{ textAlign: 'center', padding: '22px 16px 20px', background: '#000', borderBottom: `1px solid ${vc}33`, boxShadow: `inset 0 0 28px ${vc}18` }}>
-                <div className="oswald" style={{ fontSize: 28, fontWeight: 700, color: vc, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${vc}99` }}>
-                  {verdictLabels[result.verdict] || result.verdict}
-                </div>
-                <div className="mono" style={{ color: '#6dba85', marginTop: 8, fontSize: 11, letterSpacing: 1.5 }}>
-                  YOLO CONFIDENCE · {(result.confidence_score * 100).toFixed(1)}%
-                </div>
-              </div>
+        {scan.category_evidence?.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
+              Evidence
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, color: '#86efac', fontSize: 12, lineHeight: 1.6 }}>
+              {scan.category_evidence.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          </div>
+        )}
 
-              <div style={{ padding: '16px 16px 4px' }}>
-                {/* gemini */}
-                {geminiOk ? (
-                  <div style={{ marginBottom: 16 }}>
-                    <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: ga, margin: '0 0 6px' }}>▣ GEMINI VISION · CLASSIFICATION</p>
-                    <div style={{ background: `${ga}08`, border: `1px solid ${ga}44`, borderLeft: `3px solid ${ga}`, borderRadius: 3, padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                        <h4 className="oswald" style={{ fontSize: 15, color: '#d8ffe6', textTransform: 'uppercase', letterSpacing: 1.5, margin: 0 }}>
-                          {result.detected_category_label || cat}
-                        </h4>
-                        <span className="mono" style={{ fontSize: 10, color: ga }}>{(result.category_confidence * 100).toFixed(0)}% CONF</span>
-                      </div>
-                      {result.detected_subtype && <p style={{ fontSize: 11, color: ga, margin: '0 0 6px', fontStyle: 'italic' }}>Subtype: {result.detected_subtype}</p>}
-                      {result.category_explanation && <p style={{ lineHeight: 1.6, fontSize: 12, color: '#d8ffe6', margin: '0 0 6px' }}>{result.category_explanation}</p>}
-                      {result.category_evidence?.length > 0 && (
-                        <ul style={{ margin: '0 0 6px', paddingLeft: 16, color: '#86efac', fontSize: 11, lineHeight: 1.5 }}>
-                          {result.category_evidence.map((e, i) => <li key={i}>{e}</li>)}
-                        </ul>
-                      )}
-                      {result.tools_likely_used && <p style={{ fontSize: 11, color: '#86efac', margin: 0, borderTop: '1px solid #112418', paddingTop: 6 }}>
-                        <span className="mono" style={{ color: ga, marginRight: 4 }}>TOOLS:</span>{result.tools_likely_used}
-                      </p>}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 16 }}>
-                    <span className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', padding: '4px 10px', border: '1px solid #1d3825', borderRadius: 2 }}>
-                      ▣ GEMINI VISION · TEMPORARILY UNAVAILABLE
-                    </span>
-                  </div>
-                )}
+        {scan.llm_explanation && (
+          <div style={{ marginBottom: 10 }}>
+            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
+              LLM Explanation
+            </p>
+            <p style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{scan.llm_explanation}</p>
+          </div>
+        )}
 
-                {/* llm */}
-                {result.llm_explanation && (
-                  <div style={{ marginBottom: 16 }}>
-                    <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#6dba85', margin: '0 0 6px' }}>▸ AI FORENSIC EXPLANATION</p>
-                    <p style={{ lineHeight: 1.7, fontSize: 13, color: '#d8ffe6', margin: 0 }}>{result.llm_explanation}</p>
-                  </div>
-                )}
+        <details style={{ marginTop: 10 }}>
+          <summary style={{ cursor: 'pointer', color: '#86efac', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
+            ▸ Full JSON
+          </summary>
+          <pre style={{
+            color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
+            background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418', marginTop: 8,
+            whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 360, overflow: 'auto',
+          }}>
+            {JSON.stringify(scan, null, 2)}
+          </pre>
+        </details>
+      </div>
+    </div>
+  );
+}
 
-                {/* yolo — only when detections exist */}
-                {hasYolo && (
-                  <div style={{ marginBottom: 12 }}>
-                    <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#6dba85', margin: '0 0 8px' }}>▸ YOLO · DETECTED REGIONS</p>
-                    <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 2, border: '1px solid #1d3825', marginBottom: 10 }} />
-                    {result.annotations.map((ann, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #112418' }}>
-                        <span style={{ width: 24, height: 24, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: ann.color, color: '#000', fontSize: 10, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
-                          {String(i + 1).padStart(2, '0')}
-                        </span>
-                        <span style={{ flex: 1, fontSize: 13, color: '#d8ffe6' }}>{ann.title}</span>
-                        <span className="mono" style={{ fontSize: 11, color: ann.color }}>{(ann.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
+function Pill({ label, value, color = '#86efac', mono = false }) {
+  return (
+    <div style={{ background: '#0a120c', border: '1px solid #112418', padding: '6px 10px', borderRadius: 2 }}>
+      <div className="mono" style={{ fontSize: 9, letterSpacing: 1.5, color: '#3f6e4a', textTransform: 'uppercase' }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: 12, color, fontFamily: mono ? "'JetBrains Mono', monospace" : 'inherit',
+        marginTop: 2, wordBreak: 'break-all',
+      }}>
+        {value}
       </div>
     </div>
   );

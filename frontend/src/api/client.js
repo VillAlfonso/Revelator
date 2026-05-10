@@ -261,9 +261,26 @@ export const api = {
     return request(`/admin/users/${userId}/unban`, { method: 'POST' });
   },
 
-  // Super admin logs
-  adminViewLogs(limit = 100, offset = 0) {
-    return request(`/admin/super/logs?limit=${limit}&offset=${offset}`);
+  adminPromoteAdmin(userId) {
+    return request(`/admin/users/${userId}/promote-admin`, { method: 'POST' });
+  },
+
+  adminDemoteAdmin(userId) {
+    return request(`/admin/users/${userId}/demote-admin`, { method: 'POST' });
+  },
+
+  // Audit logs (admin + super admin)
+  adminViewLogs(limit = 100, offset = 0, kind = null) {
+    const params = new URLSearchParams();
+    params.set('limit', limit);
+    params.set('offset', offset);
+    if (kind) params.set('kind', kind);
+    return request(`/admin/super/logs?${params.toString()}`);
+  },
+
+  adminScanImageUrl(scanId) {
+    const token = getToken();
+    return `${API_BASE}/admin/scans/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
   },
 
   adminGeminiStatus() {
