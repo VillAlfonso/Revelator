@@ -238,38 +238,35 @@ def extract_rules_from_prompt():
     try:
         gemini_module_path = Path(__file__).parent.parent / "forgery" / "gemini_vision.py"
         content = gemini_module_path.read_text()
+        lines = content.split('\n')
 
         rules = []
 
-        # Extract BANK CHECK RULE
-        bank_match = re.search(r'⚠ BANK CHECK RULE:\s*(.+?)(?=\n\s{2}⚠|\n\s{2}CONFIDENCE)', content, re.DOTALL)
-        if bank_match:
-            text = bank_match.group(1).strip()
-            rules.append({"title": "BANK CHECK RULE:", "text": text})
+        for i, line in enumerate(lines):
+            # BANK CHECK RULE
+            if '⚠ BANK CHECK RULE:' in line:
+                text = line.split('⚠ BANK CHECK RULE:')[1].strip()
+                rules.append({"title": "BANK CHECK RULE:", "text": text})
 
-        # Extract INK LAYERING RULE
-        ink_match = re.search(r'⚠ INK LAYERING RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
-        if ink_match:
-            text = ink_match.group(1).strip()
-            rules.append({"title": "INK LAYERING RULE:", "text": text})
+            # INK LAYERING RULE
+            elif '⚠ INK LAYERING RULE:' in line:
+                text = line.split('⚠ INK LAYERING RULE:')[1].strip()
+                rules.append({"title": "INK LAYERING RULE:", "text": text})
 
-        # Extract INCOMPLETE WORD RULE
-        incomplete_match = re.search(r'⚠ INCOMPLETE WORD RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
-        if incomplete_match:
-            text = incomplete_match.group(1).strip()
-            rules.append({"title": "INCOMPLETE WORD RULE:", "text": text})
+            # INCOMPLETE WORD RULE
+            elif '⚠ INCOMPLETE WORD RULE:' in line:
+                text = line.split('⚠ INCOMPLETE WORD RULE:')[1].strip()
+                rules.append({"title": "INCOMPLETE WORD RULE:", "text": text})
 
-        # Extract SEMANTIC CONFLICT / CHEMICAL ERASURE RULE
-        semantic_match = re.search(r'⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:\s*(.+?)(?=\n\s{2}⚠)', content, re.DOTALL)
-        if semantic_match:
-            text = semantic_match.group(1).strip()
-            rules.append({"title": "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:", "text": text})
+            # SEMANTIC CONFLICT / CHEMICAL ERASURE RULE
+            elif '⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:' in line:
+                text = line.split('⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:')[1].strip()
+                rules.append({"title": "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:", "text": text})
 
-        # Extract GHOST TEXT vs. SYMPATHETIC INK RULE
-        ghost_match = re.search(r'⚠ GHOST TEXT vs\. SYMPATHETIC INK RULE:\s*(.+?)(?=\n\nCONFIDENCE)', content, re.DOTALL)
-        if ghost_match:
-            text = ghost_match.group(1).strip()
-            rules.append({"title": "GHOST TEXT VS. SYMPATHETIC INK RULE:", "text": text})
+            # GHOST TEXT vs. SYMPATHETIC INK RULE
+            elif '⚠ GHOST TEXT vs. SYMPATHETIC INK RULE:' in line:
+                text = line.split('⚠ GHOST TEXT vs. SYMPATHETIC INK RULE:')[1].strip()
+                rules.append({"title": "GHOST TEXT VS. SYMPATHETIC INK RULE:", "text": text})
 
         return rules
     except Exception as e:
