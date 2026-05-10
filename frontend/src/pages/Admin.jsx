@@ -16,7 +16,6 @@ export default function Admin() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
   const [q, setQ] = useState('');
-  const [planFilter, setPlanFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -39,7 +38,7 @@ export default function Admin() {
     setError('');
     try {
       const [list, s] = await Promise.all([
-        api.adminListUsers({ q, plan: planFilter }),
+        api.adminListUsers({ q }),
         api.adminStats(),
       ]);
       setUsers(list.users);
@@ -50,7 +49,7 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [q, planFilter]);
+  }, [q]);
 
   const loadCodes = useCallback(async () => {
     setCodesLoading(true);
@@ -106,12 +105,11 @@ export default function Admin() {
     setError('');
     try {
       const patch = {
-        plan: editing.plan,
-        is_admin: editing.is_admin,
         is_active: editing.is_active,
         full_name: editing.full_name,
         username: editing.username,
         email: editing.email,
+        role: editing.role,
       };
       if (editing._password) patch.password = editing._password;
       await api.adminUpdateUser(editing.id, patch);
@@ -285,13 +283,6 @@ export default function Admin() {
           <label style={labelStyle}>Search</label>
           <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="email, username, name" />
         </div>
-        <div style={{ width: 160 }}>
-          <label style={labelStyle}>Plan</label>
-          <select className="input" value={planFilter} onChange={e => setPlanFilter(e.target.value)}>
-            <option value="">All plans</option>
-            {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
         <button className="btn btn-primary" onClick={load} disabled={loading}>
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -331,18 +322,17 @@ export default function Admin() {
             <Field label="Email"><input className="input" value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} /></Field>
             <Field label="Username"><input className="input" value={editing.username} onChange={e => setEditing({ ...editing, username: e.target.value })} /></Field>
             <Field label="Full name"><input className="input" value={editing.full_name || ''} onChange={e => setEditing({ ...editing, full_name: e.target.value })} /></Field>
-            <Field label="Plan">
-              <select className="input" value={editing.plan} onChange={e => setEditing({ ...editing, plan: e.target.value })}>
-                {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </Field>
             <Field label="Reset password (optional, min 6 chars)">
               <input className="input" type="password" value={editing._password} onChange={e => setEditing({ ...editing, _password: e.target.value })} placeholder="Leave blank to keep current" />
             </Field>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
-              <input type="checkbox" checked={editing.is_admin} onChange={e => setEditing({ ...editing, is_admin: e.target.checked })} disabled={editing.id === me?.id} />
-              Admin {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11 }}>(cannot remove own)</span>}
-            </label>
+            <Field label="Role">
+              <select className="input" value={editing.role || 'user'} onChange={e => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+                <option value="superadmin">Super Admin</option>
+              </select>
+              {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11, marginTop: 4, display: 'block' }}>(cannot change own role)</span>}
+            </Field>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
               <input type="checkbox" checked={editing.is_active} onChange={e => setEditing({ ...editing, is_active: e.target.checked })} disabled={editing.id === me?.id} />
               Active {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11 }}>(cannot deactivate own)</span>}
