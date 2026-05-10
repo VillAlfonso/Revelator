@@ -80,7 +80,6 @@ export default function Account() {
     }
   }
 
-  const usageDisplay = `${user?.scans_this_month || 0} scans this month`;
 
   return (
     <div style={{ maxWidth: 760 }}>
@@ -149,24 +148,6 @@ export default function Account() {
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Member since:</span> <span className="mono" style={{ fontSize: 14 }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</span></div>
           </div>
         )}
-      </div>
-
-      {/* Current Plan */}
-      <div className="card" style={{
-        marginBottom: 24, borderColor: '#00ff66',
-        boxShadow: '0 0 20px rgba(0,255,102,0.15), inset 0 1px 0 rgba(0,255,102,0.2)',
-      }}>
-        <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 12, color: '#6dba85' }}>
-          ▸ Current Plan
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span className="oswald glow" style={{ fontSize: 26, color: '#00ff66', textTransform: 'uppercase', letterSpacing: 3 }}>
-            {user?.plan}
-          </span>
-          <span className="mono" style={{ color: '#86efac', fontSize: 13 }}>
-            {usageDisplay}
-          </span>
-        </div>
       </div>
 
       {/* Redeem Code */}

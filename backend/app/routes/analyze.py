@@ -49,19 +49,11 @@ def generate_scan_id() -> str:
 
 
 def check_scan_limit(user: User):
+    # Capstone: unlimited scans for all users via personal Gemini API keys
     now = datetime.utcnow()
     if user.scan_reset_date and (now - user.scan_reset_date).days >= 30:
         user.scans_this_month = 0
         user.scan_reset_date = now
-
-    limit = PLAN_LIMITS.get(user.plan, FREE_SCANS_PER_MONTH)
-    if limit == UNLIMITED:
-        return
-    if user.scans_this_month >= limit:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Monthly scan limit reached ({limit} scans on the {user.plan} plan). Upgrade for unlimited scans.",
-        )
 
 
 def _verdict_from_gemini(gemini: dict) -> tuple[str, float]:
@@ -207,12 +199,8 @@ def analyze_document(
 
     verdict, confidence = _verdict_from_gemini(gemini)
 
-    # LLM explanation — pro feature
-    llm_explanation = (
-        get_llm_explanation(gemini, image=image)
-        if current_user.plan in LLM_PLANS
-        else None
-    )
+    # LLM explanation — always available in capstone
+    llm_explanation = get_llm_explanation(gemini, image=image)
 
     scan_id = generate_scan_id()
 
@@ -268,8 +256,7 @@ def analyze_document(
         "verdict": verdict,
         "confidence_score": confidence,
         "llm_explanation": llm_explanation,
-        "llm_locked": current_user.plan not in LLM_PLANS,
-        "llm_required_plan": "pro",
+        "llm_locked": False,
         "annotations": [],
         "original_image_dimensions": {"width": original_width, "height": original_height},
         "timestamp": datetime.now().isoformat(),
@@ -340,8 +327,7 @@ def get_scan_detail(
         "verdict": scan.verdict,
         "confidence_score": scan.confidence_score,
         "llm_explanation": scan.llm_explanation,
-        "llm_locked": (not scan.llm_explanation) and (current_user.plan not in LLM_PLANS),
-        "llm_required_plan": "pro",
+        "llm_locked": False,
         "annotations": [],
         "image_width": scan.image_width,
         "image_height": scan.image_height,

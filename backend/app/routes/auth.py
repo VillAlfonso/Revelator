@@ -45,7 +45,6 @@ class UserResponse(BaseModel):
     email: str
     username: str
     full_name: str
-    plan: str
     scans_this_month: int
     created_at: str
 
@@ -59,7 +58,6 @@ def user_to_dict(user: User) -> dict:
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name or "",
-        "plan": user.plan,
         "scans_this_month": user.scans_this_month,
         "role": user.role or "user",
         "is_active": bool(user.is_active),
@@ -85,7 +83,6 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         username=body.username,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
-        plan="free",
         scans_this_month=0,
         scan_reset_date=datetime.utcnow(),
     )
@@ -183,7 +180,6 @@ def google_login(body: GoogleAuthRequest, db: Session = Depends(get_db)):
                 google_id=google_id,
                 is_active=True,
                 is_verified=True,  # Google already verified the email
-                plan="free",
                 scans_this_month=0,
                 scan_reset_date=datetime.utcnow(),
             )
