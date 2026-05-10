@@ -189,30 +189,17 @@ export default function Scan() {
                 <span>Take Photo</span>
               </button>
 
-              {/* Secondary upload — smaller */}
-              <button
-                type="button"
+              <div
                 onClick={() => fileRef.current.click()}
                 style={{
-                  width: '100%', padding: '12px 16px',
-                  background: 'transparent', border: '1px dashed #1f5d39',
-                  color: '#86efac', cursor: 'pointer',
-                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-                  letterSpacing: 2, fontSize: 12, borderRadius: 3,
-                  marginBottom: 16, minHeight: 44,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  border: '1px dashed #1f5d39', borderRadius: 3,
+                  padding: 36, textAlign: 'center',
+                  background: 'rgba(0,255,102,0.02)',
+                  cursor: 'pointer',
                 }}
               >
-                <span style={{ fontSize: 14 }}>⎙</span> Or upload from gallery
-              </button>
-
-              <div style={{
-                border: '1px dashed #1f5d39', borderRadius: 3,
-                padding: 36, textAlign: 'center',
-                background: 'rgba(0,255,102,0.02)',
-              }}>
                 <div className="mono glow" style={{ fontSize: 28, marginBottom: 8, color: '#00ff66' }}>+</div>
-                <p className="mono" style={{ color: '#86efac', fontSize: 12, letterSpacing: 1.5 }}>NO IMAGE LOADED</p>
+                <p className="mono" style={{ color: '#86efac', fontSize: 12, letterSpacing: 1.5 }}>UPLOAD FROM GALLERY</p>
               </div>
             </>
           ) : (
