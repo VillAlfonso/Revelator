@@ -25,6 +25,7 @@ export default function Account() {
   const [editingKeyId, setEditingKeyId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
   const [editKeyValue, setEditKeyValue] = useState('');
+  const [revealedKeys, setRevealedKeys] = useState({});
 
   useEffect(() => {
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
@@ -125,6 +126,10 @@ export default function Account() {
     setEditingKeyId(null);
     setEditLabel('');
     setEditKeyValue('');
+  }
+
+  function toggleReveal(keyId) {
+    setRevealedKeys(prev => ({ ...prev, [keyId]: !prev[keyId] }));
   }
 
   return (
@@ -299,7 +304,7 @@ export default function Account() {
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>API Key (optional)</label>
+                        <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>API Key </label>
                         <input
                           className="input"
                           placeholder="Leave blank to keep current key, or paste new one"
@@ -355,8 +360,20 @@ export default function Account() {
                         <div style={{ fontSize: 13, color: '#d8ffe6', fontWeight: 600, marginBottom: 2 }}>
                           {k.label}
                         </div>
-                        <div style={{ fontSize: 11, color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace" }}>
-                          {k.key_preview}
+                        <div style={{ fontSize: 11, color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
+                          <span
+                            onClick={() => toggleReveal(k.id)}
+                            title="Click to show/hide full key"
+                            style={{ cursor: 'pointer', userSelect: revealedKeys[k.id] ? 'all' : 'none' }}
+                          >
+                            {revealedKeys[k.id] ? k.api_key : k.key_preview}
+                          </span>
+                          <span
+                            onClick={() => toggleReveal(k.id)}
+                            style={{ marginLeft: 8, cursor: 'pointer', color: '#3f6e4a', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}
+                          >
+                            {revealedKeys[k.id] ? '[hide]' : '[show]'}
+                          </span>
                           {k.is_active && !exhausted && (
                             <span style={{ color: '#00ff66', marginLeft: 10, letterSpacing: 1 }}>● ACTIVE</span>
                           )}
