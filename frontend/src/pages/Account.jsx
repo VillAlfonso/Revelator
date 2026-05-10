@@ -211,21 +211,35 @@ export default function Account() {
           }}>
             <span>⚡ How to get a key (step-by-step tutorial)</span>
           </summary>
-          <div style={{ display: 'grid', gap: 12, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
+          <div style={{ display: 'grid', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
             {[
               { step: 1, text: 'Click "Open Google AI Studio" button below', img: null },
-              { step: 2, text: 'Accept the terms and conditions', img: null },
-              { step: 3, text: 'Click the "Create API Key" button', img: null },
-              { step: 4, text: 'Click "Create Key"', img: null },
-              { step: 5, text: 'Copy your API key (click the copy icon)', img: null },
+              { step: 2, text: 'Accept the terms and conditions', img: '/tutorial-1.jpg' },
+              { step: 3, text: 'Click the "Create API Key" button', img: '/tutorial-2.jpg' },
+              { step: 4, text: 'Click "Create Key"', img: '/tutorial-3.jpg' },
+              { step: 5, text: 'Copy your API key (click the copy icon)', img: '/tutorial-4.jpg' },
               { step: 6, text: 'Come back here and paste it in the "API Key" field below, then click "Add Key"', img: null },
               { step: 7, text: '(Optional but recommended) Sign in to a different Google account and get more API keys — quota resets every 12 hours', img: null },
             ].map((item, idx) => (
               <div key={idx} style={{ display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.6 }}>
-                  <span style={{ color: '#00ff66', fontWeight: 600, marginRight: 8 }}>Step {item.step}:</span>
+                  <span style={{ color: item.step === 7 ? '#6dba85' : '#00ff66', fontWeight: 600, marginRight: 8 }}>
+                    Step {item.step}{item.step === 7 ? ' (optional)' : ''}:
+                  </span>
                   {item.text}
                 </div>
+                {item.img && (
+                  <img
+                    src={item.img}
+                    alt={`Step ${item.step}`}
+                    style={{
+                      width: '100%', borderRadius: 3,
+                      border: '1px solid #1d3825',
+                      maxHeight: 260, objectFit: 'contain',
+                      background: '#000',
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>
