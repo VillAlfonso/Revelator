@@ -197,27 +197,39 @@ export default function Account() {
           Each Google account gives you 1,500 free scans per day. Add keys from different accounts as backups — activate the one you want to use, the rest stay saved but inactive.
         </p>
 
-        {/* How to get a key */}
-        <div style={{
+        {/* How to get a key — collapsible tutorial */}
+        <details style={{
           background: 'rgba(0,255,102,0.04)', border: '1px solid rgba(0,255,102,0.15)',
           borderRadius: 3, padding: 12, marginBottom: 16,
           boxShadow: highlightKeyInput ? '0 0 12px rgba(0,255,102,0.6), inset 0 0 8px rgba(0,255,102,0.2)' : 'none',
           transition: 'box-shadow 0.3s',
         }}>
-          <div style={{ fontSize: 11, color: '#6dba85', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            ⚡ How to get a key
-          </div>
-          <div style={{ display: 'grid', gap: 6 }}>
+          <summary style={{
+            fontSize: 11, color: '#6dba85', textTransform: 'uppercase', letterSpacing: 1,
+            cursor: 'pointer', fontWeight: 600, userSelect: 'none',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>⚡ How to get a key (step-by-step tutorial)</span>
+          </summary>
+          <div style={{ display: 'grid', gap: 12, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
             {[
-              '1. Tap "Open Google AI Studio" below',
-              '2. Press the copy icon next to your key (shown in the screenshot)',
-              '3. Come back here, paste it, and tap Add',
-              '4. If your quota runs out, repeat with a different Google account',
-            ].map(step => (
-              <div key={step} style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.5 }}>{step}</div>
+              { step: 1, text: 'Click "Open Google AI Studio" button below', img: null },
+              { step: 2, text: 'Accept the terms and conditions', img: null },
+              { step: 3, text: 'Click the "Create API Key" button', img: null },
+              { step: 4, text: 'Click "Create Key"', img: null },
+              { step: 5, text: 'Copy your API key (click the copy icon)', img: null },
+              { step: 6, text: 'Come back here and paste it in the "API Key" field below, then click "Add Key"', img: null },
+              { step: 7, text: '(Optional but recommended) Sign in to a different Google account and get more API keys — quota resets every 12 hours', img: null },
+            ].map((item, idx) => (
+              <div key={idx} style={{ display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.6 }}>
+                  <span style={{ color: '#00ff66', fontWeight: 600, marginRight: 8 }}>Step {item.step}:</span>
+                  {item.text}
+                </div>
+              </div>
             ))}
           </div>
-        </div>
+        </details>
 
         <a
           href="https://aistudio.google.com/api-keys"
