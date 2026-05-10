@@ -6,6 +6,7 @@ import io
 import json
 import random
 import string
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -232,9 +233,53 @@ def get_about_info():
     }
 
 
+def extract_rules_from_prompt():
+    """Extract critical rules dynamically from gemini_vision.py"""
+    try:
+        gemini_module_path = Path(__file__).parent.parent / "forgery" / "gemini_vision.py"
+        content = gemini_module_path.read_text()
+
+        rules = []
+
+        # Extract BANK CHECK RULE
+        bank_match = re.search(r'⚠ BANK CHECK RULE:\s*(.+?)(?=⚠|KEY TIEBREAKER:|CONFIDENCE SCALE)', content, re.DOTALL)
+        if bank_match:
+            text = bank_match.group(1).strip()
+            rules.append({"title": "BANK CHECK RULE:", "text": text})
+
+        # Extract INK LAYERING RULE
+        ink_match = re.search(r'⚠ INK LAYERING RULE:\s*(.+?)(?=⚠|INCOMPLETE)', content, re.DOTALL)
+        if ink_match:
+            text = ink_match.group(1).strip()
+            rules.append({"title": "INK LAYERING RULE:", "text": text})
+
+        # Extract INCOMPLETE WORD RULE
+        incomplete_match = re.search(r'⚠ INCOMPLETE WORD RULE:\s*(.+?)(?=⚠|SEMANTIC)', content, re.DOTALL)
+        if incomplete_match:
+            text = incomplete_match.group(1).strip()
+            rules.append({"title": "INCOMPLETE WORD RULE:", "text": text})
+
+        # Extract SEMANTIC CONFLICT / CHEMICAL ERASURE RULE
+        semantic_match = re.search(r'⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:\s*(.+?)(?=⚠|GHOST TEXT)', content, re.DOTALL)
+        if semantic_match:
+            text = semantic_match.group(1).strip()
+            rules.append({"title": "SEMANTIC CONFLICT / CHEMICAL ERASURE RULE:", "text": text})
+
+        # Extract GHOST TEXT vs. SYMPATHETIC INK RULE
+        ghost_match = re.search(r'⚠ GHOST TEXT vs\. SYMPATHETIC INK RULE:\s*(.+?)(?=CONFIDENCE SCALE)', content, re.DOTALL)
+        if ghost_match:
+            text = ghost_match.group(1).strip()
+            rules.append({"title": "GHOST TEXT VS. SYMPATHETIC INK RULE:", "text": text})
+
+        return rules
+    except Exception:
+        return []
+
+
 @router.get("/prompt-analysis")
 def get_prompt_analysis():
     """Dynamic prompt analysis data for the PromptDashboard component."""
+    rules = extract_rules_from_prompt()
     return {
         "system_prompt": {"total_words": 2847},
         "groups": {
@@ -250,15 +295,7 @@ def get_prompt_analysis():
             {"name": "TRIAGE_PROMPT", "word_count": 420, "char_count": 2680, "purpose": "Fast screening: returns top 3 suspected categories without full reasoning."},
             {"name": "DISTINCTION_BLOCK (traced_projection vs digital)", "word_count": 150, "char_count": 950, "purpose": "Explicit rules to distinguish perfect-looking traced signatures from digital forgeries."},
         ],
-        "rules": [
-            "IF document_type == 'bank_check' AND any indication of number alteration → strongly favor addition_insertion",
-            "IF lighting == 'raking' AND grooves visible WITHOUT ink → sympathetic_indented; WITH ink filling → traced_indentation",
-            "IF image_source == 'screenshot' → digital_desktop much more likely than physical forgeries",
-            "IF physical_clues contains 'pixel_anomaly' OR 'halo' OR 'compression' → boost digital categories",
-            "IF user_suspicion mentions 'erased' OR 'bleached' → check erasure_chemical and erasure_mechanical first",
-            "IF signatures present AND traced_projection confidence > 0.7, check for distinction block (projection vs cut_paste)",
-            "IF multiple overlapping indicators across similar categories, award to the category with most prompt detail (word count dominance)",
-        ],
+        "rules": rules,
         "categories": [
             {"id": "traced_carbon", "label": "Traced — Carbon", "group": "traced", "word_count": 70, "detail_level": "MEDIUM", "first_line": "Carbon paper placed under genuine signature; forger traces with stylus, transfers carbon 'blueprint', then inks over.", "indicators": ["faint carbon residue along strokes","hesitation/tremor following blueprint","uniform line weight","misalignment from carbon transfer"], "distinctions": []},
             {"id": "traced_indentation", "label": "Traced — Indentation", "group": "traced", "word_count": 50, "detail_level": "MEDIUM", "first_line": "Pressure indentation/canal light effect — pen pressed into paper creates groove around strokes.", "indicators": ["halo/colorless depression around strokes","ink not filling indented path","hesitation or tremor"], "distinctions": []},

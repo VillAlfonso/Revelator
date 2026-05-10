@@ -216,14 +216,26 @@ function Rules({ data }) {
           background: '#0a120c',
           border: '1px solid #112418',
           borderLeft: '3px solid #ffaa00',
-          padding: 10,
+          padding: 12,
           borderRadius: 3,
-          marginBottom: 8,
-          fontSize: 12,
-          color: '#d8ffe6',
-          lineHeight: 1.6,
+          marginBottom: 10,
         }}>
-          {r}
+          <div style={{
+            fontSize: 13,
+            color: '#d8ffe6',
+            fontWeight: 600,
+            marginBottom: 6,
+            lineHeight: 1.5,
+          }}>
+            {r.title}
+          </div>
+          <div style={{
+            fontSize: 12,
+            color: '#d8ffe6',
+            lineHeight: 1.6,
+          }}>
+            {r.text}
+          </div>
         </div>
       ))}
     </div>
