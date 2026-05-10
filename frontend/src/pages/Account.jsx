@@ -8,7 +8,6 @@ export default function Account() {
   const [form, setForm] = useState({ full_name: '', username: '' });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const [promoCode, setPromoCode] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeyMsg, setApiKeyMsg] = useState('');
   const [apiKeyError, setApiKeyError] = useState('');
@@ -24,23 +23,6 @@ export default function Account() {
       await refreshUser();
       setEditing(false);
       setMsg('Profile updated.');
-      setTimeout(() => setMsg(''), 3000);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleRedeemCode() {
-    setError('');
-    if (!promoCode.trim()) {
-      setError('Please enter a code');
-      return;
-    }
-    try {
-      const result = await api.redeemCode(promoCode);
-      setMsg(result.message);
-      setPromoCode('');
-      refreshUser();
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       setError(err.message);
@@ -148,24 +130,6 @@ export default function Account() {
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Member since:</span> <span className="mono" style={{ fontSize: 14 }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</span></div>
           </div>
         )}
-      </div>
-
-      {/* Redeem Code */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Redeem Code</h2>
-        <p style={{ fontSize: 12, color: '#86efac', marginBottom: 12 }}>Have a promo code? Enter it below to upgrade your plan instantly.</p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            className="input"
-            placeholder="Enter promo code"
-            value={promoCode}
-            onChange={e => setPromoCode(e.target.value.toUpperCase())}
-            style={{ flex: 1 }}
-          />
-          <button className="btn btn-primary" onClick={handleRedeemCode} style={{ padding: '10px 24px' }}>
-            Redeem
-          </button>
-        </div>
       </div>
 
       {/* API Key Management */}
