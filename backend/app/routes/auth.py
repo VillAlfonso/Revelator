@@ -52,14 +52,22 @@ class GoogleAuthRequest(BaseModel):
     id_token: str
 
 
-def user_to_dict(user: User) -> dict:
+def user_to_dict(user: User, db: Session = None) -> dict:
+    from ..models import Role
+    role_name = user.role or "user"
+    color = "#6dba85"
+    if db is not None:
+        role_obj = db.query(Role).filter(Role.name == role_name).first()
+        if role_obj:
+            color = role_obj.color
     return {
         "id": user.id,
         "email": user.email,
         "username": user.username,
         "full_name": user.full_name or "",
         "scans_this_month": user.scans_this_month,
-        "role": user.role or "user",
+        "role": role_name,
+        "role_color": color,
         "is_active": bool(user.is_active),
         "created_at": user.created_at.isoformat() if user.created_at else "",
     }
@@ -93,7 +101,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
-        user=user_to_dict(user),
+        user=user_to_dict(user, db),
     )
 
 
@@ -108,7 +116,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
-        user=user_to_dict(user),
+        user=user_to_dict(user, db),
     )
 
 
@@ -125,7 +133,7 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
-        user=user_to_dict(user),
+        user=user_to_dict(user, db),
     )
 
 
@@ -193,13 +201,13 @@ def google_login(body: GoogleAuthRequest, db: Session = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
-        user=user_to_dict(user),
+        user=user_to_dict(user, db),
     )
 
 
 @router.get("/me")
-def get_me(current_user: User = Depends(get_current_user)):
-    return user_to_dict(current_user)
+def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return user_to_dict(current_user, db)
 
 
 @router.put("/me")
@@ -217,7 +225,7 @@ def update_me(
         current_user.username = body["username"]
     db.commit()
     db.refresh(current_user)
-    return user_to_dict(current_user)
+    return user_to_dict(current_user, db)
 
 
 class RedeemCodeRequest(BaseModel):

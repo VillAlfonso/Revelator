@@ -214,13 +214,31 @@ export const api = {
   },
 
   // Admin
-  adminListUsers({ q = '', plan = '', limit = 50, offset = 0 } = {}) {
+  adminListUsers({ q = '', plan = '', role = '', limit = 50, offset = 0 } = {}) {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (plan) params.set('plan', plan);
+    if (role) params.set('role', role);
     params.set('limit', limit);
     params.set('offset', offset);
     return request(`/admin/users?${params.toString()}`);
+  },
+
+  // Roles
+  listRoles() {
+    return request('/roles');
+  },
+  createRole(payload) {
+    return request('/roles', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  updateRole(roleId, patch) {
+    return request(`/roles/${roleId}`, { method: 'PUT', body: JSON.stringify(patch) });
+  },
+  deleteRole(roleId) {
+    return request(`/roles/${roleId}`, { method: 'DELETE' });
+  },
+  assignUserRole(userId, role) {
+    return request(`/roles/users/${userId}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
   },
 
   adminGetUser(userId) {

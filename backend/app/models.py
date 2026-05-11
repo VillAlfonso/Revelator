@@ -39,6 +39,22 @@ class User(Base):
     api_keys = relationship("UserApiKey", back_populates="user", cascade="all, delete-orphan")
 
 
+class Role(Base):
+    """Dynamic role definitions — managed by superadmin. User.role string references Role.name."""
+    __tablename__ = "roles"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    name = Column(String, unique=True, nullable=False, index=True)
+    color = Column(String, nullable=False, default="#6dba85")  # hex color for UI badges
+    permissions = Column(Text, nullable=False, default="[]")  # JSON array of permission strings
+    description = Column(String, default="")
+    is_system = Column(Boolean, default=False)  # protected built-in roles
+    is_self_assignable = Column(Boolean, default=False)  # user can self-assign via Account page
+    sort_order = Column(Integer, default=100)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class UserApiKey(Base):
     __tablename__ = "user_api_keys"
 

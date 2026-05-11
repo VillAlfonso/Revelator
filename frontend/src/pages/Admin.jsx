@@ -10,11 +10,12 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 export default function Admin() {
   const { user: me } = useAuth();
   const isSuperAdmin = me?.role === "superadmin";
-  const [tab, setTab] = useState('users'); // 'users', 'dataset', 'logs'
+  const [tab, setTab] = useState('users'); // 'users', 'roles', 'logs', 'prompt'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
   const [q, setQ] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -25,13 +26,15 @@ export default function Admin() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan'
   const [banningUserId, setBanningUserId] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [permissionsCatalog, setPermissionsCatalog] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const [list, s] = await Promise.all([
-        api.adminListUsers({ q }),
+        api.adminListUsers({ q, role: roleFilter }),
         api.adminStats(),
       ]);
       setUsers(list.users);
@@ -42,7 +45,19 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, [q, roleFilter]);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const data = await api.listRoles();
+      setRoles(data.roles || []);
+      setPermissionsCatalog(data.permissions || []);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  useEffect(() => { loadRoles(); }, [loadRoles]);
 
 
   const loadLogs = useCallback(async () => {
@@ -182,6 +197,21 @@ export default function Admin() {
         >
           Users
         </button>
+        {isSuperAdmin && (
+          <button
+            className="mono"
+            onClick={() => setTab('roles')}
+            style={{
+              padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+              color: tab === 'roles' ? '#00ff66' : '#86efac',
+              textTransform: 'uppercase', letterSpacing: 1,
+              borderBottom: tab === 'roles' ? '2px solid #00ff66' : 'none',
+              marginBottom: '-12px',
+            }}
+          >
+            Roles
+          </button>
+        )}
         <button
           className="mono"
           onClick={() => setTab('logs')}
@@ -217,6 +247,15 @@ export default function Admin() {
           <label style={labelStyle}>Search</label>
           <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="email, username, name" />
         </div>
+        <div style={{ flex: '0 1 200px', minWidth: 160 }}>
+          <label style={labelStyle}>Filter by role</label>
+          <select className="input" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+            <option value="">All roles</option>
+            {roles.map(r => (
+              <option key={r.id} value={r.name}>{r.name}</option>
+            ))}
+          </select>
+        </div>
         <button className="btn btn-primary" onClick={load} disabled={loading}>
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -246,6 +285,7 @@ export default function Admin() {
             onPromote={() => promoteUser(u.id)}
             onDemote={() => demoteUser(u.id)}
             isBanning={banningUserId === u.id}
+            roles={roles}
           />
         ))}
         {!loading && users.length === 0 && (
@@ -264,9 +304,9 @@ export default function Admin() {
             </Field>
             <Field label="Role">
               <select className="input" value={editing.role || 'user'} onChange={e => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="superadmin">Super Admin</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.name}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
+                ))}
               </select>
               {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11, marginTop: 4, display: 'block' }}>(cannot change own role)</span>}
             </Field>
@@ -301,6 +341,15 @@ export default function Admin() {
         </Modal>
       )}
       </div>
+      )}
+
+      {tab === 'roles' && isSuperAdmin && (
+        <RolesManager
+          roles={roles}
+          permissions={permissionsCatalog}
+          onReload={loadRoles}
+          onError={setError}
+        />
       )}
 
       {tab === 'logs' && (
@@ -358,20 +407,27 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
+function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, onPromote, onDemote, isBanning, roles = [] }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   const targetIsSuperAdmin = user.role === 'superadmin';
-  // Regular admins are read-only. Super admins cannot act on other super admins.
   const canMutate = isSuperAdmin && !targetIsSuperAdmin;
+  // Resolve role color from user.role_color (backend) or roles list, fallback to default green
+  const roleObj = roles.find(r => r.name === user.role);
+  const roleColor = user.role_color || roleObj?.color || '#6dba85';
+  // Card background tinted with role color for at-a-glance grouping
+  const tintHex = roleColor + '14';  // ~8% alpha
   return (
-    <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+    <div className="card" style={{
+      display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between',
+      background: tintHex, borderLeft: `4px solid ${roleColor}`,
+    }}>
       <div style={{ flex: '1 1 240px', minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 14, wordBreak: 'break-all' }}>{user.email}</span>
           {isMe && <Badge color="#00ff66">You</Badge>}
-          {["admin","superadmin"].includes(user.role) && <Badge color="#a3e635">{user.role}</Badge>}
+          <Badge color={roleColor}>{user.role}</Badge>
           {!user.is_active && <Badge color="#ff3344">Banned</Badge>}
-          <Badge color={planColor}>{user.plan}</Badge>
+          {user.plan && <Badge color={planColor}>{user.plan}</Badge>}
         </div>
         <div style={{ color: '#86efac', fontSize: 12, marginTop: 4 }}>
           @{user.username} {user.full_name && `· ${user.full_name}`}
@@ -724,6 +780,276 @@ function Pill({ label, value, color = '#86efac', mono = false }) {
       }}>
         {value}
       </div>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// ROLES MANAGER (super admin only)
+// ─────────────────────────────────────────────────────────────────
+
+const DEFAULT_ROLE_COLORS = [
+  '#00ff66', '#00ffaa', '#a3e635', '#fbbf24', '#fb923c',
+  '#f87171', '#c084fc', '#60a5fa', '#22d3ee', '#86efac',
+];
+
+function RolesManager({ roles, permissions, onReload, onError }) {
+  const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  function emptyRole() {
+    return {
+      name: '',
+      color: DEFAULT_ROLE_COLORS[Math.floor(Math.random() * DEFAULT_ROLE_COLORS.length)],
+      description: '',
+      permissions: [],
+      is_self_assignable: false,
+      sort_order: 100,
+    };
+  }
+
+  async function saveRole(role) {
+    setBusy(true);
+    try {
+      if (role.id) {
+        await api.updateRole(role.id, {
+          name: role.name,
+          color: role.color,
+          description: role.description,
+          permissions: role.permissions,
+          is_self_assignable: role.is_self_assignable,
+          sort_order: role.sort_order,
+        });
+      } else {
+        await api.createRole({
+          name: role.name,
+          color: role.color,
+          description: role.description,
+          permissions: role.permissions,
+          is_self_assignable: role.is_self_assignable,
+          sort_order: role.sort_order,
+        });
+      }
+      setEditing(null);
+      setCreating(false);
+      await onReload();
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteRole(role) {
+    if (!confirm(`Delete role "${role.name}"? All users with this role will be moved back to "user".`)) return;
+    setBusy(true);
+    try {
+      await api.deleteRole(role.id);
+      await onReload();
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Group permissions by their group label for display
+  const permGroups = permissions.reduce((acc, p) => {
+    (acc[p.group] = acc[p.group] || []).push(p);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 className="oswald" style={{ fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', color: '#00ff66', margin: 0 }}>
+            Role Management
+          </h2>
+          <p style={{ color: '#86efac', fontSize: 12, marginTop: 6, marginBottom: 0 }}>
+            Create roles for sections / groups. Edit privileges for any role. Color-code for at-a-glance grouping in the Users tab.
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setEditing(emptyRole()); setCreating(true); }} disabled={busy}>
+          + New Role
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gap: 10 }}>
+        {roles.map(r => (
+          <div key={r.id} className="card" style={{
+            background: `${r.color}10`, borderLeft: `4px solid ${r.color}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            flexWrap: 'wrap', gap: 12,
+          }}>
+            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{
+                  display: 'inline-block', width: 14, height: 14, borderRadius: 3,
+                  background: r.color, border: '1px solid rgba(0,0,0,0.2)',
+                }} />
+                <span className="oswald" style={{
+                  color: r.color, fontSize: 16, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600,
+                }}>
+                  {r.name}
+                </span>
+                {r.is_system && <Badge color="#a3e635">System</Badge>}
+                {r.is_self_assignable && <Badge color="#22d3ee">Self-assignable</Badge>}
+              </div>
+              {r.description && (
+                <div style={{ color: '#86efac', fontSize: 12, marginTop: 6 }}>{r.description}</div>
+              )}
+              <div style={{ color: '#3f6e4a', fontSize: 11, marginTop: 4, fontFamily: 'monospace' }}>
+                {r.permissions.length === 0 ? 'No permissions' : r.permissions.join(', ')}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn" onClick={() => { setEditing({ ...r }); setCreating(false); }} disabled={busy}>
+                Edit
+              </button>
+              {!r.is_system && (
+                <button
+                  className="btn"
+                  onClick={() => deleteRole(r)}
+                  disabled={busy}
+                  style={{ borderColor: '#ff3344', color: '#ff8a99' }}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <Modal
+          onClose={() => { setEditing(null); setCreating(false); }}
+          title={creating ? 'New role' : `Edit role — ${editing.name}`}
+        >
+          <div style={{ display: 'grid', gap: 12 }}>
+            <Field label="Name">
+              <input
+                className="input"
+                value={editing.name}
+                onChange={e => setEditing({ ...editing, name: e.target.value })}
+                disabled={editing.is_system && !creating}
+                placeholder="e.g., Section A, Mentor, Student"
+              />
+              {editing.is_system && !creating && (
+                <div style={{ color: '#86efac', fontSize: 11, marginTop: 4 }}>System roles cannot be renamed.</div>
+              )}
+            </Field>
+
+            <Field label="Color">
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {DEFAULT_ROLE_COLORS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setEditing({ ...editing, color: c })}
+                    style={{
+                      width: 28, height: 28, borderRadius: 4, background: c, cursor: 'pointer',
+                      border: editing.color === c ? '2px solid #fff' : '1px solid #1d3825',
+                    }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={editing.color}
+                  onChange={e => setEditing({ ...editing, color: e.target.value })}
+                  style={{ width: 36, height: 28, border: '1px solid #1d3825', background: '#0a120c', cursor: 'pointer', borderRadius: 4 }}
+                />
+                <span style={{ color: '#86efac', fontSize: 11, fontFamily: 'monospace' }}>{editing.color}</span>
+              </div>
+            </Field>
+
+            <Field label="Description">
+              <input
+                className="input"
+                value={editing.description || ''}
+                onChange={e => setEditing({ ...editing, description: e.target.value })}
+                placeholder="What this role is for"
+              />
+            </Field>
+
+            <Field label="Permissions">
+              <div style={{
+                border: '1px solid #1d3825', borderRadius: 3, padding: 10, background: '#0a120c',
+                maxHeight: 280, overflowY: 'auto', display: 'grid', gap: 10,
+              }}>
+                {Object.entries(permGroups).map(([group, perms]) => (
+                  <div key={group}>
+                    <div className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+                      {group}
+                    </div>
+                    {perms.map(p => {
+                      const checked = editing.permissions.includes(p.key);
+                      const isSuperPerm = p.key === 'is_superadmin';
+                      const disabled = isSuperPerm && editing.name !== 'superadmin';
+                      return (
+                        <label
+                          key={p.key}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0',
+                            color: disabled ? '#3f6e4a' : '#d8ffe6', fontSize: 12, cursor: disabled ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={disabled}
+                            onChange={e => {
+                              const next = e.target.checked
+                                ? [...editing.permissions, p.key]
+                                : editing.permissions.filter(k => k !== p.key);
+                              setEditing({ ...editing, permissions: next });
+                            }}
+                            style={{ marginTop: 2 }}
+                          />
+                          <span>
+                            <span style={{ color: disabled ? '#3f6e4a' : '#d8ffe6' }}>{p.label}</span>
+                            <span style={{ color: '#3f6e4a', fontSize: 10, fontFamily: 'monospace', marginLeft: 6 }}>{p.key}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </Field>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#d8ffe6' }}>
+              <input
+                type="checkbox"
+                checked={!!editing.is_self_assignable}
+                onChange={e => setEditing({ ...editing, is_self_assignable: e.target.checked })}
+              />
+              Self-assignable (users can pick this role themselves on their Account page)
+            </label>
+
+            <Field label="Sort order">
+              <input
+                className="input"
+                type="number"
+                value={editing.sort_order}
+                onChange={e => setEditing({ ...editing, sort_order: parseInt(e.target.value) || 0 })}
+              />
+            </Field>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button className="btn" onClick={() => { setEditing(null); setCreating(false); }} disabled={busy}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={() => saveRole(editing)} disabled={busy}>
+                {busy ? 'Saving…' : creating ? 'Create role' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

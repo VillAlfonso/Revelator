@@ -14,6 +14,33 @@ import Admin from './pages/Admin';
 import ForensicsGuide from './pages/ForensicsGuide';
 import Logo from './components/Logo';
 
+// ── Theme Context ────────────────────────────────────
+
+const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
+
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(() => localStorage.getItem('fg_theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('fg_theme', theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
 // ── Auth Context ────────────────────────────────────
 
 const AuthContext = createContext(null);
@@ -109,6 +136,7 @@ function BootSplash() {
 
 function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -315,6 +343,19 @@ function Layout({ children }) {
                 );
               })}
               <button
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                style={{
+                  background: 'rgba(0,255,102,0.04)', border: '1px solid #1d3825', color: '#86efac',
+                  width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+                  borderRadius: 2, marginLeft: 8, padding: 0,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                {theme === 'dark' ? '☾' : '☀'}
+              </button>
+              <button
                 onClick={logout}
                 style={{
                   background: 'rgba(255,51,68,0.04)', border: '1px solid rgba(255,51,68,0.4)', color: '#ff7588',
@@ -510,12 +551,28 @@ function Layout({ children }) {
             })}
           </nav>
 
-          {/* Drawer footer — logout */}
+          {/* Drawer footer — theme toggle + logout */}
           <div style={{
             borderTop: '1px solid #112418',
             padding: '10px 12px',
             paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0))',
+            display: 'flex', flexDirection: 'column', gap: 8,
           }}>
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: '100%', minHeight: 48,
+                background: 'rgba(0,255,102,0.04)',
+                border: '1px solid #1d3825', color: '#86efac',
+                padding: '12px', cursor: 'pointer', fontSize: 13,
+                fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                letterSpacing: 2, borderRadius: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{theme === 'dark' ? '☾' : '☀'}</span>
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
             <button
               onClick={() => { setDrawerOpen(false); logout(); }}
               style={{
@@ -561,9 +618,10 @@ export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <BrowserRouter>
-        <AuthProvider>
-          <Layout>
-            <Routes>
+        <ThemeProvider>
+          <AuthProvider>
+            <Layout>
+              <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/" element={<Navigate to="/scan" replace />} />
@@ -574,9 +632,10 @@ export default function App() {
               <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               <Route path="*" element={<Navigate to="/scan" replace />} />
-            </Routes>
-          </Layout>
-        </AuthProvider>
+              </Routes>
+            </Layout>
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>
   );

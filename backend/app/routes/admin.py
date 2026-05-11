@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, hash_password
 from ..config import UPLOAD_DIR
 from ..database import get_db
-from ..models import User, Scan, PromoCode, AdminAuditLog
+from ..models import User, Scan, PromoCode, AdminAuditLog, Role
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -28,13 +28,28 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 
-def _user_row(u: User) -> dict:
+_role_color_cache: dict = {}
+
+
+def _get_role_color(role_name: str, db: Session) -> str:
+    if role_name in _role_color_cache:
+        return _role_color_cache[role_name]
+    role = db.query(Role).filter(Role.name == role_name).first()
+    color = role.color if role else "#6dba85"
+    _role_color_cache[role_name] = color
+    return color
+
+
+def _user_row(u: User, db: Session = None) -> dict:
+    role_name = u.role or "user"
+    color = _get_role_color(role_name, db) if db is not None else "#6dba85"
     return {
         "id": u.id,
         "email": u.email,
         "username": u.username,
         "full_name": u.full_name or "",
-        "role": u.role or "user",
+        "role": role_name,
+        "role_color": color,
         "is_active": bool(u.is_active),
         "is_verified": bool(u.is_verified),
         "scans_this_month": u.scans_this_month,
@@ -74,6 +89,7 @@ def list_users(
     _: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
+    role: Optional[str] = Query(None, description="Filter by role name"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -81,10 +97,13 @@ def list_users(
     if q:
         like = f"%{q}%"
         query = query.filter(or_(User.email.ilike(like), User.username.ilike(like), User.full_name.ilike(like)))
+    if role:
+        query = query.filter(User.role == role)
 
     total = query.count()
     rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-    return {"users": [_user_row(u) for u in rows], "total": total}
+    _role_color_cache.clear()  # refresh in case colors were edited
+    return {"users": [_user_row(u, db) for u in rows], "total": total}
 
 
 @router.get("/users/{user_id}")
@@ -93,7 +112,7 @@ def get_user(user_id: str, _: User = Depends(get_current_admin), db: Session = D
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     scan_count = db.query(func.count(Scan.id)).filter(Scan.user_id == user_id).scalar() or 0
-    data = _user_row(user)
+    data = _user_row(user, db)
     data["total_scans"] = scan_count
     return data
 
@@ -113,11 +132,13 @@ def update_user(
     changes = {}
 
     if body.role is not None:
-        if body.role not in ("user", "admin", "superadmin"):
-            raise HTTPException(status_code=400, detail="Invalid role. Options: user, admin, superadmin")
-        if user.id == admin.id and body.role == "user":
+        # Verify role exists in the roles table (supports dynamic custom roles)
+        role_obj = db.query(Role).filter(Role.name == body.role).first()
+        if not role_obj:
+            raise HTTPException(status_code=400, detail=f"Role '{body.role}' does not exist")
+        if user.id == admin.id and body.role != "superadmin":
             superadmin_count = db.query(User).filter(User.role == "superadmin").count()
-            if superadmin_count <= 1:
+            if superadmin_count <= 1 and user.role == "superadmin":
                 raise HTTPException(status_code=400, detail="Cannot remove the last super admin")
         if user.role != body.role:
             changes["role"] = {"from": user.role, "to": body.role}
@@ -159,7 +180,7 @@ def update_user(
         _log_admin_action(db, admin.id, "update_user", user_id,
                           {"username": user.username, "email": user.email, "changes": changes})
 
-    return _user_row(user)
+    return _user_row(user, db)
 
 
 @router.delete("/users/{user_id}")
@@ -196,9 +217,9 @@ def super_admin_info(super_admin: User = Depends(get_current_super_admin), db: S
     admins = db.query(User).filter(User.role == "admin").all()
     super_admins = db.query(User).filter(User.role == "superadmin").all()
     return {
-        "current_user": _user_row(super_admin),
-        "admins": [_user_row(u) for u in admins],
-        "super_admins": [_user_row(u) for u in super_admins],
+        "current_user": _user_row(super_admin, db),
+        "admins": [_user_row(u, db) for u in admins],
+        "super_admins": [_user_row(u, db) for u in super_admins],
         "admin_count": len(admins),
         "super_admin_count": len(super_admins),
     }
@@ -220,7 +241,7 @@ def promote_to_super_admin(
     user.role = "superadmin"
     db.commit()
     db.refresh(user)
-    return _user_row(user)
+    return _user_row(user, db)
 
 
 # ============================================
@@ -440,7 +461,7 @@ def promote_to_admin(
     _log_admin_action(db, admin.id, "promote_admin", user_id,
                       {"username": user.username, "email": user.email, "from_role": prev_role})
 
-    return {"success": True, "message": f"{user.username} promoted to admin", "user": _user_row(user)}
+    return {"success": True, "message": f"{user.username} promoted to admin", "user": _user_row(user, db)}
 
 
 @router.post("/users/{user_id}/demote-admin")
@@ -464,7 +485,7 @@ def demote_admin(
     _log_admin_action(db, admin.id, "demote_admin", user_id,
                       {"username": user.username, "email": user.email})
 
-    return {"success": True, "message": f"{user.username} demoted to user", "user": _user_row(user)}
+    return {"success": True, "message": f"{user.username} demoted to user", "user": _user_row(user, db)}
 
 
 # ============================================

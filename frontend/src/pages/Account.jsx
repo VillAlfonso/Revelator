@@ -27,6 +27,10 @@ export default function Account() {
   const [editKeyValue, setEditKeyValue] = useState('');
   const [revealedKeys, setRevealedKeys] = useState({});
 
+  const [allRoles, setAllRoles] = useState([]);
+  const [roleMsg, setRoleMsg] = useState('');
+  const [roleError, setRoleError] = useState('');
+
   useEffect(() => {
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
   }, [user]);
@@ -47,6 +51,23 @@ export default function Account() {
   }, []);
 
   useEffect(() => { loadKeys(); }, [loadKeys]);
+
+  useEffect(() => {
+    api.listRoles().then(d => setAllRoles(d.roles || [])).catch(() => {});
+  }, []);
+
+  async function pickRole(roleName) {
+    setRoleError('');
+    setRoleMsg('');
+    try {
+      await api.assignUserRole(user.id, roleName);
+      await refreshUser();
+      setRoleMsg(`Role set to "${roleName}"`);
+      setTimeout(() => setRoleMsg(''), 3000);
+    } catch (err) {
+      setRoleError(err.message);
+    }
+  }
 
   async function saveProfile() {
     setError('');
@@ -192,6 +213,58 @@ export default function Account() {
           </div>
         )}
       </div>
+
+      {/* Role / Section picker (only shows roles flagged is_self_assignable) */}
+      {allRoles.some(r => r.is_self_assignable) && (
+        <div className="card" style={{ marginBottom: 24 }}>
+          <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+            My Role / Section
+          </h2>
+          <p style={{ fontSize: 12, color: '#86efac', marginBottom: 14, lineHeight: 1.6 }}>
+            Pick the role that matches your section or group. Your professor or admin set these up.
+          </p>
+
+          {roleMsg && (
+            <div style={{
+              background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66', padding: 10, borderRadius: 2,
+              marginBottom: 12, fontSize: 12, color: '#86efac', fontFamily: "'JetBrains Mono', monospace",
+            }}>✓ {roleMsg}</div>
+          )}
+          {roleError && (
+            <div style={{
+              background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 10, borderRadius: 2,
+              marginBottom: 12, fontSize: 12, color: '#ff8a99', fontFamily: "'JetBrains Mono', monospace",
+            }}>⚠ {roleError}</div>
+          )}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {allRoles.filter(r => r.is_self_assignable).map(r => {
+              const active = user?.role === r.name;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => pickRole(r.name)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 3, cursor: 'pointer',
+                    background: active ? `${r.color}26` : 'transparent',
+                    border: active ? `2px solid ${r.color}` : `1px solid ${r.color}66`,
+                    color: active ? r.color : '#d8ffe6',
+                    fontFamily: "'Oswald', sans-serif", fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase',
+                    fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  {active && '✓ '}{r.name}
+                </button>
+              );
+            })}
+          </div>
+          {user?.role && !allRoles.find(r => r.name === user.role)?.is_self_assignable && (
+            <div style={{ marginTop: 10, fontSize: 11, color: '#3f6e4a' }}>
+              Current role: <span style={{ color: user?.role_color || '#86efac' }}>{user.role}</span> (assigned by admin)
+            </div>
+          )}
+        </div>
+      )}
 
       {/* API Keys */}
       <div className="card" style={{ marginBottom: 24 }}>

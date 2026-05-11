@@ -80,16 +80,53 @@ async def get_current_user(
     return user
 
 
-def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in ("admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+def get_role_permissions(role_name: str, db: Session) -> list:
+    """Look up the permissions JSON array for a given role name."""
+    import json
+    from .models import Role
+    role = db.query(Role).filter(Role.name == role_name).first()
+    if not role:
+        return []
+    try:
+        return json.loads(role.permissions or "[]")
+    except (ValueError, TypeError):
+        return []
+
+
+def user_has_permission(user: User, perm: str, db: Session) -> bool:
+    """Check whether a user's role grants the given permission. Superadmin shortcut included."""
+    if not user:
+        return False
+    perms = get_role_permissions(user.role, db)
+    return "is_superadmin" in perms or perm in perms
+
+
+def get_current_admin(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Permission-aware admin check: requires view_users OR superadmin."""
+    if user_has_permission(current_user, "view_users", db):
+        return current_user
+    raise HTTPException(status_code=403, detail="Admin access required")
 
 
 def get_current_super_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403, detail="Super admin access required")
     return current_user
+
+
+def require_permission(perm: str):
+    """Dependency factory: returns a dep that ensures the current user has `perm`."""
+    def _dep(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if not user_has_permission(current_user, perm, db):
+            raise HTTPException(status_code=403, detail=f"Permission '{perm}' required")
+        return current_user
+    return _dep
 
 
 def get_user_from_token(token: str, db: Session) -> User:

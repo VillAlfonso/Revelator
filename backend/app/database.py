@@ -129,3 +129,59 @@ def _ensure_columns():
                     FOREIGN KEY(target_user_id) REFERENCES users(id)
                 )
             """))
+
+    _seed_default_roles()
+
+
+def _seed_default_roles():
+    """Seed the three built-in system roles if the roles table is empty.
+    Custom roles created by superadmin are preserved across restarts."""
+    import json
+    from .models import Role
+
+    db = SessionLocal()
+    try:
+        existing_names = {r.name for r in db.query(Role).all()}
+        defaults = [
+            {
+                "name": "user",
+                "color": "#6dba85",
+                "permissions": [],
+                "description": "Standard user — can scan documents.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 30,
+            },
+            {
+                "name": "admin",
+                "color": "#00ff66",
+                "permissions": ["view_users", "view_logs", "gemini_status"],
+                "description": "Administrator — read access to users and logs.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 20,
+            },
+            {
+                "name": "superadmin",
+                "color": "#00ffaa",
+                "permissions": ["is_superadmin"],
+                "description": "Super Administrator — full control over the system.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 10,
+            },
+        ]
+        for d in defaults:
+            if d["name"] not in existing_names:
+                db.add(Role(
+                    name=d["name"],
+                    color=d["color"],
+                    permissions=json.dumps(d["permissions"]),
+                    description=d["description"],
+                    is_system=d["is_system"],
+                    is_self_assignable=d["is_self_assignable"],
+                    sort_order=d["sort_order"],
+                ))
+        db.commit()
+    finally:
+        db.close()
