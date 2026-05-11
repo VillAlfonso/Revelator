@@ -21,16 +21,18 @@ router = APIRouter(prefix="/api/roles", tags=["roles"])
 
 # Canonical permission catalog — what superadmin can grant/revoke on each role.
 AVAILABLE_PERMISSIONS = [
-    {"key": "view_users", "label": "View users list", "group": "Users"},
-    {"key": "edit_users", "label": "Edit user profile fields", "group": "Users"},
-    {"key": "ban_users", "label": "Ban or unban users", "group": "Users"},
-    {"key": "delete_users", "label": "Delete user accounts", "group": "Users"},
-    {"key": "assign_roles", "label": "Assign roles to users", "group": "Roles"},
-    {"key": "manage_roles", "label": "Create / edit / delete roles", "group": "Roles"},
-    {"key": "view_logs", "label": "View audit logs", "group": "System"},
-    {"key": "manage_codes", "label": "Manage promo codes", "group": "System"},
-    {"key": "gemini_status", "label": "View Gemini API status", "group": "System"},
-    {"key": "is_superadmin", "label": "God mode — grants every permission", "group": "Special"},
+    {"key": "view_users", "label": "View users panel", "description": "Access the Users tab to view all user accounts, profiles, and account status information. Allows filtering and searching across user database.", "group": "Users"},
+    {"key": "edit_users", "label": "Edit user accounts", "description": "Modify user profile fields including name, email, username, password, and account status. Changes are logged in audit trails.", "group": "Users"},
+    {"key": "ban_users", "label": "Ban or unban users", "description": "Temporarily disable or re-enable user accounts. Banned users cannot log in, but their data and history remain intact.", "group": "Users"},
+    {"key": "delete_users", "label": "Delete user accounts", "description": "Permanently remove user accounts from the system along with their associated data. This action cannot be undone.", "group": "Users"},
+    {"key": "assign_roles", "label": "Assign roles to users", "description": "Change which role a user belongs to, controlling their access level and permissions. Cannot assign admin or superadmin roles without higher permissions.", "group": "Roles"},
+    {"key": "manage_roles", "label": "Create, edit, and delete roles", "description": "Full role management: create new roles, modify existing role properties, permissions, and descriptions. Can also delete custom roles and reassign users.", "group": "Roles"},
+    {"key": "view_logs", "label": "View audit logs", "description": "Access the audit logs panel to review admin actions, user activity, scan history, and system events for compliance and troubleshooting.", "group": "System"},
+    {"key": "view_admin_panel", "label": "Access admin panel", "description": "General access to the admin dashboard and related administrative features. Required as a base permission for most admin functions.", "group": "Panels"},
+    {"key": "view_users_panel", "label": "View users panel", "description": "Access to the users management interface where administrators can view, filter, and manage user accounts and their properties.", "group": "Panels"},
+    {"key": "view_roles_panel", "label": "View roles panel", "description": "Access to the role management interface where administrators can view existing roles, their permissions, and properties.", "group": "Panels"},
+    {"key": "view_prompt_analytics", "label": "View prompt analytics", "description": "Access detailed analytics about forgery detection prompts, AI model usage, and analysis results across the system.", "group": "System"},
+    {"key": "is_superadmin", "label": "Super Administrator", "description": "Grants complete system access and all permissions without restrictions. Super Administrators can manage all users, roles, and system settings. This permission should be reserved only for trusted administrators.", "group": "Special"},
 ]
 
 

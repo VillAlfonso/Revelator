@@ -901,8 +901,11 @@ function RolesManager({ roles, permissions, onReload, onError }) {
               {r.description && (
                 <div style={{ color: '#86efac', fontSize: 12, marginTop: 6 }}>{r.description}</div>
               )}
-              <div style={{ color: '#3f6e4a', fontSize: 11, marginTop: 4, fontFamily: 'monospace' }}>
-                {r.permissions.length === 0 ? 'No permissions' : r.permissions.join(', ')}
+              <div style={{ color: '#3f6e4a', fontSize: 11, marginTop: 4 }}>
+                {r.permissions.length === 0 ? 'No permissions' : r.permissions.map(pKey => {
+                  const perm = permissionsCatalog.find(p => p.key === pKey);
+                  return perm ? perm.label : pKey;
+                }).join(', ')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -1009,10 +1012,12 @@ function RolesManager({ roles, permissions, onReload, onError }) {
                             }}
                             style={{ marginTop: 2 }}
                           />
-                          <span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ color: disabled ? '#3f6e4a' : '#d8ffe6' }}>{p.label}</span>
-                            <span style={{ color: '#3f6e4a', fontSize: 10, fontFamily: 'monospace', marginLeft: 6 }}>{p.key}</span>
-                          </span>
+                            {p.description && (
+                              <span style={{ color: '#5fa873', fontSize: 11, lineHeight: '1.3' }}>{p.description}</span>
+                            )}
+                          </div>
                         </label>
                       );
                     })}

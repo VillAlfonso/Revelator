@@ -155,8 +155,8 @@ def _seed_default_roles():
             {
                 "name": "admin",
                 "color": "#00ff66",
-                "permissions": ["view_users", "view_logs", "gemini_status"],
-                "description": "Administrator — read access to users and logs.",
+                "permissions": ["view_admin_panel", "view_users_panel", "view_users", "view_logs", "view_prompt_analytics"],
+                "description": "Administrator — access to admin panels, user management, logs, and analytics.",
                 "is_system": True,
                 "is_self_assignable": False,
                 "sort_order": 20,
