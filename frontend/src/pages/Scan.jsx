@@ -68,16 +68,14 @@ export default function Scan() {
     const f = e.target.files[0];
     if (!f) return;
     setFile(f);
-    setResult(null);
-    setError('');
+    clearScan();
     const reader = new FileReader();
     reader.onload = ev => setPreview(ev.target.result);
     reader.readAsDataURL(f);
   }
 
   async function handleTakePhoto() {
-    setError('');
-    setResult(null);
+    clearScan();
     try {
       const photo = await Camera.getPhoto({
         quality: 90, allowEditing: false,
@@ -89,7 +87,8 @@ export default function Scan() {
       setFile(f);
       setPreview(photo.webPath);
     } catch (err) {
-      if (err?.message && !/cancel/i.test(err.message)) setError(err.message);
+      // ignore — camera cancel or transient error; user can retry
+      if (err?.message && !/cancel/i.test(err.message)) console.error('Camera error:', err);
     }
   }
 
