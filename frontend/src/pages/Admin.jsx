@@ -903,7 +903,9 @@ function RolesManager({ roles, permissions, onReload, onError }) {
               )}
               <div style={{ color: '#3f6e4a', fontSize: 11, marginTop: 4 }}>
                 {r.permissions.length === 0 ? 'No permissions' : r.permissions.map(pKey => {
-                  const perm = permissionsCatalog.find(p => p.key === pKey);
+                  const perm = permissionsCatalog && permissionsCatalog.length > 0
+                    ? permissionsCatalog.find(p => p.key === pKey)
+                    : null;
                   return perm ? perm.label : pKey;
                 }).join(', ')}
               </div>
