@@ -636,104 +636,91 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 }
 
 /* ── Universal color remapping for inline styles ─────────────────
-   Many components hard-code bright greens / blacks inline. These
-   rules use attribute selectors to catch the common patterns. */
+   Browsers normalize React inline `style` values from hex to rgb()
+   form when set via element.style.*. We match the rgb() representations
+   so the selectors actually hit at runtime. */
 
-[data-theme="light"] [style*="color: #00ff66"],
-[data-theme="light"] [style*="color:#00ff66"],
-[data-theme="light"] [style*="color: rgb(0, 255, 102)"] { color: #00451c !important; }
-[data-theme="light"] [style*="color: #00cc44"],
-[data-theme="light"] [style*="color:#00cc44"] { color: #00451c !important; }
-[data-theme="light"] [style*="color: #86efac"],
-[data-theme="light"] [style*="color:#86efac"] { color: #1a3a24 !important; }
-[data-theme="light"] [style*="color: #6dba85"],
-[data-theme="light"] [style*="color:#6dba85"] { color: #102a18 !important; }
-[data-theme="light"] [style*="color: #3f6e4a"],
-[data-theme="light"] [style*="color:#3f6e4a"] { color: #3a5040 !important; }
-[data-theme="light"] [style*="color: #d8ffe6"],
-[data-theme="light"] [style*="color:#d8ffe6"] { color: #061a0c !important; }
-[data-theme="light"] [style*="color: #b6f5cc"],
-[data-theme="light"] [style*="color:#b6f5cc"] { color: #061a0c !important; }
-[data-theme="light"] [style*="color: #22ff88"] { color: #006a2e !important; }
-[data-theme="light"] [style*="color: #00ffaa"] { color: #005a3f !important; }
-[data-theme="light"] [style*="color: #a3e635"] { color: #3a5a14 !important; }
-[data-theme="light"] [style*="color: #c4b5fd"] { color: #3d2b85 !important; }
-[data-theme="light"] [style*="color: #a78bfa"] { color: #3d2b85 !important; }
-[data-theme="light"] [style*="color: #737373"] { color: #4a4a4a !important; }
-[data-theme="light"] [style*="color: #e5e5e5"] { color: #061a0c !important; }
-[data-theme="light"] [style*="color: #ffffff"] { color: #061a0c !important; }
-[data-theme="light"] [style*="color: #1d3825"] { color: #102a18 !important; }
-[data-theme="light"] [style*="color: #2a4a30"] { color: #102a18 !important; }
-[data-theme="light"] [style*="color: #355042"] { color: #3a5040 !important; }
-[data-theme="light"] [style*="color: #00ff99"] { color: #006a2e !important; }
-[data-theme="light"] [style*="color: #00cc88"] { color: #00553a !important; }
-[data-theme="light"] [style*="color: #ff8a99"] { color: #a4151f !important; }
-[data-theme="light"] [style*="color: #ff3344"] { color: #a4151f !important; }
-[data-theme="light"] [style*="color: #ff7588"] { color: #a4151f !important; }
-[data-theme="light"] [style*="color: #ffa040"] { color: #a45616 !important; }
-[data-theme="light"] [style*="color: #ffa500"] { color: #a45616 !important; }
-[data-theme="light"] [style*="color: #ffc888"] { color: #a45616 !important; }
-[data-theme="light"] [style*="color: #ff9500"] { color: #a45616 !important; }
+/* Greens — text */
+[data-theme="light"] [style*="rgb(0, 255, 102)"] { color: #00451c !important; }
+[data-theme="light"] [style*="rgb(0, 204, 68)"]  { color: #00451c !important; }
+[data-theme="light"] [style*="rgb(34, 255, 136)"] { color: #006a2e !important; }
+[data-theme="light"] [style*="rgb(0, 255, 170)"] { color: #005a3f !important; }
+[data-theme="light"] [style*="rgb(134, 239, 172)"] { color: #1a3a24 !important; }
+[data-theme="light"] [style*="rgb(109, 186, 133)"] { color: #102a18 !important; }
+[data-theme="light"] [style*="rgb(63, 110, 74)"]  { color: #3a5040 !important; }
+[data-theme="light"] [style*="rgb(53, 80, 66)"]   { color: #3a5040 !important; }
+[data-theme="light"] [style*="rgb(216, 255, 230)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(182, 245, 204)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(163, 230, 53)"]  { color: #3a5a14 !important; }
+[data-theme="light"] [style*="rgb(0, 255, 153)"]   { color: #006a2e !important; }
+[data-theme="light"] [style*="rgb(0, 204, 136)"]   { color: #00553a !important; }
 
-/* Dark background patterns — flip to white/light */
-[data-theme="light"] [style*="background: #0a120c"],
-[data-theme="light"] [style*="background:#0a120c"],
-[data-theme="light"] [style*="background: #0a0f0c"],
-[data-theme="light"] [style*="background:#0a0f0c"],
-[data-theme="light"] [style*="background: #050a07"],
-[data-theme="light"] [style*="background:#050a07"],
-[data-theme="light"] [style*="background: #020b05"],
-[data-theme="light"] [style*="background:#020b05"],
-[data-theme="light"] [style*="background: #030e07"],
-[data-theme="light"] [style*="background:#030e07"],
-[data-theme="light"] [style*="background: #0a1605"],
-[data-theme="light"] [style*="background:#0a1605"],
-[data-theme="light"] [style*="background: #0d1810"],
-[data-theme="light"] [style*="background:#0d1810"],
-[data-theme="light"] [style*="background: #06120a"],
-[data-theme="light"] [style*="background:#06120a"],
-[data-theme="light"] [style*="background: #02080a"],
-[data-theme="light"] [style*="background:#02080a"],
-[data-theme="light"] [style*="background: #000"],
-[data-theme="light"] [style*="background:#000"],
-[data-theme="light"] [style*="background: rgba(0,0,0"],
-[data-theme="light"] [style*="background: rgba(0, 0, 0"],
-[data-theme="light"] [style*="background: rgba(0,10,5"],
-[data-theme="light"] [style*="background: rgba(8,18,12"] {
-  background: #ffffff !important;
+/* Greys / whites used as text */
+[data-theme="light"] [style*="rgb(115, 115, 115)"] { color: #4a4a4a !important; }
+[data-theme="light"] [style*="rgb(229, 229, 229)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(255, 255, 255)"] { color: #061a0c !important; }
+
+/* Reds / oranges / purples */
+[data-theme="light"] [style*="rgb(196, 181, 253)"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="rgb(167, 139, 250)"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="rgb(255, 138, 153)"] { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 51, 68)"]   { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 117, 136)"] { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 160, 64)"]  { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 165, 0)"]   { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 200, 136)"] { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 149, 0)"]   { color: #a45616 !important; }
+
+/* Dark borders */
+[data-theme="light"] [style*="rgb(29, 56, 37)"]   { border-color: #c8d8cd !important; color: #102a18 !important; }
+[data-theme="light"] [style*="rgb(17, 36, 24)"]   { border-color: #c8d8cd !important; }
+[data-theme="light"] [style*="rgb(26, 46, 31)"]   { border-color: #c8d8cd !important; }
+[data-theme="light"] [style*="rgb(42, 74, 48)"]   { color: #102a18 !important; }
+
+/* ── Dark backgrounds — flip them all to white ───────────────────
+   These cover every dark surface used inline across the app. */
+[data-theme="light"] [style*="rgb(0, 0, 0)"],
+[data-theme="light"] [style*="rgb(10, 18, 12)"],
+[data-theme="light"] [style*="rgb(10, 15, 12)"],
+[data-theme="light"] [style*="rgb(5, 10, 7)"],
+[data-theme="light"] [style*="rgb(2, 11, 5)"],
+[data-theme="light"] [style*="rgb(3, 14, 7)"],
+[data-theme="light"] [style*="rgb(10, 22, 5)"],
+[data-theme="light"] [style*="rgb(13, 24, 16)"],
+[data-theme="light"] [style*="rgb(6, 18, 10)"],
+[data-theme="light"] [style*="rgb(2, 8, 10)"],
+[data-theme="light"] [style*="rgb(8, 18, 12)"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+/* Override background on elements with rgba(0,0,0,*) tints — match the comma-space rgba form */
+[data-theme="light"] [style*="rgba(0, 0, 0,"] {
+  background-color: #ffffff !important;
+}
+
+/* Green-tinted backgrounds → soften */
+[data-theme="light"] [style*="rgba(0, 255, 102"] { background-color: rgba(0, 122, 54, 0.08) !important; }
+[data-theme="light"] [style*="rgba(0, 255, 170"] { background-color: rgba(0, 122, 54, 0.08) !important; }
+
+/* Structural fallback for <details>/<summary> (Account tutorial dropdown) */
+[data-theme="light"] details,
+[data-theme="light"] details > summary {
+  background-color: #ffffff !important;
+  color: #061a0c !important;
   border-color: #c8d8cd !important;
 }
 
-/* Light tint overlays — make them subtle in light mode */
-[data-theme="light"] [style*="background: rgba(0,255,102"],
-[data-theme="light"] [style*="background: rgba(0, 255, 102"],
-[data-theme="light"] [style*="background:rgba(0,255,102"],
-[data-theme="light"] [style*="background: rgba(0,255,170"],
-[data-theme="light"] [style*="background:rgba(0,255,170"] {
-  background: rgba(0, 122, 54, 0.08) !important;
+/* Native <select> and <option> elements */
+[data-theme="light"] select,
+[data-theme="light"] option {
+  background-color: #ffffff !important;
+  color: #061a0c !important;
 }
 
-/* Bordered card / chip patterns */
-[data-theme="light"] [style*="border: 1px solid #1d3825"],
-[data-theme="light"] [style*="border:1px solid #1d3825"],
-[data-theme="light"] [style*="border: 1px solid #112418"],
-[data-theme="light"] [style*="border:1px solid #112418"],
-[data-theme="light"] [style*="border: 1px solid #1a2e1f"],
-[data-theme="light"] [style*="border:1px solid #1a2e1f"] {
-  border-color: #c8d8cd !important;
-}
-
-/* Linear-gradient dark backgrounds (header, drawer, hero cards) */
-[data-theme="light"] [style*="linear-gradient(180deg, rgba(8,18,12"],
-[data-theme="light"] [style*="linear-gradient(180deg, #06120a"],
-[data-theme="light"] [style*="linear-gradient(135deg, rgba(0,255,102"] {
-  background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
-}
-
-/* Strip glow box-shadows on common patterns */
+/* Strip text-shadow + heavy glows */
 [data-theme="light"] [style*="text-shadow"] { text-shadow: none !important; }
-[data-theme="light"] [style*="box-shadow: 0 0"] { box-shadow: 0 1px 2px rgba(0,60,30,0.08) !important; }
-[data-theme="light"] [style*="boxShadow"] { box-shadow: 0 1px 2px rgba(0,60,30,0.08) !important; }
+[data-theme="light"] [style*="textShadow"] { text-shadow: none !important; }
 
 /* Header — light variant */
 [data-theme="light"] header {
