@@ -493,26 +493,26 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   --bg-card: #ffffff;
   --bg-elevated: #ffffff;
 
-  --border-dark: #d4e2d8;
-  --border-light: #b5d6c0;
-  --border-glow: #86bf9a;
+  --border-dark: #c8d8cd;
+  --border-light: #a5c2af;
+  --border-glow: #6da884;
 
-  --green-neon: #007a36;
-  --green-bright: #009944;
-  --green-matrix: #006a2e;
-  --green-dim: #00592a;
-  --green-cyan: #007a55;
-  --green-soft: #2d7048;
-  --green-text: #102a18;
+  --green-neon: #00541f;
+  --green-bright: #007a36;
+  --green-matrix: #004a1c;
+  --green-dim: #003d17;
+  --green-cyan: #00553a;
+  --green-soft: #1a3a24;
+  --green-text: #061a0c;
 
-  --text-primary: #0f1f15;
-  --text-secondary: #2d4a34;
-  --text-muted: #5a7064;
-  --text-dim: #8aa590;
+  --text-primary: #061a0c;
+  --text-secondary: #1a3a24;
+  --text-muted: #3a5040;
+  --text-dim: #5a7064;
 
-  --red-alert: #c81e2e;
-  --orange-warn: #c8741f;
-  --purple-ai: #6d4cb0;
+  --red-alert: #a4151f;
+  --orange-warn: #a45616;
+  --purple-ai: #4d3290;
 }
 
 [data-theme="light"] body {
@@ -639,41 +639,101 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
    Many components hard-code bright greens / blacks inline. These
    rules use attribute selectors to catch the common patterns. */
 
-[data-theme="light"] [style*="#00ff66"] { color: inherit; }
 [data-theme="light"] [style*="color: #00ff66"],
 [data-theme="light"] [style*="color:#00ff66"],
-[data-theme="light"] [style*="color: rgb(0, 255, 102)"] { color: #007a36 !important; }
+[data-theme="light"] [style*="color: rgb(0, 255, 102)"] { color: #00451c !important; }
 [data-theme="light"] [style*="color: #00cc44"],
-[data-theme="light"] [style*="color:#00cc44"] { color: #007a36 !important; }
+[data-theme="light"] [style*="color:#00cc44"] { color: #00451c !important; }
 [data-theme="light"] [style*="color: #86efac"],
-[data-theme="light"] [style*="color:#86efac"] { color: #2d7048 !important; }
+[data-theme="light"] [style*="color:#86efac"] { color: #1a3a24 !important; }
 [data-theme="light"] [style*="color: #6dba85"],
-[data-theme="light"] [style*="color:#6dba85"] { color: #2d4a34 !important; }
+[data-theme="light"] [style*="color:#6dba85"] { color: #102a18 !important; }
 [data-theme="light"] [style*="color: #3f6e4a"],
-[data-theme="light"] [style*="color:#3f6e4a"] { color: #5a7064 !important; }
+[data-theme="light"] [style*="color:#3f6e4a"] { color: #3a5040 !important; }
 [data-theme="light"] [style*="color: #d8ffe6"],
-[data-theme="light"] [style*="color:#d8ffe6"] { color: #0f1f15 !important; }
+[data-theme="light"] [style*="color:#d8ffe6"] { color: #061a0c !important; }
 [data-theme="light"] [style*="color: #b6f5cc"],
-[data-theme="light"] [style*="color:#b6f5cc"] { color: #0f1f15 !important; }
-[data-theme="light"] [style*="color: #22ff88"] { color: #009944 !important; }
-[data-theme="light"] [style*="color: #00ffaa"] { color: #007a55 !important; }
-[data-theme="light"] [style*="color: #a3e635"] { color: #5a7a14 !important; }
-[data-theme="light"] [style*="color: #737373"] { color: #5a7064 !important; }
-[data-theme="light"] [style*="color: #e5e5e5"] { color: #0f1f15 !important; }
-[data-theme="light"] [style*="color: #ffffff"] { color: #0f1f15 !important; }
-[data-theme="light"] [style*="color: #fff"]:not([style*="color: #ffff"]):not([style*="color: #fff "]) { color: #0f1f15 !important; }
+[data-theme="light"] [style*="color:#b6f5cc"] { color: #061a0c !important; }
+[data-theme="light"] [style*="color: #22ff88"] { color: #006a2e !important; }
+[data-theme="light"] [style*="color: #00ffaa"] { color: #005a3f !important; }
+[data-theme="light"] [style*="color: #a3e635"] { color: #3a5a14 !important; }
+[data-theme="light"] [style*="color: #c4b5fd"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="color: #a78bfa"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="color: #737373"] { color: #4a4a4a !important; }
+[data-theme="light"] [style*="color: #e5e5e5"] { color: #061a0c !important; }
+[data-theme="light"] [style*="color: #ffffff"] { color: #061a0c !important; }
+[data-theme="light"] [style*="color: #1d3825"] { color: #102a18 !important; }
+[data-theme="light"] [style*="color: #2a4a30"] { color: #102a18 !important; }
+[data-theme="light"] [style*="color: #355042"] { color: #3a5040 !important; }
+[data-theme="light"] [style*="color: #00ff99"] { color: #006a2e !important; }
+[data-theme="light"] [style*="color: #00cc88"] { color: #00553a !important; }
+[data-theme="light"] [style*="color: #ff8a99"] { color: #a4151f !important; }
+[data-theme="light"] [style*="color: #ff3344"] { color: #a4151f !important; }
+[data-theme="light"] [style*="color: #ff7588"] { color: #a4151f !important; }
+[data-theme="light"] [style*="color: #ffa040"] { color: #a45616 !important; }
+[data-theme="light"] [style*="color: #ffa500"] { color: #a45616 !important; }
+[data-theme="light"] [style*="color: #ffc888"] { color: #a45616 !important; }
+[data-theme="light"] [style*="color: #ff9500"] { color: #a45616 !important; }
 
-/* Dark background patterns that need flipping */
+/* Dark background patterns — flip to white/light */
 [data-theme="light"] [style*="background: #0a120c"],
 [data-theme="light"] [style*="background:#0a120c"],
 [data-theme="light"] [style*="background: #0a0f0c"],
 [data-theme="light"] [style*="background:#0a0f0c"],
 [data-theme="light"] [style*="background: #050a07"],
+[data-theme="light"] [style*="background:#050a07"],
+[data-theme="light"] [style*="background: #020b05"],
+[data-theme="light"] [style*="background:#020b05"],
+[data-theme="light"] [style*="background: #030e07"],
+[data-theme="light"] [style*="background:#030e07"],
+[data-theme="light"] [style*="background: #0a1605"],
+[data-theme="light"] [style*="background:#0a1605"],
+[data-theme="light"] [style*="background: #0d1810"],
+[data-theme="light"] [style*="background:#0d1810"],
+[data-theme="light"] [style*="background: #06120a"],
+[data-theme="light"] [style*="background:#06120a"],
+[data-theme="light"] [style*="background: #02080a"],
+[data-theme="light"] [style*="background:#02080a"],
 [data-theme="light"] [style*="background: #000"],
 [data-theme="light"] [style*="background:#000"],
-[data-theme="light"] [style*="background: rgba(0,0,0"] {
+[data-theme="light"] [style*="background: rgba(0,0,0"],
+[data-theme="light"] [style*="background: rgba(0, 0, 0"],
+[data-theme="light"] [style*="background: rgba(0,10,5"],
+[data-theme="light"] [style*="background: rgba(8,18,12"] {
   background: #ffffff !important;
+  border-color: #c8d8cd !important;
 }
+
+/* Light tint overlays — make them subtle in light mode */
+[data-theme="light"] [style*="background: rgba(0,255,102"],
+[data-theme="light"] [style*="background: rgba(0, 255, 102"],
+[data-theme="light"] [style*="background:rgba(0,255,102"],
+[data-theme="light"] [style*="background: rgba(0,255,170"],
+[data-theme="light"] [style*="background:rgba(0,255,170"] {
+  background: rgba(0, 122, 54, 0.08) !important;
+}
+
+/* Bordered card / chip patterns */
+[data-theme="light"] [style*="border: 1px solid #1d3825"],
+[data-theme="light"] [style*="border:1px solid #1d3825"],
+[data-theme="light"] [style*="border: 1px solid #112418"],
+[data-theme="light"] [style*="border:1px solid #112418"],
+[data-theme="light"] [style*="border: 1px solid #1a2e1f"],
+[data-theme="light"] [style*="border:1px solid #1a2e1f"] {
+  border-color: #c8d8cd !important;
+}
+
+/* Linear-gradient dark backgrounds (header, drawer, hero cards) */
+[data-theme="light"] [style*="linear-gradient(180deg, rgba(8,18,12"],
+[data-theme="light"] [style*="linear-gradient(180deg, #06120a"],
+[data-theme="light"] [style*="linear-gradient(135deg, rgba(0,255,102"] {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
+}
+
+/* Strip glow box-shadows on common patterns */
+[data-theme="light"] [style*="text-shadow"] { text-shadow: none !important; }
+[data-theme="light"] [style*="box-shadow: 0 0"] { box-shadow: 0 1px 2px rgba(0,60,30,0.08) !important; }
+[data-theme="light"] [style*="boxShadow"] { box-shadow: 0 1px 2px rgba(0,60,30,0.08) !important; }
 
 /* Header — light variant */
 [data-theme="light"] header {
