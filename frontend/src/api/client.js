@@ -192,6 +192,13 @@ export const api = {
     return request(`/history/${scanId}`);
   },
 
+  updateScanNotes(scanId, notes) {
+    return request(`/history/${encodeURIComponent(scanId)}/notes`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    });
+  },
+
   getScanImageUrl(scanId) {
     const token = getToken();
     return `${API_BASE}/history/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Sparkles, ImageOff } from 'lucide-react';
+import { FileText, Sparkles, ImageOff, StickyNote, Check, AlertTriangle, Pencil } from 'lucide-react';
 import { api } from '../api/client';
 import { CATEGORY_BY_KEY } from '../categories';
 import { useTheme } from '../App';
@@ -136,6 +136,14 @@ function HistoryCard({ scan, onClick }) {
             {cat ? label : '—'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {scan.has_notes && (
+              <span title="This scan has notes" style={{
+                color: isLight ? '#003d17' : '#00ff66',
+                display: 'inline-flex', alignItems: 'center',
+              }}>
+                <StickyNote size={13} strokeWidth={2.2} />
+              </span>
+            )}
             {scan.has_llm_explanation && (
               <span className="oswald" style={{
                 fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700,
@@ -364,8 +372,161 @@ function ScanDetailView({ detail, onBack }) {
               ⚠ {detail.training_warning}
             </div>
           )}
+
+          <NotesSection scanId={detail.scan_id} initialNotes={detail.notes || ''} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function NotesSection({ scanId, initialNotes }) {
+  const { theme } = useTheme();
+  const [notes, setNotes] = useState(initialNotes);
+  const [editing, setEditing] = useState(!initialNotes);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null); // 'saved' | 'error' | null
+  const [errorMsg, setErrorMsg] = useState('');
+  const isLight = theme === 'light';
+
+  async function handleSave() {
+    setSaving(true);
+    setStatus(null);
+    setErrorMsg('');
+    try {
+      const res = await api.updateScanNotes(scanId, notes);
+      setNotes(res.notes || '');
+      setStatus('saved');
+      setEditing(false);
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(err.message || 'Could not save notes');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setNotes(initialNotes);
+    setEditing(false);
+    setStatus(null);
+  }
+
+  const hasNotes = !!(notes && notes.trim());
+
+  return (
+    <div style={{
+      marginTop: 6,
+      padding: 16,
+      background: isLight ? '#f7faf8' : 'rgba(0,255,102,0.03)',
+      border: `1px solid ${isLight ? '#d0dcd4' : '#1a2e1e'}`,
+      borderRadius: 6,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <StickyNote size={16} strokeWidth={2} style={{ color: isLight ? '#003d17' : '#00ff66' }} />
+        <h3 className="oswald" style={{
+          fontSize: 13, color: isLight ? '#0a1c11' : '#d8ffe6',
+          letterSpacing: 2, textTransform: 'uppercase', margin: 0, fontWeight: 700,
+        }}>
+          Your Notes
+        </h3>
+        {!editing && hasNotes && (
+          <button
+            onClick={() => setEditing(true)}
+            style={{
+              marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer',
+              color: isLight ? '#003d17' : '#00ff66',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 11, fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1,
+              padding: '4px 8px', borderRadius: 3,
+            }}
+          >
+            <Pencil size={11} strokeWidth={2.2} />
+            EDIT
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <textarea
+            className="input"
+            value={notes}
+            onChange={e => { setNotes(e.target.value); if (status) setStatus(null); }}
+            placeholder="Add a note about this scan — context, follow-ups, what to verify next…"
+            rows={4}
+            maxLength={5000}
+            style={{ resize: 'vertical', minHeight: 90, fontFamily: "'Source Sans Pro', sans-serif" }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{ fontSize: 12, padding: '8px 18px', minHeight: 'unset' }}
+            >
+              {saving ? '◌ Saving…' : 'Save Note'}
+            </button>
+            {hasNotes && (
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                style={{
+                  background: 'transparent', border: `1px solid ${isLight ? '#a5c2af' : '#1d3825'}`,
+                  color: isLight ? '#3a5040' : '#86efac',
+                  padding: '8px 14px', borderRadius: 2, cursor: 'pointer',
+                  fontSize: 12, fontFamily: "'Oswald', sans-serif",
+                  textTransform: 'uppercase', letterSpacing: 1.5,
+                }}
+              >
+                Cancel
+              </button>
+            )}
+            {status === 'error' && (
+              <span className="mono" style={{
+                fontSize: 11, color: '#ff8a99', letterSpacing: 1,
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}>
+                <AlertTriangle size={12} strokeWidth={2.5} />
+                {errorMsg}
+              </span>
+            )}
+            <span className="mono" style={{
+              fontSize: 10, color: isLight ? '#3a5040' : '#3f6e4a',
+              letterSpacing: 1, marginLeft: 'auto',
+            }}>
+              {notes.length}/5000
+            </span>
+          </div>
+        </>
+      ) : hasNotes ? (
+        <>
+          <p style={{
+            fontSize: 14, lineHeight: 1.7,
+            color: isLight ? '#0a1c11' : '#d8ffe6',
+            margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          }}>
+            {notes}
+          </p>
+          {status === 'saved' && (
+            <span className="mono" style={{
+              fontSize: 11, color: isLight ? '#003d17' : '#00ff66',
+              letterSpacing: 1, marginTop: 10,
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              <Check size={12} strokeWidth={2.5} />
+              Saved
+            </span>
+          )}
+        </>
+      ) : (
+        <p style={{
+          fontSize: 13, color: isLight ? '#3a5040' : '#6dba85',
+          lineHeight: 1.6, margin: 0, fontStyle: 'italic',
+        }}>
+          No notes yet — click above to add one.
+        </p>
+      )}
     </div>
   );
 }

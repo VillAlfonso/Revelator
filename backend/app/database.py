@@ -107,6 +107,8 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN physical_clues VARCHAR"))
             if "is_forged_belief" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN is_forged_belief VARCHAR"))
+            if "notes" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN notes TEXT"))
 
         # Create user_api_keys table for multi-key management
         if "user_api_keys" not in table_names:

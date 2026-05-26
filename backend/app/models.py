@@ -108,6 +108,7 @@ class Scan(Base):
     lighting = Column(String, nullable=True)
     physical_clues = Column(String, nullable=True)
     is_forged_belief = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)  # user-authored notes attached to this scan
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

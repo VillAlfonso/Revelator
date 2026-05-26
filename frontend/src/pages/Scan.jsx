@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { StickyNote, Check, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth, useScan } from '../App';
 import { MagnifierIcon } from '../components/ForensicMotifs';
@@ -548,6 +549,10 @@ export default function Scan() {
           />
         )}
 
+        {result && result.scan_id && (
+          <ScanNotes scanId={result.scan_id} />
+        )}
+
         {result && (
           <button className="btn" onClick={resetScan} style={{ fontSize: 13 }}>
             ← New Scan
@@ -885,6 +890,90 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ScanNotes({ scanId }) {
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null); // 'saved' | 'error' | null
+  const [errorMsg, setErrorMsg] = useState('');
+
+  async function handleSave() {
+    setSaving(true);
+    setStatus(null);
+    setErrorMsg('');
+    try {
+      await api.updateScanNotes(scanId, notes);
+      setStatus('saved');
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(err.message || 'Could not save notes');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 16, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <StickyNote size={16} strokeWidth={2} style={{ color: '#00ff66' }} />
+        <h3 className="oswald" style={{
+          fontSize: 14, color: '#d8ffe6', letterSpacing: 2,
+          textTransform: 'uppercase', margin: 0, fontWeight: 600,
+        }}>
+          Your Notes
+        </h3>
+        <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1, marginLeft: 'auto' }}>
+          OPTIONAL · SAVED TO THIS SCAN
+        </span>
+      </div>
+      <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: '0 0 12px' }}>
+        Anything you want to remember about this document — context, follow-ups, what to verify next. Notes appear in your scan history.
+      </p>
+      <textarea
+        className="input"
+        value={notes}
+        onChange={e => { setNotes(e.target.value); if (status) setStatus(null); }}
+        placeholder="e.g. Comparison sample for the Cruz signature case — verify with original on file."
+        rows={4}
+        maxLength={5000}
+        style={{ resize: 'vertical', minHeight: 90, fontFamily: "'Source Sans Pro', sans-serif" }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={saving || !notes.trim()}
+          style={{ fontSize: 12, padding: '8px 18px', minHeight: 'unset' }}
+        >
+          {saving ? '◌ Saving…' : status === 'saved' ? '✓ Saved' : 'Save Note'}
+        </button>
+        {status === 'saved' && (
+          <span className="mono" style={{
+            fontSize: 11, color: '#00ff66', letterSpacing: 1,
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            <Check size={12} strokeWidth={2.5} />
+            Saved to history
+          </span>
+        )}
+        {status === 'error' && (
+          <span className="mono" style={{
+            fontSize: 11, color: '#ff8a99', letterSpacing: 1,
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            <AlertTriangle size={12} strokeWidth={2.5} />
+            {errorMsg}
+          </span>
+        )}
+        <span className="mono" style={{
+          fontSize: 10, color: '#3f6e4a', letterSpacing: 1, marginLeft: 'auto',
+        }}>
+          {notes.length}/5000
+        </span>
       </div>
     </div>
   );

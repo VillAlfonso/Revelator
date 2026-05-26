@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from PIL import Image
 
@@ -580,6 +581,7 @@ def get_history(
                 "detected_category": s.detected_category,
                 "category_confidence": s.category_confidence,
                 "document_type": s.document_type,
+                "has_notes": bool(s.notes and s.notes.strip()),
             }
             for s in scans
         ],
@@ -632,8 +634,33 @@ def get_scan_detail(
         "lighting": scan.lighting,
         "physical_clues": scan.physical_clues,
         "is_forged_belief": scan.is_forged_belief,
+        "notes": scan.notes or "",
         "created_at": scan.created_at.isoformat() if scan.created_at else "",
     }
+
+
+class NotesUpdate(BaseModel):
+    notes: str
+
+
+@router.put("/history/{scan_id}/notes")
+def update_scan_notes(
+    scan_id: str,
+    body: NotesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save user-authored notes on a scan."""
+    scan = db.query(Scan).filter(Scan.scan_id == scan_id, Scan.user_id == current_user.id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    # Cap at a reasonable size so the column doesn't grow without bound.
+    notes = (body.notes or "").strip()
+    if len(notes) > 5000:
+        raise HTTPException(status_code=400, detail="Notes are too long (max 5000 characters)")
+    scan.notes = notes or None
+    db.commit()
+    return {"success": True, "notes": scan.notes or ""}
 
 
 @router.get("/history/{scan_id}/image")
