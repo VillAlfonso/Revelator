@@ -144,6 +144,40 @@ def _ensure_columns():
         if "promo_codes" in table_names:
             conn.execute(text("DROP TABLE promo_codes"))
 
+        # Classrooms (Google-Classroom-style organization). Tables are also
+        # created by Base.metadata.create_all on first run; this block keeps
+        # the migration explicit and idempotent for older SQLite databases.
+        if "classrooms" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE classrooms (
+                    id VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    description TEXT DEFAULT '',
+                    join_code VARCHAR NOT NULL UNIQUE,
+                    owner_id VARCHAR NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(owner_id) REFERENCES users(id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX idx_classrooms_join_code ON classrooms(join_code)"))
+
+        if "classroom_members" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE classroom_members (
+                    id VARCHAR PRIMARY KEY,
+                    classroom_id VARCHAR NOT NULL,
+                    user_id VARCHAR NOT NULL,
+                    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(classroom_id) REFERENCES classrooms(id),
+                    FOREIGN KEY(user_id) REFERENCES users(id),
+                    UNIQUE(classroom_id, user_id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX idx_classroom_members_classroom ON classroom_members(classroom_id)"))
+            conn.execute(text("CREATE INDEX idx_classroom_members_user ON classroom_members(user_id)"))
+
     _seed_default_roles()
 
 

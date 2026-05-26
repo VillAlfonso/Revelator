@@ -1,4 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import {
+  Plus, RefreshCw, Copy, Check, Trash2, ChevronDown, ChevronRight,
+  GraduationCap, Users, Pencil, AlertTriangle,
+} from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../App';
 import PromptDashboard from '../components/PromptDashboard';
@@ -10,7 +14,7 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 export default function Admin() {
   const { user: me } = useAuth();
   const isSuperAdmin = me?.role === "superadmin";
-  const [tab, setTab] = useState('users'); // 'users', 'roles', 'logs', 'prompt'
+  const [tab, setTab] = useState('users'); // 'users', 'sections', 'roles', 'logs', 'prompt'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -197,6 +201,21 @@ export default function Admin() {
         >
           Users
         </button>
+        <button
+          className="mono"
+          onClick={() => setTab('sections')}
+          style={{
+            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+            color: tab === 'sections' ? '#00ff66' : '#86efac',
+            textTransform: 'uppercase', letterSpacing: 1,
+            borderBottom: tab === 'sections' ? '2px solid #00ff66' : 'none',
+            marginBottom: '-12px',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          <GraduationCap size={14} strokeWidth={2.2} />
+          Sections
+        </button>
         {isSuperAdmin && (
           <button
             className="mono"
@@ -341,6 +360,10 @@ export default function Admin() {
         </Modal>
       )}
       </div>
+      )}
+
+      {tab === 'sections' && (
+        <ClassroomsManager onError={setError} />
       )}
 
       {tab === 'roles' && isSuperAdmin && (
@@ -1056,6 +1079,456 @@ function RolesManager({ roles, permissions, onReload, onError }) {
             </div>
           </div>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Classrooms (Sections) — admins create classrooms, students join via code
+// ──────────────────────────────────────────────────────────────────
+
+function ClassroomsManager({ onError }) {
+  const [classrooms, setClassrooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.listClassrooms();
+      setClassrooms(data.classrooms || []);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [onError]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate() {
+    if (!newName.trim()) { onError('Name is required'); return; }
+    setBusy(true);
+    try {
+      const created = await api.createClassroom(newName.trim(), newDescription.trim());
+      setNewName(''); setNewDescription(''); setCreating(false);
+      setClassrooms(cs => [created, ...cs]);
+      setExpandedId(created.id);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <GraduationCap size={20} strokeWidth={2} style={{ color: '#00ff66' }} />
+            <h2 className="oswald" style={{
+              fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
+              color: '#d8ffe6', margin: 0, fontWeight: 700,
+            }}>
+              Classrooms
+            </h2>
+            <span className="mono" style={{ fontSize: 11, color: '#3f6e4a', letterSpacing: 1 }}>
+              {classrooms.length} TOTAL
+            </span>
+          </div>
+          {!creating && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setCreating(true)}
+              style={{ fontSize: 12, padding: '8px 14px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Add Classroom
+            </button>
+          )}
+        </div>
+
+        {creating && (
+          <div style={{
+            background: 'rgba(0,255,102,0.04)', border: '1px solid #1d3825',
+            borderRadius: 4, padding: 14, marginTop: 8,
+          }}>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>Classroom name</label>
+              <input
+                className="input"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="e.g. BSCS 3-A · Document Forensics"
+                maxLength={120}
+                autoFocus
+              />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Description (optional)</label>
+              <textarea
+                className="input"
+                value={newDescription}
+                onChange={e => setNewDescription(e.target.value)}
+                placeholder="What students will work on in this section."
+                rows={2}
+                maxLength={2000}
+                style={{ resize: 'vertical', fontFamily: "'Source Sans Pro', sans-serif" }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn"
+                onClick={() => { setCreating(false); setNewName(''); setNewDescription(''); }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={busy}>
+                {busy ? 'Creating…' : 'Create Classroom'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: '8px 0 0' }}>
+          Share each classroom's join code with your students — they'll enter it from their account page to join. You'll see them in the class list below.
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="mono" style={{ color: '#6dba85', textAlign: 'center', padding: 24 }}>
+          ◌ Loading classrooms…
+        </p>
+      ) : classrooms.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <GraduationCap size={32} strokeWidth={1.5} style={{ color: '#3f6e4a', margin: '0 auto 10px' }} />
+          <p className="mono" style={{ color: '#6dba85', letterSpacing: 1, fontSize: 13 }}>
+            No classrooms yet — click "Add Classroom" to create your first one.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {classrooms.map(c => (
+            <ClassroomCard
+              key={c.id}
+              classroom={c}
+              expanded={expandedId === c.id}
+              onToggle={() => setExpandedId(id => id === c.id ? null : c.id)}
+              onChange={updated => setClassrooms(cs => cs.map(x => x.id === updated.id ? updated : x))}
+              onDelete={() => setClassrooms(cs => cs.filter(x => x.id !== c.id))}
+              onError={onError}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onError }) {
+  const [detail, setDetail] = useState(classroom);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(classroom.name);
+  const [description, setDescription] = useState(classroom.description || '');
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Fetch full details (with members) when first expanded
+  useEffect(() => {
+    if (expanded && !detail.members) {
+      api.getClassroom(classroom.id).then(setDetail).catch(err => onError(err.message));
+    }
+  }, [expanded, classroom.id]);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(detail.join_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function regenerate() {
+    if (!confirm('Generate a new join code? The old code will stop working immediately.')) return;
+    setBusy(true);
+    try {
+      const res = await api.regenerateClassroomCode(classroom.id);
+      const updated = { ...detail, join_code: res.join_code };
+      setDetail(updated);
+      onChange(updated);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit() {
+    setBusy(true);
+    try {
+      const updated = await api.updateClassroom(classroom.id, {
+        name: name.trim(),
+        description: description.trim(),
+      });
+      setDetail(updated);
+      onChange(updated);
+      setEditing(false);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doDelete() {
+    setBusy(true);
+    try {
+      await api.deleteClassroom(classroom.id);
+      onDelete();
+    } catch (err) {
+      onError(err.message);
+      setBusy(false);
+    }
+  }
+
+  async function kickMember(userId, username) {
+    if (!confirm(`Remove ${username} from this classroom?`)) return;
+    try {
+      await api.removeClassroomMember(classroom.id, userId);
+      const fresh = await api.getClassroom(classroom.id);
+      setDetail(fresh);
+      onChange(fresh);
+    } catch (err) {
+      onError(err.message);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
+          padding: '14px 18px', textAlign: 'left',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}
+      >
+        {expanded
+          ? <ChevronDown size={18} strokeWidth={2} style={{ color: '#6dba85', flexShrink: 0 }} />
+          : <ChevronRight size={18} strokeWidth={2} style={{ color: '#6dba85', flexShrink: 0 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="oswald" style={{
+            fontSize: 15, color: '#d8ffe6', letterSpacing: 1, fontWeight: 600,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {detail.name}
+          </div>
+          {detail.description && (
+            <div style={{
+              fontSize: 12, color: '#86efac', marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {detail.description}
+            </div>
+          )}
+        </div>
+        <span className="mono" style={{
+          fontSize: 11, color: '#00ff66', letterSpacing: 2, fontWeight: 700,
+          background: 'rgba(0,255,102,0.08)', border: '1px solid #1d3825',
+          borderRadius: 4, padding: '4px 10px', flexShrink: 0,
+        }}>
+          {detail.join_code}
+        </span>
+        <span className="mono" style={{
+          fontSize: 11, color: '#3f6e4a', letterSpacing: 1, flexShrink: 0,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}>
+          <Users size={12} strokeWidth={2} />
+          {detail.member_count ?? (detail.members?.length || 0)}
+        </span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding: '0 18px 18px', borderTop: '1px solid #112418' }}>
+          {/* Join code panel */}
+          <div style={{
+            marginTop: 14, padding: 14,
+            background: 'rgba(0,255,102,0.05)', border: '1px solid #1d3825',
+            borderRadius: 4,
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 2, marginBottom: 4, textTransform: 'uppercase' }}>
+                Join code
+              </div>
+              <div className="mono" style={{ fontSize: 22, color: '#00ff66', letterSpacing: 4, fontWeight: 700 }}>
+                {detail.join_code}
+              </div>
+            </div>
+            <button
+              onClick={copyCode}
+              className="btn btn-secondary"
+              style={{ fontSize: 11, padding: '8px 12px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {copied ? <Check size={14} strokeWidth={2.5} /> : <Copy size={14} strokeWidth={2} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+            <button
+              onClick={regenerate}
+              className="btn btn-secondary"
+              disabled={busy}
+              style={{ fontSize: 11, padding: '8px 12px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <RefreshCw size={14} strokeWidth={2} />
+              Regenerate
+            </button>
+          </div>
+
+          {/* Edit / delete controls */}
+          <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {!editing && !confirmDelete && (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setEditing(true)}
+                  style={{ fontSize: 11, padding: '6px 10px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Pencil size={12} strokeWidth={2.2} />
+                  Edit
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setConfirmDelete(true)}
+                  style={{
+                    fontSize: 11, padding: '6px 10px', minHeight: 'unset', background: 'transparent',
+                    color: '#ff8a99', border: '1px solid #ff8a99',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <Trash2 size={12} strokeWidth={2.2} />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+
+          {editing && (
+            <div style={{ marginTop: 12, padding: 12, border: '1px solid #1d3825', borderRadius: 4 }}>
+              <div style={{ marginBottom: 8 }}>
+                <label style={labelStyle}>Classroom name</label>
+                <input className="input" value={name} onChange={e => setName(e.target.value)} maxLength={120} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>Description</label>
+                <textarea
+                  className="input"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  style={{ resize: 'vertical', fontFamily: "'Source Sans Pro', sans-serif" }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn" onClick={() => { setEditing(false); setName(detail.name); setDescription(detail.description || ''); }} disabled={busy}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>
+                  {busy ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {confirmDelete && (
+            <div style={{
+              marginTop: 12, padding: 14,
+              background: 'rgba(255,51,68,0.08)', border: '1px solid #ff3344',
+              borderRadius: 4,
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            }}>
+              <AlertTriangle size={16} strokeWidth={2.2} style={{ color: '#ff8a99' }} />
+              <span style={{ fontSize: 13, color: '#ff8a99', flex: 1, minWidth: 200 }}>
+                Delete <strong>{detail.name}</strong> and remove all enrolled students? This can't be undone.
+              </span>
+              <button className="btn" onClick={() => setConfirmDelete(false)} disabled={busy}>
+                Keep
+              </button>
+              <button
+                className="btn"
+                onClick={doDelete}
+                disabled={busy}
+                style={{ background: '#ff3344', color: '#fff' }}
+              >
+                {busy ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          )}
+
+          {/* Class list */}
+          <div style={{ marginTop: 18 }}>
+            <div className="mono" style={{
+              fontSize: 10, color: '#6dba85', letterSpacing: 2,
+              textTransform: 'uppercase', marginBottom: 10, fontWeight: 600,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              <Users size={12} strokeWidth={2.2} />
+              Class List ({detail.members?.length || 0})
+            </div>
+            {detail.members && detail.members.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid #112418', borderRadius: 4 }}>
+                {detail.members.map((m, i) => (
+                  <div key={m.id} style={{
+                    padding: '10px 12px',
+                    borderTop: i === 0 ? 'none' : '1px solid #112418',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      background: 'rgba(0,255,102,0.1)', border: '1px solid #1d3825',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, color: '#00ff66', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0,
+                    }}>
+                      {(m.full_name || m.username || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: '#d8ffe6', fontWeight: 500 }}>
+                        {m.full_name || m.username}
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 0.5 }}>
+                        {m.email} · {m.role}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => kickMember(m.id, m.username)}
+                      title="Remove from classroom"
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: '#ff8a99', padding: 4, display: 'inline-flex',
+                      }}
+                    >
+                      <Trash2 size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mono" style={{ fontSize: 12, color: '#3f6e4a', padding: '12px 0', fontStyle: 'italic' }}>
+                No students yet. Share the join code above.
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { GraduationCap, Users, LogIn, Trash2 } from 'lucide-react';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 
@@ -30,6 +31,51 @@ export default function Account() {
   const [allRoles, setAllRoles] = useState([]);
   const [roleMsg, setRoleMsg] = useState('');
   const [roleError, setRoleError] = useState('');
+
+  const [classrooms, setClassrooms] = useState([]);
+  const [joinCode, setJoinCode] = useState('');
+  const [joinMsg, setJoinMsg] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [joinBusy, setJoinBusy] = useState(false);
+
+  const loadClassrooms = useCallback(async () => {
+    try {
+      const data = await api.myClassrooms();
+      setClassrooms(data.classrooms || []);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
+  useEffect(() => { loadClassrooms(); }, [loadClassrooms]);
+
+  async function handleJoinClassroom(e) {
+    e?.preventDefault?.();
+    setJoinError(''); setJoinMsg('');
+    const code = joinCode.trim().toUpperCase();
+    if (!code) { setJoinError('Enter a join code'); return; }
+    setJoinBusy(true);
+    try {
+      const classroom = await api.joinClassroom(code);
+      setJoinMsg(`Joined ${classroom.name}!`);
+      setJoinCode('');
+      await loadClassrooms();
+    } catch (err) {
+      setJoinError(err.message || 'Could not join classroom');
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
+  async function handleLeaveClassroom(classroomId, name) {
+    if (!confirm(`Leave "${name}"?`)) return;
+    try {
+      await api.removeClassroomMember(classroomId, user.id);
+      await loadClassrooms();
+    } catch (err) {
+      setJoinError(err.message);
+    }
+  }
 
   useEffect(() => {
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
@@ -210,6 +256,103 @@ export default function Account() {
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Username:</span> <span style={{ fontSize: 14 }}>{user?.username}</span></div>
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Name:</span> <span style={{ fontSize: 14 }}>{user?.full_name || '-'}</span></div>
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Member since:</span> <span className="mono" style={{ fontSize: 14 }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</span></div>
+          </div>
+        )}
+      </div>
+
+      {/* My Classrooms */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <GraduationCap size={20} strokeWidth={2} style={{ color: '#00ff66' }} />
+          <h2 className="oswald" style={{
+            fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
+            color: '#d8ffe6', margin: 0, fontWeight: 700,
+          }}>
+            My Classrooms
+          </h2>
+          <span className="mono" style={{ fontSize: 11, color: '#3f6e4a', letterSpacing: 1, marginLeft: 'auto' }}>
+            {classrooms.length} JOINED
+          </span>
+        </div>
+
+        <form onSubmit={handleJoinClassroom} style={{
+          display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14,
+          padding: 12, background: 'rgba(0,255,102,0.04)', border: '1px solid #1d3825', borderRadius: 4,
+        }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label className="mono" style={{ fontSize: 10, color: '#6dba85', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4, display: 'block' }}>
+              Join with a code
+            </label>
+            <input
+              className="input"
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="e.g. K7P9XA"
+              maxLength={12}
+              style={{ letterSpacing: 3, fontWeight: 700, textTransform: 'uppercase' }}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={joinBusy || !joinCode.trim()}
+            style={{ alignSelf: 'flex-end', fontSize: 12, padding: '10px 18px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <LogIn size={14} strokeWidth={2.5} />
+            {joinBusy ? 'Joining…' : 'Join'}
+          </button>
+        </form>
+
+        {joinMsg && (
+          <div className="mono" style={{
+            background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66', padding: 10, borderRadius: 2,
+            marginBottom: 10, fontSize: 12, color: '#86efac', letterSpacing: 0.5,
+          }}>✓ {joinMsg}</div>
+        )}
+        {joinError && (
+          <div className="mono" style={{
+            background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 10, borderRadius: 2,
+            marginBottom: 10, fontSize: 12, color: '#ff8a99', letterSpacing: 0.5,
+          }}>⚠ {joinError}</div>
+        )}
+
+        {classrooms.length === 0 ? (
+          <p className="mono" style={{ fontSize: 12, color: '#6dba85', letterSpacing: 0.5, padding: '8px 0', fontStyle: 'italic' }}>
+            You're not in any classrooms yet. Ask your teacher for a join code.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {classrooms.map(c => (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: 12,
+                background: 'rgba(0,255,102,0.03)', border: '1px solid #112418', borderRadius: 4,
+              }}>
+                <GraduationCap size={18} strokeWidth={2} style={{ color: '#00ff66', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, color: '#d8ffe6', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </div>
+                  {c.description && (
+                    <div style={{ fontSize: 12, color: '#86efac', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.description}
+                    </div>
+                  )}
+                  <div className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 0.5, marginTop: 4 }}>
+                    Teacher: {c.owner_full_name || c.owner_username || 'Unknown'} · {c.member_count} student{c.member_count === 1 ? '' : 's'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleLeaveClassroom(c.id, c.name)}
+                  title="Leave classroom"
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: '#ff8a99', padding: 6, display: 'inline-flex', flexShrink: 0,
+                  }}
+                >
+                  <Trash2 size={14} strokeWidth={2} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

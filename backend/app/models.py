@@ -115,6 +115,41 @@ class Scan(Base):
     user = relationship("User", back_populates="scans")
 
 
+class Classroom(Base):
+    """A teacher-managed group of students, joined via a short alphanumeric code.
+
+    Inspired by Google Classroom — admins/superadmins create a classroom, share
+    its join code with students, and the students self-enroll. Members of a
+    classroom appear in its class list.
+    """
+    __tablename__ = "classrooms"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    name = Column(String, nullable=False)
+    description = Column(Text, default="")
+    join_code = Column(String, unique=True, nullable=False, index=True)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = relationship("User", foreign_keys=[owner_id])
+    members = relationship("ClassroomMember", back_populates="classroom", cascade="all, delete-orphan")
+
+
+class ClassroomMember(Base):
+    """Many-to-many join between users (students) and classrooms."""
+    __tablename__ = "classroom_members"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    classroom_id = Column(String, ForeignKey("classrooms.id"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+
+    classroom = relationship("Classroom", back_populates="members")
+    user = relationship("User", foreign_keys=[user_id])
+
+
 class AdminAuditLog(Base):
     __tablename__ = "admin_audit_logs"
 
