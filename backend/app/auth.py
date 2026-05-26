@@ -55,10 +55,30 @@ def create_refresh_token(user_id: str) -> str:
 
 
 def create_verification_token(user_id: str) -> str:
-    """Short-lived token emailed to a user to confirm their address (24h)."""
+    """Legacy: token bound to an existing unverified user row (24h).
+    No longer issued by /register but still accepted by /verify-email so any
+    links in flight when the stateless-signup flow was deployed keep working."""
     expire = datetime.utcnow() + timedelta(hours=24)
     return jwt.encode(
         {"sub": user_id, "exp": expire, "type": "verify"},
+        SECRET_KEY,
+        algorithm=JWT_ALGORITHM,
+    )
+
+
+def create_signup_token(email: str, username: str, hashed_password: str, full_name: str) -> str:
+    """Stateless signup: registration data is encoded in the token itself, so
+    the user row only gets created when the email link is clicked (24h)."""
+    expire = datetime.utcnow() + timedelta(hours=24)
+    return jwt.encode(
+        {
+            "type": "signup",
+            "email": email,
+            "username": username,
+            "hashed_password": hashed_password,
+            "full_name": full_name,
+            "exp": expire,
+        },
         SECRET_KEY,
         algorithm=JWT_ALGORITHM,
     )

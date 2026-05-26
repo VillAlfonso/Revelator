@@ -75,8 +75,12 @@ export default function Register() {
             style={{ width: '100%' }}
             onClick={async () => {
               setError('');
-              try { await api.resendVerification(form.email); } catch {}
-              setError('If it didn’t arrive, we’ve sent another link.');
+              try {
+                await api.register(form.email, form.username, form.password, form.full_name);
+                setError('A new verification email is on its way.');
+              } catch (err) {
+                setError(err.message);
+              }
             }}
           >
             ↻ Resend email

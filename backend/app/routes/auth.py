@@ -13,7 +13,7 @@ from ..models import User, UserApiKey
 from ..auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, create_verification_token,
-    create_reset_token, decode_token, get_current_user,
+    create_signup_token, create_reset_token, decode_token, get_current_user,
 )
 from ..config import GOOGLE_CLIENT_ID, FRONTEND_URL
 from ..email_utils import send_verification_email, send_reset_email
@@ -94,36 +94,40 @@ def user_to_dict(user: User, db: Session = None) -> dict:
 
 @router.post("/register", response_model=RegisterResponse)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    # Check duplicates
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if db.query(User).filter(User.username == body.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
-
     if len(body.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    # Account is created unverified; the user can't log in until they confirm
-    # their email via the link we send below.
-    user = User(
+    # An identifier is only "taken" once it belongs to a *verified* account.
+    # Any unverified row found here is a stale leftover (from the old flow, or
+    # from this user themselves never finishing); reclaim it so they can re-register.
+    existing_email = db.query(User).filter(User.email == body.email).first()
+    if existing_email:
+        if existing_email.is_verified:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        db.delete(existing_email)
+        db.commit()
+
+    existing_username = db.query(User).filter(User.username == body.username).first()
+    if existing_username:
+        if existing_username.is_verified:
+            raise HTTPException(status_code=400, detail="Username already taken")
+        db.delete(existing_username)
+        db.commit()
+
+    # Stateless signup: no user row is created here. The registration payload
+    # is encoded into the verification token; the row is only inserted when the
+    # link in the email is clicked.
+    token = create_signup_token(
         email=body.email,
         username=body.username,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
-        is_verified=False,
-        scans_this_month=0,
-        scan_reset_date=datetime.utcnow(),
-        verification_sent_at=datetime.utcnow(),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    send_verification_email(user.email, create_verification_token(user.id))
+    send_verification_email(body.email, token)
 
     return RegisterResponse(
-        message="Account created. Check your email to confirm your address before signing in.",
-        email=user.email,
+        message="Check your email to confirm your address. Your account is created once you click the link.",
+        email=body.email,
     )
 
 
@@ -163,20 +167,68 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
 
 @router.get("/verify-email")
 def verify_email(token: str, db: Session = Depends(get_db)):
-    """Confirm an email address from the link we sent, then bounce to the login page."""
+    """Confirm an email address from the link we sent.
+
+    Two token shapes are accepted:
+      - `signup`: stateless — the registration payload is in the token; create
+        the user row now and mark it verified.
+      - `verify`: legacy — token references an existing unverified row by id.
+        Kept for any in-flight links from before the stateless flow shipped.
+    """
     payload = decode_token(token)
-    if not payload or payload.get("type") != "verify":
+    if not payload:
         return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
 
-    user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user:
-        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+    token_type = payload.get("type")
 
-    if not user.is_verified:
-        user.is_verified = True
+    if token_type == "signup":
+        email = payload.get("email")
+        username = payload.get("username")
+        hashed_password = payload.get("hashed_password")
+        full_name = payload.get("full_name", "") or ""
+
+        if not email or not username or not hashed_password:
+            return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+
+        # Re-check uniqueness now that we're actually creating the row.
+        # Reclaim any stale unverified row owning the same identifier.
+        existing_email = db.query(User).filter(User.email == email).first()
+        if existing_email:
+            if existing_email.is_verified:
+                return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+            db.delete(existing_email)
+            db.commit()
+
+        existing_username = db.query(User).filter(User.username == username).first()
+        if existing_username:
+            if existing_username.is_verified:
+                return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+            db.delete(existing_username)
+            db.commit()
+
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=hashed_password,
+            full_name=full_name,
+            is_verified=True,
+            scans_this_month=0,
+            scan_reset_date=datetime.utcnow(),
+        )
+        db.add(user)
         db.commit()
+        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=1")
 
-    return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=1")
+    if token_type == "verify":
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+        if not user:
+            return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+        if not user.is_verified:
+            user.is_verified = True
+            db.commit()
+        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=1")
+
+    return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
 
 
 @router.post("/resend-verification")
