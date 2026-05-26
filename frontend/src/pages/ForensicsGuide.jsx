@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
+import {
+  Fingerprint, FileEdit, Layers, EyeOff, FlaskConical, Banknote,
+  ChevronDown, ChevronRight, Image as ImageIcon, CornerDownRight,
+} from 'lucide-react';
+import { useTheme } from '../App';
+import { themed, tintedBg } from '../themeColors';
 
 const GROUPS = [
   {
     id: 'traced',
     label: 'Traced Signatures',
-    icon: '◈',
+    Icon: Fingerprint,
     color: '#c4b5fd',
     description: 'A genuine signature is physically reproduced using an intermediary guide — carbon paper, light table, or projector. The forger follows a real signature rather than inventing one, producing subtle artifacts from the tracing method.',
     categories: [
@@ -31,7 +37,7 @@ const GROUPS = [
   {
     id: 'alteration',
     label: 'Document Alteration',
-    icon: '◆',
+    Icon: FileEdit,
     color: '#fbbf24',
     description: 'An authentic document is modified after the fact — text is added between lines or inside words, or existing content is erased (chemically or mechanically) and replaced. The original paper and its surrounding content remain genuine.',
     categories: [
@@ -64,7 +70,7 @@ const GROUPS = [
   {
     id: 'digital',
     label: 'Digital Fabrication',
-    icon: '▣',
+    Icon: Layers,
     color: '#38bdf8',
     description: 'Software is used to create or manipulate document content. A document may be fabricated entirely from scratch, or genuine elements (signatures, stamps) may be digitally transplanted onto another document.',
     categories: [
@@ -91,7 +97,7 @@ const GROUPS = [
   {
     id: 'obliteration',
     label: 'Obliteration',
-    icon: '▓',
+    Icon: EyeOff,
     color: '#f87171',
     description: 'Original content is intentionally concealed — not erased or replaced, but covered. Ink, correction fluid, or opaque pigment is applied over existing text to hide it while the surrounding document remains intact.',
     categories: [
@@ -118,7 +124,7 @@ const GROUPS = [
   {
     id: 'sympathetic',
     label: 'Sympathetic Ink',
-    icon: '◌',
+    Icon: FlaskConical,
     color: '#34d399',
     description: 'Writing that is invisible under normal conditions — either because no ink was deposited (pure pressure indentation) or because the ink only becomes visible under a specific stimulus such as heat, UV light, or a chemical reagent.',
     categories: [
@@ -139,7 +145,7 @@ const GROUPS = [
   {
     id: 'currency',
     label: 'Currency Counterfeit',
-    icon: '◇',
+    Icon: Banknote,
     color: '#fbbf24',
     description: 'Suspected counterfeit banknotes or currency documents. The system evaluates security features, print quality, substrate characteristics, and known anti-counterfeiting elements for the suspected denomination.',
     categories: [
@@ -153,11 +159,11 @@ const GROUPS = [
   },
 ];
 
-function ImageStub({ label }) {
+function ImageStub() {
   return (
     <div style={{
       border: '1px dashed #1d3825',
-      borderRadius: 3,
+      borderRadius: 6,
       background: '#020b05',
       display: 'flex',
       flexDirection: 'column',
@@ -167,11 +173,11 @@ function ImageStub({ label }) {
       gap: 8,
       padding: 12,
     }}>
-      <div style={{ fontSize: 28, opacity: 0.18, color: '#00ff66' }}>▣</div>
-      <div className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#2a4d32', textTransform: 'uppercase', textAlign: 'center' }}>
+      <ImageIcon size={32} strokeWidth={1.4} style={{ opacity: 0.25, color: '#00ff66' }} />
+      <div className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#2a4d32', textTransform: 'uppercase', textAlign: 'center' }}>
         Example Image
       </div>
-      <div className="mono" style={{ fontSize: 8, color: '#1d3825', textAlign: 'center', letterSpacing: 1 }}>
+      <div className="mono" style={{ fontSize: 9, color: '#1d3825', textAlign: 'center', letterSpacing: 1 }}>
         Coming Soon
       </div>
     </div>
@@ -179,15 +185,18 @@ function ImageStub({ label }) {
 }
 
 function CategoryCard({ cat, groupColor }) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
+  const accent = themed(groupColor, theme);
 
   return (
     <div style={{
-      background: '#030e07',
-      border: `1px solid ${open ? groupColor + '33' : '#112418'}`,
-      borderRadius: 3,
+      background: theme === 'light' ? '#ffffff' : '#030e07',
+      border: `1px solid ${open ? tintedBg(groupColor, theme, 0.35) : (theme === 'light' ? '#d0dcd4' : '#112418')}`,
+      borderRadius: 6,
       overflow: 'hidden',
-      transition: 'border-color 0.15s',
+      transition: 'border-color 0.15s, box-shadow 0.15s',
+      boxShadow: open ? `0 2px 12px ${tintedBg(groupColor, theme, 0.1)}` : 'none',
     }}>
       <button
         onClick={() => setOpen(s => !s)}
@@ -197,49 +206,55 @@ function CategoryCard({ cat, groupColor }) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 6, height: 6, borderRadius: '50%', background: groupColor, flexShrink: 0,
+            width: 8, height: 8, borderRadius: '50%', background: accent, flexShrink: 0,
+            boxShadow: theme === 'dark' ? `0 0 8px ${accent}aa` : 'none',
           }} />
           <span className="oswald" style={{
-            fontSize: 14, color: '#d8ffe6', letterSpacing: 1.5, textTransform: 'uppercase',
+            fontSize: 15, color: theme === 'light' ? '#0a1c11' : '#d8ffe6',
+            letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600,
           }}>
             {cat.label}
           </span>
         </div>
-        <span className="mono" style={{ fontSize: 11, color: '#3f6e4a', flexShrink: 0 }}>
-          {open ? '▲' : '▼'}
-        </span>
+        {open
+          ? <ChevronDown size={18} strokeWidth={2} style={{ color: theme === 'light' ? '#3a5040' : '#3f6e4a', flexShrink: 0 }} />
+          : <ChevronRight size={18} strokeWidth={2} style={{ color: theme === 'light' ? '#3a5040' : '#3f6e4a', flexShrink: 0 }} />}
       </button>
 
       {open && (
-        <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ padding: '0 16px 18px' }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(120px, 180px) 1fr',
-            gap: 16,
+            gridTemplateColumns: 'minmax(140px, 200px) 1fr',
+            gap: 18,
             alignItems: 'start',
           }}>
-            <ImageStub label={cat.label} />
+            <ImageStub />
             <div>
               <p style={{
-                color: '#86efac', fontSize: 12, lineHeight: 1.7, margin: '0 0 12px',
+                color: theme === 'light' ? '#1a3024' : '#cfe9d8',
+                fontSize: 14, lineHeight: 1.75, margin: '0 0 14px',
               }}>
                 {cat.description}
               </p>
               <div className="mono" style={{
-                fontSize: 9, letterSpacing: 2, color: '#3f6e4a', textTransform: 'uppercase', marginBottom: 6,
+                fontSize: 10, letterSpacing: 2,
+                color: theme === 'light' ? '#3a5040' : '#3f6e4a',
+                textTransform: 'uppercase', marginBottom: 8, fontWeight: 600,
               }}>
                 Key Indicators
               </div>
-              <ul style={{ margin: 0, paddingLeft: 16, listStyle: 'none' }}>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                 {cat.indicators.map((ind, i) => (
                   <li key={i} style={{
-                    color: '#6dba85', fontSize: 11, lineHeight: 1.7, paddingLeft: 0,
-                    display: 'flex', alignItems: 'flex-start', gap: 6,
+                    color: theme === 'light' ? '#0a1c11' : '#86efac',
+                    fontSize: 13, lineHeight: 1.7, paddingLeft: 0, marginBottom: 4,
+                    display: 'flex', alignItems: 'flex-start', gap: 8,
                   }}>
-                    <span style={{ color: groupColor, flexShrink: 0, marginTop: 2, fontSize: 8 }}>▸</span>
-                    {ind}
+                    <CornerDownRight size={14} strokeWidth={2.2} style={{ color: accent, flexShrink: 0, marginTop: 3 }} />
+                    <span>{ind}</span>
                   </li>
                 ))}
               </ul>
@@ -252,41 +267,60 @@ function CategoryCard({ cat, groupColor }) {
 }
 
 function GroupSection({ group }) {
+  const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const accent = themed(group.color, theme);
+  const Icon = group.Icon;
 
   return (
-    <section style={{ marginBottom: 32 }}>
+    <section style={{ marginBottom: 36 }}>
       <button
         onClick={() => setCollapsed(s => !s)}
         style={{
           width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 12, padding: '0 0 14px',
-          borderBottom: `1px solid ${group.color}22`,
-          marginBottom: 14,
+          display: 'flex', alignItems: 'center', gap: 14, padding: '0 0 16px',
+          borderBottom: `1px solid ${tintedBg(group.color, theme, 0.25)}`,
+          marginBottom: 16,
         }}
       >
-        <span style={{ fontSize: 18, color: group.color }}>{group.icon}</span>
+        <div style={{
+          width: 40, height: 40, borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: tintedBg(group.color, theme, 0.12),
+          border: `1px solid ${tintedBg(group.color, theme, 0.3)}`,
+          flexShrink: 0,
+          boxShadow: theme === 'dark' ? `0 0 12px ${tintedBg(group.color, theme, 0.25)}` : 'none',
+        }}>
+          <Icon size={20} strokeWidth={2} style={{ color: accent }} />
+        </div>
         <div style={{ flex: 1, textAlign: 'left' }}>
           <div className="oswald" style={{
-            fontSize: 16, color: group.color, letterSpacing: 2, textTransform: 'uppercase',
+            fontSize: 18, color: accent, letterSpacing: 2,
+            textTransform: 'uppercase', fontWeight: 700,
           }}>
             {group.label}
           </div>
-          <div className="mono" style={{ fontSize: 9, color: '#3f6e4a', letterSpacing: 1.5, marginTop: 2 }}>
+          <div className="mono" style={{
+            fontSize: 11, color: theme === 'light' ? '#3a5040' : '#3f6e4a',
+            letterSpacing: 1.5, marginTop: 3,
+          }}>
             {group.categories.length} {group.categories.length === 1 ? 'type' : 'types'}
           </div>
         </div>
-        <span className="mono" style={{ fontSize: 11, color: '#3f6e4a' }}>
-          {collapsed ? '▶' : '▼'}
-        </span>
+        {collapsed
+          ? <ChevronRight size={20} strokeWidth={2} style={{ color: theme === 'light' ? '#3a5040' : '#3f6e4a' }} />
+          : <ChevronDown size={20} strokeWidth={2} style={{ color: theme === 'light' ? '#3a5040' : '#3f6e4a' }} />}
       </button>
 
       {!collapsed && (
         <>
-          <p style={{ color: '#6dba85', fontSize: 12, lineHeight: 1.7, margin: '0 0 14px' }}>
+          <p style={{
+            color: theme === 'light' ? '#1a3024' : '#cfe9d8',
+            fontSize: 14, lineHeight: 1.75, margin: '0 0 16px',
+          }}>
             {group.description}
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {group.categories.map(cat => (
               <CategoryCard key={cat.id} cat={cat} groupColor={group.color} />
             ))}
@@ -298,51 +332,76 @@ function GroupSection({ group }) {
 }
 
 export default function ForensicsGuide() {
+  const { theme } = useTheme();
+
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <div style={{ marginBottom: 28 }}>
+    <div style={{ maxWidth: 820, margin: '0 auto' }}>
+      <div style={{ marginBottom: 32 }}>
         <div className="mono" style={{
-          fontSize: 9, letterSpacing: 3, color: '#3f6e4a', textTransform: 'uppercase', marginBottom: 8,
+          fontSize: 10, letterSpacing: 3,
+          color: theme === 'light' ? '#3a5040' : '#3f6e4a',
+          textTransform: 'uppercase', marginBottom: 10,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
         }}>
-          ▣ Forensics Guide
+          <Fingerprint size={14} strokeWidth={2} />
+          Forensics Guide
         </div>
         <h1 className="oswald" style={{
-          fontSize: 26, color: '#00ff66', letterSpacing: 3, textTransform: 'uppercase', margin: 0,
-          textShadow: '0 0 20px rgba(0,255,102,0.3)',
+          fontSize: 30, color: theme === 'light' ? '#003d17' : '#00ff66',
+          letterSpacing: 3, textTransform: 'uppercase', margin: 0, fontWeight: 700,
+          textShadow: theme === 'dark' ? '0 0 20px rgba(0,255,102,0.3)' : 'none',
         }}>
           Document Forgery Types
         </h1>
-        <p style={{ color: '#6dba85', fontSize: 13, lineHeight: 1.7, margin: '10px 0 0' }}>
+        <p style={{
+          color: theme === 'light' ? '#1a3024' : '#cfe9d8',
+          fontSize: 15, lineHeight: 1.75, margin: '12px 0 0',
+        }}>
           Revelator detects 16 categories of document forgery across 6 groups. Each category uses a tailored
           analysis pipeline tuned to its specific physical or digital indicators. Click any category to expand
           its description, indicators, and example image.
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28 }}>
-        {GROUPS.map(g => (
-          <div key={g.id} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: '#030e07', border: `1px solid ${g.color}33`,
-            borderRadius: 2, padding: '5px 10px',
-          }}>
-            <span style={{ fontSize: 12, color: g.color }}>{g.icon}</span>
-            <span className="mono" style={{ fontSize: 10, color: g.color, letterSpacing: 1, textTransform: 'uppercase' }}>
-              {g.label}
-            </span>
-            <span className="mono" style={{ fontSize: 9, color: '#3f6e4a' }}>
-              ×{g.categories.length}
-            </span>
-          </div>
-        ))}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 32 }}>
+        {GROUPS.map(g => {
+          const accent = themed(g.color, theme);
+          const Icon = g.Icon;
+          return (
+            <div key={g.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: tintedBg(g.color, theme, 0.08),
+              border: `1px solid ${tintedBg(g.color, theme, 0.3)}`,
+              borderRadius: 6, padding: '6px 12px',
+            }}>
+              <Icon size={14} strokeWidth={2.2} style={{ color: accent }} />
+              <span className="mono" style={{
+                fontSize: 11, color: accent, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600,
+              }}>
+                {g.label}
+              </span>
+              <span className="mono" style={{
+                fontSize: 10, color: theme === 'light' ? '#3a5040' : '#3f6e4a',
+              }}>
+                ×{g.categories.length}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {GROUPS.map(group => (
         <GroupSection key={group.id} group={group} />
       ))}
 
-      <div className="card" style={{ marginTop: 8, padding: '12px 16px', borderLeft: '3px solid #1d3825' }}>
-        <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', margin: 0, lineHeight: 1.7, letterSpacing: 0.5 }}>
+      <div className="card" style={{
+        marginTop: 8, padding: '14px 18px',
+        borderLeft: `3px solid ${theme === 'light' ? '#6da884' : '#1d3825'}`,
+      }}>
+        <p className="mono" style={{
+          fontSize: 11, color: theme === 'light' ? '#3a5040' : '#5a7a64',
+          margin: 0, lineHeight: 1.75, letterSpacing: 0.5,
+        }}>
           Analysis is powered by Gemini Vision with a custom forensic prompt chain. Results are probabilistic —
           physical examination by a qualified document examiner is required for legal or evidentiary use.
         </p>

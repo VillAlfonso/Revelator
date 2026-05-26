@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { FileText, Sparkles, ImageOff } from 'lucide-react';
 import { api } from '../api/client';
 import { CATEGORY_BY_KEY } from '../categories';
+import { useTheme } from '../App';
+import { themed, tintedBg } from '../themeColors';
 
 // Maps a Gemini category code to its display color
 function geminiColor(code) {
@@ -84,54 +87,94 @@ export default function History() {
 }
 
 function HistoryCard({ scan, onClick }) {
+  const { theme } = useTheme();
   const cat = scan.detected_category;
-  const color = geminiColor(cat);
+  const rawColor = geminiColor(cat);
+  const color = themed(rawColor, theme);
   const label = geminiLabel(cat, null);
   const conf = typeof scan.category_confidence === 'number' ? scan.category_confidence : scan.confidence_score;
 
+  const isLight = theme === 'light';
+  const cardBg = isLight ? '#ffffff' : '#0a120c';
+  const cardBorder = isLight ? '#d0dcd4' : '#1a2e1e';
+  const filenameColor = isLight ? '#0a1c11' : '#d4d4d4';
+  const mutedColor = isLight ? '#3a5040' : '#3f6e4a';
+  const noImageBg = isLight ? '#f0f5f1' : '#000';
+  const noImageColor = isLight ? '#7a8e7f' : '#404040';
+
   return (
-    <button onClick={onClick} style={{
-      background: '#0a120c', border: `1px solid #1a2e1e`, borderLeft: `4px solid ${color}`,
-      borderRadius: 6, padding: 0, cursor: 'pointer', textAlign: 'left',
+    <button onClick={onClick} className="lift" style={{
+      background: cardBg, border: `1px solid ${cardBorder}`, borderLeft: `4px solid ${color}`,
+      borderRadius: 8, padding: 0, cursor: 'pointer', textAlign: 'left',
       overflow: 'hidden', color: 'inherit', font: 'inherit', width: '100%',
+      boxShadow: isLight ? '0 1px 3px rgba(0, 60, 30, 0.06)' : 'none',
     }}>
-      <div style={{ aspectRatio: '4/3', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{
+        aspectRatio: '4/3', background: noImageBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      }}>
         {scan.has_image ? (
           <img src={api.getScanImageUrl(scan.scan_id)} alt={scan.filename}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={e => { e.currentTarget.style.display = 'none'; }} />
         ) : (
-          <span style={{ color: '#404040', fontSize: 12, fontFamily: "'Oswald', sans-serif", letterSpacing: 1 }}>NO IMAGE</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <ImageOff size={28} strokeWidth={1.5} style={{ color: noImageColor }} />
+            <span style={{ color: noImageColor, fontSize: 11, fontFamily: "'Oswald', sans-serif", letterSpacing: 1.5 }}>NO IMAGE</span>
+          </div>
         )}
       </div>
-      <div style={{ padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+      <div style={{ padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
           <span className="oswald" style={{
-            fontSize: 11, color, textTransform: 'uppercase', letterSpacing: 1.5,
-            background: `${color}18`, border: `1px solid ${color}44`, borderRadius: 3, padding: '2px 7px',
-            textShadow: `0 0 6px ${color}66`, maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontSize: 11, color, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700,
+            background: tintedBg(rawColor, theme, 0.1),
+            border: `1px solid ${tintedBg(rawColor, theme, 0.35)}`,
+            borderRadius: 4, padding: '3px 8px',
+            maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {cat ? label : '—'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {scan.has_llm_explanation && (
-              <span className="oswald" style={{ fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: '#c4b5fd', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 3, padding: '1px 5px' }}>AI</span>
+              <span className="oswald" style={{
+                fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 700,
+                color: themed('#a78bfa', theme),
+                background: tintedBg('#a78bfa', theme, 0.12),
+                border: `1px solid ${tintedBg('#a78bfa', theme, 0.35)}`,
+                borderRadius: 4, padding: '2px 6px',
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+              }}>
+                <Sparkles size={9} strokeWidth={2.5} />
+                AI
+              </span>
             )}
-            <span className="mono" style={{ fontSize: 11, color }}>
+            <span className="mono" style={{ fontSize: 12, color, fontWeight: 700 }}>
               {(conf * 100).toFixed(0)}%
             </span>
           </div>
         </div>
-        <div style={{ fontSize: 13, color: '#d4d4d4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scan.filename}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-          <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{scan.scan_id}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{
+          fontSize: 13, color: filenameColor, fontWeight: isLight ? 500 : 400,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {scan.filename}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+          <span className="mono" style={{ fontSize: 10, color: mutedColor }}>{scan.scan_id}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {docTypeLabel(scan.document_type) && (
-              <span className="mono" style={{ fontSize: 9, color: '#6dba85', letterSpacing: 1 }}>
-                📄 {docTypeLabel(scan.document_type).toUpperCase()}
+              <span className="mono" style={{
+                fontSize: 9, color: isLight ? '#1a3024' : '#86efac', letterSpacing: 1,
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+              }}>
+                <FileText size={10} strokeWidth={2} />
+                {docTypeLabel(scan.document_type).toUpperCase()}
               </span>
             )}
-            <span className="mono" style={{ fontSize: 10, color: '#3f6e4a' }}>{new Date(scan.created_at).toLocaleDateString()}</span>
+            <span className="mono" style={{ fontSize: 10, color: mutedColor }}>
+              {new Date(scan.created_at).toLocaleDateString()}
+            </span>
           </div>
         </div>
       </div>

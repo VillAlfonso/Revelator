@@ -56,6 +56,8 @@ html, body { height: 100%; }
 
 body {
   font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
   background:
     radial-gradient(ellipse at top, rgba(0, 255, 102, 0.04) 0%, transparent 60%),
     radial-gradient(ellipse at bottom, rgba(0, 255, 170, 0.03) 0%, transparent 60%),
@@ -66,6 +68,11 @@ body {
   -webkit-font-smoothing: antialiased;
   position: relative;
   overflow-x: hidden;
+}
+
+/* Desktop readability bump — client feedback said dark-mode text was too small. */
+@media (min-width: 1024px) {
+  body { font-size: 17px; }
 }
 
 /* Faint grid behind everything — circuit / blueprint feel */
@@ -445,6 +452,17 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   border-left: none; border-top: none;
 }
 
+/* ──── Readability bump ────────────────────────────────────────
+   Inline `font-size` values smaller than 14px get nudged up so body
+   text remains legible. Tiny intentional badges (9–11px) stay where
+   they are — readers expect those to be compact stamps. */
+[style*="font-size: 12px"] { font-size: 13px !important; }
+[style*="font-size: 13px"] { font-size: 14px !important; }
+[style*="font-size: 14px"]:not(.btn):not(.input) { font-size: 15px !important; }
+
+/* Body paragraphs in cards get a touch more breathing room */
+.card p[style*="line-height"] { line-height: 1.7 !important; }
+
 /* Mobile-first responsive */
 @media (max-width: 900px) {
   .nav-desktop { display: none !important; }
@@ -654,6 +672,8 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 [data-theme="light"] [style*="rgb(163, 230, 53)"]  { color: #3a5a14 !important; }
 [data-theme="light"] [style*="rgb(0, 255, 153)"]   { color: #006a2e !important; }
 [data-theme="light"] [style*="rgb(0, 204, 136)"]   { color: #00553a !important; }
+[data-theme="light"] [style*="rgb(0, 255, 153)"]   { color: #005c33 !important; }
+[data-theme="light"] [style*="rgb(95, 168, 115)"]  { color: #1a3a24 !important; }
 
 /* Greys / whites used as text */
 [data-theme="light"] [style*="rgb(115, 115, 115)"] { color: #4a4a4a !important; }
@@ -754,5 +774,87 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 
 [data-theme="light"] [style*="spotlight-pulse"] {
   animation-name: spotlight-pulse-light !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LIGHT MODE — extended palette for category & group tints
+   The original overrides cover the green spectrum used as body text.
+   These cover the tinted accent colors used for badges/icons in the
+   ForensicsGuide and History cards, where the dark-mode pastels
+   become unreadable on a white background.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Categories.js bright-green spectrum — used for the per-category accent
+   color on history cards, scan results, etc. Map every bright-green tint
+   to a single readable dark green so contrast is consistent in light mode. */
+[data-theme="light"] [style*="rgb(61, 245, 138)"]  { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(86, 255, 138)"]  { color: #006a35 !important; }
+[data-theme="light"] [style*="rgb(124, 255, 175)"] { color: #006a3c !important; }
+[data-theme="light"] [style*="rgb(155, 255, 186)"] { color: #006a48 !important; }
+[data-theme="light"] [style*="rgb(94, 252, 142)"]  { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(112, 255, 156)"] { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(140, 255, 184)"] { color: #006a3c !important; }
+
+/* ForensicsGuide group accents — replace pastel tints with deep variants */
+[data-theme="light"] [style*="rgb(251, 191, 36)"]  { color: #8c5a00 !important; }  /* amber - alteration */
+[data-theme="light"] [style*="rgb(56, 189, 248)"]  { color: #0d4a72 !important; }  /* sky   - digital */
+[data-theme="light"] [style*="rgb(248, 113, 113)"] { color: #9b2030 !important; }  /* red   - obliteration */
+[data-theme="light"] [style*="rgb(52, 211, 153)"]  { color: #0a6a4a !important; }  /* mint  - sympathetic */
+[data-theme="light"] [style*="rgb(167, 139, 250)"] { color: #4a2a92 !important; }  /* violet */
+
+/* Tints used as backgrounds — strip the bright tint from background
+   while keeping the structural feel (light tinted card surface). */
+[data-theme="light"] [style*="rgba(196, 181, 253"] { background-color: rgba(74, 42, 146, 0.08) !important; }
+[data-theme="light"] [style*="rgba(251, 191, 36"]  { background-color: rgba(140, 90, 0, 0.08) !important; }
+[data-theme="light"] [style*="rgba(56, 189, 248"]  { background-color: rgba(13, 74, 114, 0.08) !important; }
+[data-theme="light"] [style*="rgba(248, 113, 113"] { background-color: rgba(155, 32, 48, 0.08) !important; }
+[data-theme="light"] [style*="rgba(52, 211, 153"]  { background-color: rgba(10, 106, 74, 0.08) !important; }
+[data-theme="light"] [style*="rgba(139, 92, 246"]  { background-color: rgba(74, 42, 146, 0.08) !important; }
+
+/* AI badge (purple) in History — soften background while text override
+   above pushes the foreground dark enough to read. */
+[data-theme="light"] [style*="rgba(139, 92, 246, 0.12)"] {
+  background-color: rgba(74, 42, 146, 0.1) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LIGHT MODE — readability sweep
+   Bump weights and tighten contrasts on common body-text colors so
+   light mode reads cleanly without feeling washed-out.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Make secondary/muted greens darker than the original mappings —
+   the old #102a18 was OK, this pushes it to nearly-black for cleanest
+   contrast on the off-white background. */
+[data-theme="light"] [style*="rgb(109, 186, 133)"] { color: #0a1c11 !important; }
+[data-theme="light"] [style*="rgb(134, 239, 172)"] { color: #0a1c11 !important; }
+[data-theme="light"] [style*="rgb(63, 110, 74)"]   { color: #2a4030 !important; }
+
+/* Slight weight bump on paragraphs in light mode for crispness */
+[data-theme="light"] p,
+[data-theme="light"] .card p {
+  font-weight: 450;
+}
+
+/* Buttons inside cards keep enough contrast */
+[data-theme="light"] .btn-secondary {
+  font-weight: 600;
+}
+
+/* Section-divider lines (the "OR SIGN IN WITH" style) get a real color */
+[data-theme="light"] [style*="border-top: 1px solid rgb(17, 36, 24)"],
+[data-theme="light"] [style*="border-bottom: 1px solid rgb(17, 36, 24)"] {
+  border-color: #d0dcd4 !important;
+}
+
+/* The faint dashed example-image stubs in ForensicsGuide */
+[data-theme="light"] [style*="border: 1px dashed rgb(29, 56, 37)"] {
+  border-color: #b8cebe !important;
+  background-color: #f2f6f3 !important;
+}
+
+/* Hover lift in light mode — keep the lift but swap the green glow for a soft shadow */
+[data-theme="light"] .lift:hover {
+  box-shadow: 0 6px 24px rgba(0, 60, 30, 0.08), 0 2px 6px rgba(0, 60, 30, 0.06) !important;
 }
 
