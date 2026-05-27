@@ -234,33 +234,33 @@ export const api = {
     return request('/payments/cancel', { method: 'POST' });
   },
 
-  // Classrooms
-  listClassrooms() {
-    return request('/classrooms');
+  // Rooms
+  listRooms() {
+    return request('/rooms');
   },
-  myClassrooms() {
-    return request('/classrooms/mine/list');
+  myRooms() {
+    return request('/rooms/mine/list');
   },
-  createClassroom(name, description = '') {
-    return request('/classrooms', { method: 'POST', body: JSON.stringify({ name, description }) });
+  createRoom(name, description = '') {
+    return request('/rooms', { method: 'POST', body: JSON.stringify({ name, description }) });
   },
-  getClassroom(id) {
-    return request(`/classrooms/${encodeURIComponent(id)}`);
+  getRoom(id) {
+    return request(`/rooms/${encodeURIComponent(id)}`);
   },
-  updateClassroom(id, patch) {
-    return request(`/classrooms/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) });
+  updateRoom(id, patch) {
+    return request(`/rooms/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) });
   },
-  deleteClassroom(id) {
-    return request(`/classrooms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  deleteRoom(id) {
+    return request(`/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
-  regenerateClassroomCode(id) {
-    return request(`/classrooms/${encodeURIComponent(id)}/regenerate-code`, { method: 'POST' });
+  regenerateRoomCode(id) {
+    return request(`/rooms/${encodeURIComponent(id)}/regenerate-code`, { method: 'POST' });
   },
-  removeClassroomMember(classroomId, userId) {
-    return request(`/classrooms/${encodeURIComponent(classroomId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+  removeRoomMember(roomId, userId) {
+    return request(`/rooms/${encodeURIComponent(roomId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
   },
-  joinClassroom(code) {
-    return request('/classrooms/join', { method: 'POST', body: JSON.stringify({ code }) });
+  joinRoom(code) {
+    return request('/rooms/join', { method: 'POST', body: JSON.stringify({ code }) });
   },
 
   // Admin

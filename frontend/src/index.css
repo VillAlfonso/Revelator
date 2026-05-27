@@ -16,7 +16,7 @@
   --border-light: #1d3825;
   --border-glow:  #1f5d39;
 
-  /* Greens — primary identity */
+  /* Greens - primary identity */
   --green-neon:    #00ff66;   /* primary brand */
   --green-bright:  #22ff88;
   --green-matrix:  #00cc44;
@@ -30,7 +30,7 @@
   --tier-2: #00ffaa;
   --tier-3: #a3e635;
 
-  /* Verdicts (semantic — kept distinct) */
+  /* Verdicts (semantic - kept distinct) */
   --red-alert:    #ff3344;
   --orange-warn:  #ffa040;
   --green-clear:  #00ff66;
@@ -70,12 +70,12 @@ body {
   overflow-x: hidden;
 }
 
-/* Desktop readability bump — client feedback said dark-mode text was too small. */
+/* Desktop readability bump - client feedback said dark-mode text was too small. */
 @media (min-width: 1024px) {
   body { font-size: 17px; }
 }
 
-/* Faint grid behind everything — circuit / blueprint feel */
+/* Faint grid behind everything - circuit / blueprint feel */
 body::before {
   content: '';
   position: fixed;
@@ -359,7 +359,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   animation: blink-caret 1.1s step-end infinite;
 }
 
-/* Hex/honeycomb badge clip — used for tier numbers on cards */
+/* Hex/honeycomb badge clip - used for tier numbers on cards */
 .hex-badge {
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
 }
@@ -375,7 +375,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 
 /* ──── Forensic flourishes ───────────────────────────────────── */
 
-/* Fingerprint sweep — horizontal scan line glides top→bottom over a
+/* Fingerprint sweep - horizontal scan line glides top→bottom over a
    fingerprint motif (used inside <FingerprintScan />). */
 @keyframes fp-sweep {
   0%   { transform: translateY(0);      opacity: 0;   }
@@ -396,7 +396,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   animation: ring-spin 18s linear infinite;
 }
 
-/* Faint full-page fingerprint watermark — used as a hero background.
+/* Faint full-page fingerprint watermark - used as a hero background.
    Apply `.fp-bg` to a positioned container; the print fades in/out from
    the right side, never covering the central column. */
 .fp-bg {
@@ -414,12 +414,12 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   z-index: -1;
 }
 
-/* Magnifier cursor — applied to elements meant to feel "investigative" */
+/* Magnifier cursor - applied to elements meant to feel "investigative" */
 .cursor-magnify {
   cursor: zoom-in;
 }
 
-/* Eye flicker — subtle, used on the EyeMark hero accent */
+/* Eye flicker - subtle, used on the EyeMark hero accent */
 @keyframes eye-blink {
   0%, 96%, 100% { transform: scaleY(1); }
   98%           { transform: scaleY(0.05); }
@@ -430,7 +430,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   animation: eye-blink 5s ease-in-out infinite;
 }
 
-/* Evidence corner brackets — wraps any element with subtle "[ ]" frame */
+/* Evidence corner brackets - wraps any element with subtle "[ ]" frame */
 .evidence-frame {
   position: relative;
   padding: 14px;
@@ -455,7 +455,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 /* ──── Readability bump ────────────────────────────────────────
    Inline `font-size` values smaller than 14px get nudged up so body
    text remains legible. Tiny intentional badges (9–11px) stay where
-   they are — readers expect those to be compact stamps. */
+   they are - readers expect those to be compact stamps. */
 [style*="font-size: 12px"] { font-size: 13px !important; }
 [style*="font-size: 13px"] { font-size: 14px !important; }
 [style*="font-size: 14px"]:not(.btn):not(.input) { font-size: 15px !important; }
@@ -498,7 +498,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   LIGHT MODE — opt-in via [data-theme="light"] on <html>
+   LIGHT MODE - opt-in via [data-theme="light"] on <html>
    Dark mode is the default and stays unchanged. Light mode strips
    all glow effects, replaces black surfaces with off-white, and uses
    darker green text for readability.
@@ -658,7 +658,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
    form when set via element.style.*. We match the rgb() representations
    so the selectors actually hit at runtime. */
 
-/* Greens — text */
+/* Greens - text */
 [data-theme="light"] [style*="rgb(0, 255, 102)"] { color: #00451c !important; }
 [data-theme="light"] [style*="rgb(0, 204, 68)"]  { color: #00451c !important; }
 [data-theme="light"] [style*="rgb(34, 255, 136)"] { color: #006a2e !important; }
@@ -697,7 +697,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 [data-theme="light"] [style*="rgb(26, 46, 31)"]   { border-color: #c8d8cd !important; }
 [data-theme="light"] [style*="rgb(42, 74, 48)"]   { color: #102a18 !important; }
 
-/* ── Dark backgrounds — flip them all to white ───────────────────
+/* ── Dark backgrounds - flip them all to white ───────────────────
    These cover every dark surface used inline across the app. */
 [data-theme="light"] [style*="rgb(0, 0, 0)"],
 [data-theme="light"] [style*="rgb(10, 18, 12)"],
@@ -714,7 +714,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   background-image: none !important;
 }
 
-/* Override background on elements with rgba(0,0,0,*) tints — match the comma-space rgba form */
+/* Override background on elements with rgba(0,0,0,*) tints - match the comma-space rgba form */
 [data-theme="light"] [style*="rgba(0, 0, 0,"] {
   background-color: #ffffff !important;
 }
@@ -742,14 +742,14 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 [data-theme="light"] [style*="text-shadow"] { text-shadow: none !important; }
 [data-theme="light"] [style*="textShadow"] { text-shadow: none !important; }
 
-/* Header — light variant */
+/* Header - light variant */
 [data-theme="light"] header {
   background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
   border-bottom: 1px solid #d4e2d8 !important;
   box-shadow: 0 1px 0 rgba(0,122,54,0.08), 0 2px 8px rgba(0,0,0,0.06) !important;
 }
 
-/* Drawer — light variant */
+/* Drawer - light variant */
 [data-theme="light"] aside {
   background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
   border-right: 1px solid #d4e2d8 !important;
@@ -766,7 +766,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   /* Note: we can't fully strip inline box-shadow, but the universal text-shadow removal above handles glow text. */
 }
 
-/* Spotlight pulse — softer in light mode */
+/* Spotlight pulse - softer in light mode */
 @keyframes spotlight-pulse-light {
   0%, 100% { box-shadow: 0 0 0 2px rgba(0,122,54,0.4); }
   50% { box-shadow: 0 0 0 2px rgba(0,122,54,0.2); }
@@ -777,14 +777,14 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   LIGHT MODE — extended palette for category & group tints
+   LIGHT MODE - extended palette for category & group tints
    The original overrides cover the green spectrum used as body text.
    These cover the tinted accent colors used for badges/icons in the
    ForensicsGuide and History cards, where the dark-mode pastels
    become unreadable on a white background.
    ────────────────────────────────────────────────────────────────── */
 
-/* Categories.js bright-green spectrum — used for the per-category accent
+/* Categories.js bright-green spectrum - used for the per-category accent
    color on history cards, scan results, etc. Map every bright-green tint
    to a single readable dark green so contrast is consistent in light mode. */
 [data-theme="light"] [style*="rgb(61, 245, 138)"]  { color: #006a30 !important; }
@@ -795,14 +795,14 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 [data-theme="light"] [style*="rgb(112, 255, 156)"] { color: #006a30 !important; }
 [data-theme="light"] [style*="rgb(140, 255, 184)"] { color: #006a3c !important; }
 
-/* ForensicsGuide group accents — replace pastel tints with deep variants */
+/* ForensicsGuide group accents - replace pastel tints with deep variants */
 [data-theme="light"] [style*="rgb(251, 191, 36)"]  { color: #8c5a00 !important; }  /* amber - alteration */
 [data-theme="light"] [style*="rgb(56, 189, 248)"]  { color: #0d4a72 !important; }  /* sky   - digital */
 [data-theme="light"] [style*="rgb(248, 113, 113)"] { color: #9b2030 !important; }  /* red   - obliteration */
 [data-theme="light"] [style*="rgb(52, 211, 153)"]  { color: #0a6a4a !important; }  /* mint  - sympathetic */
 [data-theme="light"] [style*="rgb(167, 139, 250)"] { color: #4a2a92 !important; }  /* violet */
 
-/* Tints used as backgrounds — strip the bright tint from background
+/* Tints used as backgrounds - strip the bright tint from background
    while keeping the structural feel (light tinted card surface). */
 [data-theme="light"] [style*="rgba(196, 181, 253"] { background-color: rgba(74, 42, 146, 0.08) !important; }
 [data-theme="light"] [style*="rgba(251, 191, 36"]  { background-color: rgba(140, 90, 0, 0.08) !important; }
@@ -811,19 +811,19 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
 [data-theme="light"] [style*="rgba(52, 211, 153"]  { background-color: rgba(10, 106, 74, 0.08) !important; }
 [data-theme="light"] [style*="rgba(139, 92, 246"]  { background-color: rgba(74, 42, 146, 0.08) !important; }
 
-/* AI badge (purple) in History — soften background while text override
+/* AI badge (purple) in History - soften background while text override
    above pushes the foreground dark enough to read. */
 [data-theme="light"] [style*="rgba(139, 92, 246, 0.12)"] {
   background-color: rgba(74, 42, 146, 0.1) !important;
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   LIGHT MODE — readability sweep
+   LIGHT MODE - readability sweep
    Bump weights and tighten contrasts on common body-text colors so
    light mode reads cleanly without feeling washed-out.
    ────────────────────────────────────────────────────────────────── */
 
-/* Make secondary/muted greens darker than the original mappings —
+/* Make secondary/muted greens darker than the original mappings -
    the old #102a18 was OK, this pushes it to nearly-black for cleanest
    contrast on the off-white background. */
 [data-theme="light"] [style*="rgb(109, 186, 133)"] { color: #0a1c11 !important; }
@@ -853,7 +853,7 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   background-color: #f2f6f3 !important;
 }
 
-/* Hover lift in light mode — keep the lift but swap the green glow for a soft shadow */
+/* Hover lift in light mode - keep the lift but swap the green glow for a soft shadow */
 [data-theme="light"] .lift:hover {
   box-shadow: 0 6px 24px rgba(0, 60, 30, 0.08), 0 2px 6px rgba(0, 60, 30, 0.06) !important;
 }

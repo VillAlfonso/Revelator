@@ -46,8 +46,8 @@ GATE_PROMPT = (
     "      - If NOT_DOCUMENT: 2-4 sentences. First, state plainly that "
     "the upload is not a document and say what it actually is "
     "(\"The file you provided is not a document, but rather a ...\"). "
-    "Then describe what the image actually shows — subject, setting, any "
-    "notable details — so the user understands you looked at it. End with "
+    "Then describe what the image actually shows - subject, setting, any "
+    "notable details - so the user understands you looked at it. End with "
     "one short redirect line asking them to upload an actual document "
     "(paper document, ID, certificate, receipt, etc.) so Revelator can "
     "analyze it.\n\n"
@@ -57,7 +57,7 @@ GATE_PROMPT = (
 
 
 def _resize_for_gate(image: Image.Image, max_dim: int = 512) -> bytes:
-    """Small panel keeps the gate fast — full-res isn't needed for yes/no."""
+    """Small panel keeps the gate fast - full-res isn't needed for yes/no."""
     img = image.copy().convert("RGB")
     if max(img.size) > max_dim:
         img.thumbnail((max_dim, max_dim), Image.LANCZOS)
@@ -107,7 +107,7 @@ def check_is_document(image: Image.Image) -> Tuple[bool, str]:
     Returns (is_document, reason).
 
     On any error this returns (True, "...") so the rest of the pipeline still
-    runs — we'd rather over-accept than block users on transient LLM issues.
+    runs - we'd rather over-accept than block users on transient LLM issues.
     """
     image_bytes = _resize_for_gate(image)
     try:
@@ -131,7 +131,7 @@ def check_is_document(image: Image.Image) -> Tuple[bool, str]:
     # frontend gets the full prose.
     reason = " ".join(lines[1:]).strip()
 
-    # Be lenient about formatting — the model sometimes prefixes punctuation
+    # Be lenient about formatting - the model sometimes prefixes punctuation
     # or wraps the verdict in markdown bold.
     if "NOT_DOCUMENT" in verdict_line or "NOT DOCUMENT" in verdict_line:
         return False, reason or "The uploaded image does not appear to be a document."

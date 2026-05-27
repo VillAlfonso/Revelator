@@ -17,11 +17,11 @@
 
 const LIGHT_MAP = {
   // ForensicsGuide group accents
-  '#c4b5fd': '#4a2a92', // violet — traced signatures
-  '#fbbf24': '#8c5a00', // amber  — document alteration
-  '#38bdf8': '#0d4a72', // sky    — digital fabrication
-  '#f87171': '#9b2030', // red    — obliteration
-  '#34d399': '#0a6a4a', // mint   — sympathetic ink
+  '#c4b5fd': '#4a2a92', // violet - traced signatures
+  '#fbbf24': '#8c5a00', // amber  - document alteration
+  '#38bdf8': '#0d4a72', // sky    - digital fabrication
+  '#f87171': '#9b2030', // red    - obliteration
+  '#34d399': '#0a6a4a', // mint   - sympathetic ink
   '#a78bfa': '#4a2a92', // violet (alt)
 
   // Category greens from categories.js

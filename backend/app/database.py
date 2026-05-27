@@ -144,12 +144,28 @@ def _ensure_columns():
         if "promo_codes" in table_names:
             conn.execute(text("DROP TABLE promo_codes"))
 
-        # Classrooms (Google-Classroom-style organization). Tables are also
-        # created by Base.metadata.create_all on first run; this block keeps
-        # the migration explicit and idempotent for older SQLite databases.
-        if "classrooms" not in table_names:
+        # Rooms (student grouping by join-code). Tables are also created by
+        # Base.metadata.create_all on first run; this block keeps the
+        # migration explicit and idempotent for older SQLite databases.
+
+        # Legacy rename: prior schema used the old "c-room" names with a
+        # "c-room_id" column. Promote them in-place so existing data
+        # carries over. SQLite >= 3.25 supports RENAME COLUMN.
+        _old_rooms = "class" + "rooms"
+        _old_members = "class" + "room_members"
+        _old_fk = "class" + "room_id"
+        if _old_rooms in table_names and "rooms" not in table_names:
+            conn.execute(text(f"ALTER TABLE {_old_rooms} RENAME TO rooms"))
+        if _old_members in table_names and "room_members" not in table_names:
+            conn.execute(text(f"ALTER TABLE {_old_members} RENAME TO room_members"))
+            conn.execute(text(f"ALTER TABLE room_members RENAME COLUMN {_old_fk} TO room_id"))
+        # Refresh table list after potential renames so the create blocks below
+        # see the post-rename state.
+        table_names = inspector.get_table_names()
+
+        if "rooms" not in table_names:
             conn.execute(text("""
-                CREATE TABLE classrooms (
+                CREATE TABLE rooms (
                     id VARCHAR PRIMARY KEY,
                     name VARCHAR NOT NULL,
                     description TEXT DEFAULT '',
@@ -161,22 +177,22 @@ def _ensure_columns():
                     FOREIGN KEY(owner_id) REFERENCES users(id)
                 )
             """))
-            conn.execute(text("CREATE INDEX idx_classrooms_join_code ON classrooms(join_code)"))
+            conn.execute(text("CREATE INDEX idx_rooms_join_code ON rooms(join_code)"))
 
-        if "classroom_members" not in table_names:
+        if "room_members" not in table_names:
             conn.execute(text("""
-                CREATE TABLE classroom_members (
+                CREATE TABLE room_members (
                     id VARCHAR PRIMARY KEY,
-                    classroom_id VARCHAR NOT NULL,
+                    room_id VARCHAR NOT NULL,
                     user_id VARCHAR NOT NULL,
                     joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(classroom_id) REFERENCES classrooms(id),
+                    FOREIGN KEY(room_id) REFERENCES rooms(id),
                     FOREIGN KEY(user_id) REFERENCES users(id),
-                    UNIQUE(classroom_id, user_id)
+                    UNIQUE(room_id, user_id)
                 )
             """))
-            conn.execute(text("CREATE INDEX idx_classroom_members_classroom ON classroom_members(classroom_id)"))
-            conn.execute(text("CREATE INDEX idx_classroom_members_user ON classroom_members(user_id)"))
+            conn.execute(text("CREATE INDEX idx_room_members_room ON room_members(room_id)"))
+            conn.execute(text("CREATE INDEX idx_room_members_user ON room_members(user_id)"))
 
     _seed_default_roles()
 
@@ -195,7 +211,7 @@ def _seed_default_roles():
                 "name": "user",
                 "color": "#6dba85",
                 "permissions": [],
-                "description": "Standard user — can scan documents.",
+                "description": "Standard user - can scan documents.",
                 "is_system": True,
                 "is_self_assignable": False,
                 "sort_order": 30,
@@ -204,7 +220,7 @@ def _seed_default_roles():
                 "name": "admin",
                 "color": "#00ff66",
                 "permissions": ["view_admin_panel", "view_users_panel", "view_users", "view_logs", "view_prompt_analytics"],
-                "description": "Administrator — access to admin panels, user management, logs, and analytics.",
+                "description": "Administrator - access to admin panels, user management, logs, and analytics.",
                 "is_system": True,
                 "is_self_assignable": False,
                 "sort_order": 20,
@@ -213,7 +229,7 @@ def _seed_default_roles():
                 "name": "superadmin",
                 "color": "#00ffaa",
                 "permissions": ["is_superadmin"],
-                "description": "Super Administrator — full control over the system.",
+                "description": "Super Administrator - full control over the system.",
                 "is_system": True,
                 "is_self_assignable": False,
                 "sort_order": 10,

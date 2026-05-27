@@ -12,7 +12,7 @@ const GROUPS = [
     label: 'Traced Signatures',
     Icon: Fingerprint,
     color: '#c4b5fd',
-    description: 'A genuine signature is physically reproduced using an intermediary guide — carbon paper, light table, or projector. The forger follows a real signature rather than inventing one, producing subtle artifacts from the tracing method.',
+    description: 'A genuine signature is physically reproduced using an intermediary guide, carbon paper, light table, or projector. The forger follows a real signature rather than inventing one, producing subtle artifacts from the tracing method.',
     categories: [
       {
         id: 'traced_carbon',
@@ -29,7 +29,7 @@ const GROUPS = [
       {
         id: 'traced_projection',
         label: 'Projection Tracing',
-        description: 'A light table or projector throws the genuine signature as a shadow onto paper. The forger traces the projected lines with pen. No grooves or carbon residue — only the telltale monotony of following a projected guide.',
+        description: 'A light table or projector throws the genuine signature as a shadow onto paper. The forger traces the projected lines with pen. No grooves or carbon residue, only the telltale monotony of following a projected guide.',
         indicators: ['Uniform / monotonous pen pressure', 'Micro-tremors throughout', 'Frequent pen lifts', 'No carbon residue, no grooves', 'Suspiciously perfect match to original'],
       },
     ],
@@ -39,29 +39,29 @@ const GROUPS = [
     label: 'Document Alteration',
     Icon: FileEdit,
     color: '#fbbf24',
-    description: 'An authentic document is modified after the fact — text is added between lines or inside words, or existing content is erased (chemically or mechanically) and replaced. The original paper and its surrounding content remain genuine.',
+    description: 'An authentic document is modified after the fact, text is added between lines or inside words, or existing content is erased (chemically or mechanically) and replaced. The original paper and its surrounding content remain genuine.',
     categories: [
       {
         id: 'addition_insertion',
-        label: 'Addition — Insertion',
+        label: 'Addition, Insertion',
         description: 'Characters or digits are added inside a word or number to change its meaning (e.g., "1000" → "10000"). New strokes appear between or alongside existing ones, often with visible crowding, ink mismatches, or morphological inconsistency.',
         indicators: ['Crowding or tight spacing', 'Ink density mismatch', 'Stroke rhythm inconsistency', 'Baseline misalignment', 'Logical value conflict'],
       },
       {
         id: 'addition_interlineation',
-        label: 'Addition — Interlineation',
+        label: 'Addition, Interlineation',
         description: 'New text is squeezed into the whitespace between existing printed lines, not inside a word. The inserted writing often uses a smaller size or different pen to fit the narrow gap.',
         indicators: ['Smaller text size than surrounding', 'Different pen baseline', 'Different ink color or texture'],
       },
       {
         id: 'erasure_chemical',
-        label: 'Erasure — Chemical',
+        label: 'Erasure, Chemical',
         description: 'Original ink is dissolved with a solvent (bleach, acetone, commercial eradicator). The cleaned area is then written on or printed over. Solvents leave characteristic tide marks, ghosting, and paper fiber damage.',
         indicators: ['Halo / tide mark around altered zone', 'Ink ghosting of original text', 'Paper fiber damage', 'New text on visibly damaged background', 'Sheen difference under oblique light'],
       },
       {
         id: 'erasure_mechanical',
-        label: 'Erasure — Mechanical',
+        label: 'Erasure, Mechanical',
         description: 'Original ink is scraped away with a razor blade, sandpaper, or eraser. The abraded area is then written or printed over. Abrasion leaves a rough "fuzzy patch" of disturbed paper fibers.',
         indicators: ["Abraded fibers ('fuzzy patch')", 'Shadow patch or sheen', 'Ghost ink particles', 'Paper thinning', 'Jagged void boundary', 'Ink feathering into damaged area'],
       },
@@ -76,19 +76,19 @@ const GROUPS = [
     categories: [
       {
         id: 'digital_cut_paste',
-        label: 'Digital — Cut & Paste',
+        label: 'Digital, Cut & Paste',
         description: 'A genuine element (signature, seal, or stamp) is digitally extracted from one image and composited onto a different document. The transplanted element often carries halos, pixelation, DPI mismatches, or inconsistent shadows.',
         indicators: ['Halo or fringe around element', 'Pixelation or aliasing at edges', 'Background inconsistency under element', 'Compression artefacts', 'DPI or resolution mismatch', 'Inconsistent shadow or lighting'],
       },
       {
         id: 'digital_desktop',
-        label: 'Digital — Desktop',
+        label: 'Digital, Desktop',
         description: 'The entire document is fabricated from scratch in software (Word, Canva, Photoshop, etc.). No physical paper ever existed. Indicators include unnaturally perfect typography, template-like layout, and a complete absence of physical paper realism.',
         indicators: ['Perfect digital typography throughout', 'Font consistency across entire doc', 'Forms or template layout', 'Signature quality mismatch vs printed text', 'Zero physical paper realism (no grain, no tilt)'],
       },
       {
         id: 'digital_scanned',
-        label: 'Digital — Scanned',
+        label: 'Digital, Scanned',
         description: 'A real document is scanned, then digital elements (dates, signatures, stamps) are composited onto the scan image. The scan provides a realistic paper background while inserted elements betray themselves through scan-noise inconsistencies.',
         indicators: ['Scan noise inconsistency around inserted element', 'Stamp or signature flatness vs paper grain', 'Global tilt vs local perfect alignment', 'Compression level mismatch', 'Resolution halo around element', 'Font or field inconsistency'],
       },
@@ -99,23 +99,23 @@ const GROUPS = [
     label: 'Obliteration',
     Icon: EyeOff,
     color: '#f87171',
-    description: 'Original content is intentionally concealed — not erased or replaced, but covered. Ink, correction fluid, or opaque pigment is applied over existing text to hide it while the surrounding document remains intact.',
+    description: 'Original content is intentionally concealed, not erased or replaced, but covered. Ink, correction fluid, or opaque pigment is applied over existing text to hide it while the surrounding document remains intact.',
     categories: [
       {
         id: 'obliteration_ink',
-        label: 'Obliteration — Ink',
+        label: 'Obliteration, Ink',
         description: 'Original text is scribbled over with a pen or marker, rendering it visually illegible. The underlying text may still be recoverable by infrared photography or other forensic techniques.',
         indicators: ['Ink scribbled over existing text', 'Possible underlying text visible via IR'],
       },
       {
         id: 'obliteration_whiteout',
-        label: 'Obliteration — White Out',
+        label: 'Obliteration, White Out',
         description: 'Correction fluid (Wite-Out, Tipp-Ex) is applied as an opaque white layer over existing text. The fluid leaves a distinctive raised, chalky surface texture that is visible to touch and sometimes to oblique light.',
         indicators: ['Correction fluid layer over text', 'Raised chalky surface texture', 'Whitened patch inconsistent with paper'],
       },
       {
         id: 'obliteration_pigment',
-        label: 'Obliteration — Pigment',
+        label: 'Obliteration, Pigment',
         description: 'An opaque marker, paint, or solid pigment is used to cover text. Unlike whiteout, pigment obliteration may use any color and can be detected by the coating\'s opacity and edge characteristics.',
         indicators: ['Opaque marker or paint over text', 'Coating edge visible under magnification'],
       },
@@ -126,17 +126,17 @@ const GROUPS = [
     label: 'Sympathetic Ink',
     Icon: FlaskConical,
     color: '#34d399',
-    description: 'Writing that is invisible under normal conditions — either because no ink was deposited (pure pressure indentation) or because the ink only becomes visible under a specific stimulus such as heat, UV light, or a chemical reagent.',
+    description: 'Writing that is invisible under normal conditions, either because no ink was deposited (pure pressure indentation) or because the ink only becomes visible under a specific stimulus such as heat, UV light, or a chemical reagent.',
     categories: [
       {
         id: 'sympathetic_indented',
-        label: 'Sympathetic — Indented Writing',
+        label: 'Sympathetic, Indented Writing',
         description: 'Writing pressure alone, with no ink, creates grooves on paper beneath the written-on sheet. The indented text contains no ink and is only visible by raking light or an electrostatic detection device (ESDA). Often used to reveal secondary documents.',
         indicators: ['Pressure indentations present on paper', 'No visible ink in grooves', 'Revealed by raking or oblique light', 'ESDA / electrostatic detection'],
       },
       {
         id: 'sympathetic_special',
-        label: 'Sympathetic — Special Ink',
+        label: 'Sympathetic, Special Ink',
         description: 'An invisible or near-invisible substance is used to write, then later revealed by an external stimulus. Classic examples include heat-activated (lemon juice, milk), UV-fluorescent inks, and chemical reagent-activated compounds.',
         indicators: ['Heat-activated: text browns or chars', 'Chemical-activated: color reaction appears', 'UV / fluorescent glow under blacklight', 'Specific substances (lemon, milk, phenolphthalein)'],
       },
@@ -402,7 +402,7 @@ export default function ForensicsGuide() {
           fontSize: 11, color: theme === 'light' ? '#3a5040' : '#5a7a64',
           margin: 0, lineHeight: 1.75, letterSpacing: 0.5,
         }}>
-          Analysis is powered by Gemini Vision with a custom forensic prompt chain. Results are probabilistic —
+          Analysis is powered by Gemini Vision with a custom forensic prompt chain. Results are probabilistic -
           physical examination by a qualified document examiner is required for legal or evidentiary use.
         </p>
       </div>

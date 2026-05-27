@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Background fingerprint watermark — large, faint, decorative.
+// Background fingerprint watermark - large, faint, decorative.
 // Place absolutely positioned with low opacity behind hero content.
 export function FingerprintWatermark({ size = 320, color = '#00ff66', opacity = 0.05, style = {} }) {
   return (
@@ -29,7 +29,7 @@ export function FingerprintWatermark({ size = 320, color = '#00ff66', opacity = 
   );
 }
 
-// Eye-of-providence inside circle — small accent for tier headers, etc.
+// Eye-of-providence inside circle - small accent for tier headers, etc.
 export function EyeMark({ size = 22, color = '#00ff66', style = {} }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden="true">
@@ -57,7 +57,7 @@ export function MagnifierIcon({ size = 18, color = '#00ff66', style = {} }) {
   );
 }
 
-// Crosshair / reticle — used decoratively in scan area
+// Crosshair / reticle - used decoratively in scan area
 export function Crosshair({ size = 32, color = '#00ff66', style = {} }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" style={style} aria-hidden="true">
@@ -100,7 +100,7 @@ export function EvidenceTag({ children, color = '#00ff66', style = {} }) {
   );
 }
 
-// Animated fingerprint scan banner — used as the hero centerpiece on /scan.
+// Animated fingerprint scan banner - used as the hero centerpiece on /scan.
 // Renders a fingerprint with a horizontal sweep line that travels top→bottom.
 export function FingerprintScan({ size = 200, color = '#00ff66', style = {} }) {
   return (

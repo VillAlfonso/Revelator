@@ -170,9 +170,9 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     """Confirm an email address from the link we sent.
 
     Two token shapes are accepted:
-      - `signup`: stateless — the registration payload is in the token; create
+      - `signup`: stateless - the registration payload is in the token; create
         the user row now and mark it verified.
-      - `verify`: legacy — token references an existing unverified row by id.
+      - `verify`: legacy - token references an existing unverified row by id.
         Kept for any in-flight links from before the stateless flow shipped.
     """
     payload = decode_token(token)
@@ -308,7 +308,7 @@ def google_login(body: GoogleAuthRequest, db: Session = Depends(get_db)):
             user.google_id = google_id
             db.commit()
         else:
-            # Create new user — generate unique username from email prefix
+            # Create new user - generate unique username from email prefix
             base = email.split("@")[0]
             username = base
             n = 1
@@ -376,7 +376,7 @@ def set_api_key(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Legacy single-key endpoint — kept for backward compatibility."""
+    """Legacy single-key endpoint - kept for backward compatibility."""
     api_key = body.api_key.strip() if body.api_key else None
     if api_key and not api_key.startswith("AIza"):
         raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")

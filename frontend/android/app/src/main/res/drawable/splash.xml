@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Splash drawable — black background with the Revelator logo centered.
+  Splash drawable - black background with the Revelator logo centered.
   Replaces the old splash.png across all density folders by name override
   (XML drawables take priority over PNG when both share the same name).
 -->

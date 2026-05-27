@@ -1,4 +1,4 @@
-# Revelator Deployment Guide — Cloudflare Tunnel (Free)
+# Revelator Deployment Guide - Cloudflare Tunnel (Free)
 
 ## Overview
 Host Revelator on a school laptop using **Cloudflare Tunnel**, which creates a secure public tunnel to your local backend at **zero cost**. Students access the app from anywhere via a free auto-generated URL.
@@ -71,7 +71,7 @@ This will:
 2. Output a public URL like: `https://abc123-abc123.cfargotunnel.com`
 3. That URL is now accessible from anywhere
 
-**Copy that URL** — that's your public backend!
+**Copy that URL** - that's your public backend!
 
 ### Option B: Named Tunnel (More reliable, persists across restarts)
 
@@ -153,8 +153,8 @@ Keep both terminals open while students are using the app:
 
 ### Environment Variables
 Make sure `.env` files are configured:
-- `C:\Revelator\.env` — Backend config (API keys, database, etc.)
-- `C:\Revelator\frontend\.env` — Frontend config (VITE_API_URL)
+- `C:\Revelator\.env` - Backend config (API keys, database, etc.)
+- `C:\Revelator\frontend\.env` - Frontend config (VITE_API_URL)
 
 ### First-Time Setup Checklist
 - [ ] Backend `.env` configured with database path and Gemini API keys

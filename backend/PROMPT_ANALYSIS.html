@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Revelator — Prompt Analysis & Overlap Visualizer</title>
+<title>Revelator - Prompt Analysis & Overlap Visualizer</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -260,8 +260,8 @@
 </head>
 <body>
 <header>
-  <h1>Revelator — Prompt Analysis & Category Overlap Visualizer</h1>
-  <p>Interactive analysis of the Gemini Vision system prompt — detail level, overlap relationships, dominance patterns</p>
+  <h1>Revelator - Prompt Analysis & Category Overlap Visualizer</h1>
+  <p>Interactive analysis of the Gemini Vision system prompt - detail level, overlap relationships, dominance patterns</p>
 </header>
 
 <div class="container">
@@ -281,7 +281,7 @@
       <h3>Detail-level imbalance (visualized below as bar chart)</h3>
       <div id="overview-bars"></div>
 
-      <div class="info" style="margin-top: 20px;"><strong>Why this matters:</strong> When a forgery has overlapping indicators across multiple categories, the model gravitates toward the category with the richest description. This is "prompt mass bias" — more text = more attractor power.</div>
+      <div class="info" style="margin-top: 20px;"><strong>Why this matters:</strong> When a forgery has overlapping indicators across multiple categories, the model gravitates toward the category with the richest description. This is "prompt mass bias" - more text = more attractor power.</div>
 
       <h3>Top dominance issues</h3>
       <div id="overview-issues"></div>
@@ -303,7 +303,7 @@
 
     <!-- GRAPH -->
     <div class="panel" id="panel-graph">
-      <h3>Category overlap network — thicker line = stronger overlap</h3>
+      <h3>Category overlap network - thicker line = stronger overlap</h3>
       <p style="color:#888;font-size:12px;margin-bottom:12px;">Click a node to highlight its overlaps. Drag nodes to reposition. Edge thickness = overlap severity (0-1 scale).</p>
       <div class="graph-container">
         <svg id="graph"></svg>
@@ -317,7 +317,7 @@
 
     <!-- DOMINANCE -->
     <div class="panel" id="panel-dominance">
-      <h3>Dominance pairs — when X overlaps with Y, who tends to win?</h3>
+      <h3>Dominance pairs - when X overlaps with Y, who tends to win?</h3>
       <p style="color:#888;font-size:12px;margin-bottom:16px;">For each high-overlap pair, the category with more prompt detail tends to dominate when evidence is ambiguous.</p>
       <div id="dominance-list"></div>
     </div>
@@ -345,29 +345,29 @@
 
 const categories = [
   // TRACED
-  { id: "traced_carbon", label: "Traced — Carbon", group: "traced", wordCount: 70, indicators: ["faint carbon residue along strokes","hesitation/tremor following blueprint","uniform line weight","misalignment from carbon transfer"], detail: "MEDIUM", explanation: "Carbon paper placed under genuine signature; forger traces with stylus, transfers carbon 'blueprint', then inks over." },
-  { id: "traced_indentation", label: "Traced — Indentation", group: "traced", wordCount: 50, indicators: ["halo/colorless depression around strokes","ink not filling indented path","hesitation or tremor"], detail: "MEDIUM", explanation: "Pressure indentation/canal light effect — pen pressed into paper creates groove around strokes." },
-  { id: "traced_projection", label: "Traced — Projection", group: "traced", wordCount: 300, indicators: ["uniform/monotonous pen pressure","micro-tremors","frequent pen lifts","no carbon residue","no grooves","suspiciously perfect match"], detail: "VERY HIGH", explanation: "Light table or projector throws genuine signature onto paper; forger inks over projected lines.", flags: ["Has 2 critical-distinction blocks vs digital_cut_paste and digital_scanned"] },
+  { id: "traced_carbon", label: "Traced - Carbon", group: "traced", wordCount: 70, indicators: ["faint carbon residue along strokes","hesitation/tremor following blueprint","uniform line weight","misalignment from carbon transfer"], detail: "MEDIUM", explanation: "Carbon paper placed under genuine signature; forger traces with stylus, transfers carbon 'blueprint', then inks over." },
+  { id: "traced_indentation", label: "Traced - Indentation", group: "traced", wordCount: 50, indicators: ["halo/colorless depression around strokes","ink not filling indented path","hesitation or tremor"], detail: "MEDIUM", explanation: "Pressure indentation/canal light effect - pen pressed into paper creates groove around strokes." },
+  { id: "traced_projection", label: "Traced - Projection", group: "traced", wordCount: 300, indicators: ["uniform/monotonous pen pressure","micro-tremors","frequent pen lifts","no carbon residue","no grooves","suspiciously perfect match"], detail: "VERY HIGH", explanation: "Light table or projector throws genuine signature onto paper; forger inks over projected lines.", flags: ["Has 2 critical-distinction blocks vs digital_cut_paste and digital_scanned"] },
 
   // ALTERATION
-  { id: "addition_insertion", label: "Addition — Insertion", group: "alteration", wordCount: 500, indicators: ["crowding/tight spacing","ink density mismatch","stroke rhythm inconsistency","baseline misalignment","logical value conflict","ink texture mismatch (printed vs wet)","stroke layering / Z-axis","morphological inconsistency"], detail: "VERY HIGH", explanation: "Characters added inside a word/number to change meaning. Has TWO subtypes: A) digit in blank space, B) char converted by added stroke.", flags: ["Largest single category in the prompt — over 500 words","Has bank check rule + ink layering rule"] },
-  { id: "addition_interlineation", label: "Addition — Interlineation", group: "alteration", wordCount: 30, indicators: ["smaller text","different baseline","different ink"], detail: "LOW", explanation: "New writing squeezed BETWEEN existing lines (in whitespace, not inside a word)." },
-  { id: "erasure_chemical", label: "Erasure — Chemical", group: "alteration", wordCount: 150, indicators: ["halo/tide mark","ink ghosting","paper fiber damage","new text on damaged background","oblique-light sheen difference"], detail: "HIGH", explanation: "Original ink dissolved with solvent (bleach, acetone, eradicator), then new text written/printed in cleaned area." },
-  { id: "erasure_mechanical", label: "Erasure — Mechanical", group: "alteration", wordCount: 250, indicators: ["abraded fibers ('fuzzy patch')","shadow patch / sheen","ghost particles","paper thinning","jagged void boundary","ink feathering","logical word truncation"], detail: "HIGH", explanation: "Original ink scraped off with razor/sandpaper/eraser, then replacement written/printed on scraped area." },
+  { id: "addition_insertion", label: "Addition - Insertion", group: "alteration", wordCount: 500, indicators: ["crowding/tight spacing","ink density mismatch","stroke rhythm inconsistency","baseline misalignment","logical value conflict","ink texture mismatch (printed vs wet)","stroke layering / Z-axis","morphological inconsistency"], detail: "VERY HIGH", explanation: "Characters added inside a word/number to change meaning. Has TWO subtypes: A) digit in blank space, B) char converted by added stroke.", flags: ["Largest single category in the prompt - over 500 words","Has bank check rule + ink layering rule"] },
+  { id: "addition_interlineation", label: "Addition - Interlineation", group: "alteration", wordCount: 30, indicators: ["smaller text","different baseline","different ink"], detail: "LOW", explanation: "New writing squeezed BETWEEN existing lines (in whitespace, not inside a word)." },
+  { id: "erasure_chemical", label: "Erasure - Chemical", group: "alteration", wordCount: 150, indicators: ["halo/tide mark","ink ghosting","paper fiber damage","new text on damaged background","oblique-light sheen difference"], detail: "HIGH", explanation: "Original ink dissolved with solvent (bleach, acetone, eradicator), then new text written/printed in cleaned area." },
+  { id: "erasure_mechanical", label: "Erasure - Mechanical", group: "alteration", wordCount: 250, indicators: ["abraded fibers ('fuzzy patch')","shadow patch / sheen","ghost particles","paper thinning","jagged void boundary","ink feathering","logical word truncation"], detail: "HIGH", explanation: "Original ink scraped off with razor/sandpaper/eraser, then replacement written/printed on scraped area." },
 
   // DIGITAL
-  { id: "digital_cut_paste", label: "Digital — Cut & Paste", group: "digital", wordCount: 200, indicators: ["halo/fringe","pixelation/aliasing","background inconsistency","compression artefacts","DPI mismatch","shadow/lighting","perfect leveling"], detail: "HIGH", explanation: "Genuine element (signature, stamp) digitally lifted and composited onto otherwise real document." },
-  { id: "digital_desktop", label: "Digital — Desktop", group: "digital", wordCount: 200, indicators: ["perfect digital typography","font consistency across doc","forms & templates","signature-quality mismatch","zero physical realism"], detail: "HIGH", explanation: "ENTIRE document fabricated from scratch in software (Word, Canva, Photoshop)." },
-  { id: "digital_scanned", label: "Digital — Scanned", group: "digital", wordCount: 200, indicators: ["scan-noise inconsistency","stamp/signature flatness","global tilt vs local alignment","compression-level mismatch","resolution halo","font/field inconsistency"], detail: "HIGH", explanation: "Real document scanned, then digital elements composited onto scan image (stamp, signature, dates)." },
+  { id: "digital_cut_paste", label: "Digital - Cut & Paste", group: "digital", wordCount: 200, indicators: ["halo/fringe","pixelation/aliasing","background inconsistency","compression artefacts","DPI mismatch","shadow/lighting","perfect leveling"], detail: "HIGH", explanation: "Genuine element (signature, stamp) digitally lifted and composited onto otherwise real document." },
+  { id: "digital_desktop", label: "Digital - Desktop", group: "digital", wordCount: 200, indicators: ["perfect digital typography","font consistency across doc","forms & templates","signature-quality mismatch","zero physical realism"], detail: "HIGH", explanation: "ENTIRE document fabricated from scratch in software (Word, Canva, Photoshop)." },
+  { id: "digital_scanned", label: "Digital - Scanned", group: "digital", wordCount: 200, indicators: ["scan-noise inconsistency","stamp/signature flatness","global tilt vs local alignment","compression-level mismatch","resolution halo","font/field inconsistency"], detail: "HIGH", explanation: "Real document scanned, then digital elements composited onto scan image (stamp, signature, dates)." },
 
   // OBLITERATION
-  { id: "obliteration_ink", label: "Obliteration — Ink", group: "obliteration", wordCount: 5, indicators: ["ink scribbled over original"], detail: "VERY LOW", explanation: "Original text scribbled out with ink.", flags: ["Almost no detail in prompt — model has minimal cues"] },
-  { id: "obliteration_whiteout", label: "Obliteration — White Out", group: "obliteration", wordCount: 5, indicators: ["correction fluid covering text"], detail: "VERY LOW", explanation: "Correction fluid covering text.", flags: ["Almost no detail in prompt"] },
-  { id: "obliteration_pigment", label: "Obliteration — Pigment", group: "obliteration", wordCount: 5, indicators: ["opaque marker/paint"], detail: "VERY LOW", explanation: "Opaque marker, paint, or pigment covering text.", flags: ["Almost no detail in prompt"] },
+  { id: "obliteration_ink", label: "Obliteration - Ink", group: "obliteration", wordCount: 5, indicators: ["ink scribbled over original"], detail: "VERY LOW", explanation: "Original text scribbled out with ink.", flags: ["Almost no detail in prompt - model has minimal cues"] },
+  { id: "obliteration_whiteout", label: "Obliteration - White Out", group: "obliteration", wordCount: 5, indicators: ["correction fluid covering text"], detail: "VERY LOW", explanation: "Correction fluid covering text.", flags: ["Almost no detail in prompt"] },
+  { id: "obliteration_pigment", label: "Obliteration - Pigment", group: "obliteration", wordCount: 5, indicators: ["opaque marker/paint"], detail: "VERY LOW", explanation: "Opaque marker, paint, or pigment covering text.", flags: ["Almost no detail in prompt"] },
 
   // SYMPATHETIC
-  { id: "sympathetic_indented", label: "Sympathetic — Indented", group: "sympathetic", wordCount: 15, indicators: ["pressure indentations on paper","no visible ink","raking light reveals"], detail: "VERY LOW", explanation: "Indented writing visible only via raking light. No ink in the grooves.", flags: ["⚠ HIDDEN OVERLAP with traced_indentation — both have grooves; sympathetic has NO ink filling them"] },
-  { id: "sympathetic_special", label: "Sympathetic — Special Ink", group: "sympathetic", wordCount: 200, indicators: ["heat-activated (browned/charred)","chemical-activated (color reaction)","UV/fluorescent","specific substances (lemon, milk, phenolphthalein)"], detail: "HIGH", explanation: "Invisible ink revealed by external stimulus (heat, reagent, UV)." },
+  { id: "sympathetic_indented", label: "Sympathetic - Indented", group: "sympathetic", wordCount: 15, indicators: ["pressure indentations on paper","no visible ink","raking light reveals"], detail: "VERY LOW", explanation: "Indented writing visible only via raking light. No ink in the grooves.", flags: ["⚠ HIDDEN OVERLAP with traced_indentation - both have grooves; sympathetic has NO ink filling them"] },
+  { id: "sympathetic_special", label: "Sympathetic - Special Ink", group: "sympathetic", wordCount: 200, indicators: ["heat-activated (browned/charred)","chemical-activated (color reaction)","UV/fluorescent","specific substances (lemon, milk, phenolphthalein)"], detail: "HIGH", explanation: "Invisible ink revealed by external stimulus (heat, reagent, UV)." },
 
   // CURRENCY
   { id: "currency_analysis", label: "Currency", group: "currency", wordCount: 5, indicators: ["counterfeit banknote suspected"], detail: "VERY LOW", explanation: "Suspected counterfeit banknote.", flags: ["Almost no detail in prompt"] },
@@ -379,14 +379,14 @@ const overlaps = [
   { source: "traced_carbon", target: "traced_projection", strength: 0.55, severity: "MEDIUM", reason: "Both show uniform line weight from following a guide. Carbon = paper underneath; projection = light from above." },
   { source: "traced_indentation", target: "traced_projection", strength: 0.55, severity: "MEDIUM", reason: "Both hand-drawn from a visual reference. Indentation creates physical groove; projection does not." },
 
-  // TRACED ↔ DIGITAL (high-risk crossover — already caused problems)
+  // TRACED ↔ DIGITAL (high-risk crossover - already caused problems)
   { source: "traced_projection", target: "digital_cut_paste", strength: 0.85, severity: "HIGH", reason: "Both produce 'perfect-looking' signatures. Distinguish: physical pen marks vs digital halo/pixelation. Has explicit ⚠ distinction block." },
   { source: "traced_projection", target: "digital_scanned", strength: 0.85, severity: "HIGH", reason: "Both look unnaturally clean. Distinguish: paper-fiber interaction vs flat-on-scan-grain. Has explicit ⚠ distinction block." },
   { source: "traced_indentation", target: "digital_desktop", strength: 0.75, severity: "HIGH", reason: "OLD BIAS (now patched): the prompt used to say 'mechanical-looking text = traced'. Software-generated docs naturally look mechanical. Caused misclassification." },
   { source: "traced_carbon", target: "digital_cut_paste", strength: 0.45, severity: "LOW", reason: "Both can show ghost-like residue. Carbon = real ink residue; cut/paste = digital halo." },
 
   // SYMPATHETIC ↔ TRACED (UNADDRESSED OVERLAP!)
-  { source: "sympathetic_indented", target: "traced_indentation", strength: 0.85, severity: "HIGH", reason: "BOTH involve indentation/grooves. Difference: sympathetic_indented has grooves WITHOUT ink. traced_indentation has grooves WITH ink filling them. The prompt does NOT explicitly distinguish these — risk of confusion." },
+  { source: "sympathetic_indented", target: "traced_indentation", strength: 0.85, severity: "HIGH", reason: "BOTH involve indentation/grooves. Difference: sympathetic_indented has grooves WITHOUT ink. traced_indentation has grooves WITH ink filling them. The prompt does NOT explicitly distinguish these - risk of confusion." },
 
   // DIGITAL ↔ DIGITAL
   { source: "digital_cut_paste", target: "digital_desktop", strength: 0.7, severity: "MEDIUM", reason: "Both software-generated. Cut/paste = element on real doc; desktop = whole doc fabricated." },
@@ -395,14 +395,14 @@ const overlaps = [
 
   // ALTERATION ↔ ALTERATION
   { source: "addition_insertion", target: "erasure_chemical", strength: 0.65, severity: "MEDIUM", reason: "Both alter character meaning. Insertion = add ink (paper intact); erasure = remove + replace (paper damaged)." },
-  { source: "addition_insertion", target: "erasure_mechanical", strength: 0.65, severity: "MEDIUM", reason: "Same logic — paper damage distinguishes erasure from insertion." },
+  { source: "addition_insertion", target: "erasure_mechanical", strength: 0.65, severity: "MEDIUM", reason: "Same logic - paper damage distinguishes erasure from insertion." },
   { source: "erasure_chemical", target: "erasure_mechanical", strength: 0.8, severity: "HIGH", reason: "Both remove + replace. Chemical = solvent (smooth, stained); mechanical = abrasion (rough, fuzzy fibers)." },
 
   // ERASURE ↔ OBLITERATION (smudges look similar)
   { source: "erasure_chemical", target: "obliteration_ink", strength: 0.7, severity: "MEDIUM", reason: "Both can show ink smudges. Erasure smudge = at EDGE of blank where char used to be. Obliteration = covering text intentionally." },
 
   // OBLITERATION ↔ OBLITERATION (under-detailed, easy to confuse)
-  { source: "obliteration_ink", target: "obliteration_whiteout", strength: 0.5, severity: "LOW", reason: "Both cover text. Different materials but only 5 words of detail each — model has minimal cues to distinguish." },
+  { source: "obliteration_ink", target: "obliteration_whiteout", strength: 0.5, severity: "LOW", reason: "Both cover text. Different materials but only 5 words of detail each - model has minimal cues to distinguish." },
   { source: "obliteration_ink", target: "obliteration_pigment", strength: 0.5, severity: "LOW", reason: "Both use covering material. Lack of detail makes distinction fragile." },
   { source: "obliteration_whiteout", target: "obliteration_pigment", strength: 0.6, severity: "MEDIUM", reason: "Whiteout = white correction fluid; pigment = colored marker/paint. Visually similar covering function." },
 ];
@@ -412,7 +412,7 @@ const variables = [
   { name: "suspicion_reason", desc: "User's free-text description of why they suspect forgery (max 300 chars).", influence: "Free text bias. Can mention specific words like 'erased', 'pasted', 'traced' that anchor classification. The prompt explicitly tells the model to verify against image." },
   { name: "area_of_concern", desc: "Where the user wants the model to focus (e.g., 'signature', 'date field').", influence: "Directs attention. Doesn't force a category but biases toward forgery types common in that region." },
   { name: "image_source", desc: "Phone photo / scan / screenshot / not sure.", influence: "Strong influence. Screenshot → digital_desktop more likely. Phone photo → physical forgeries more likely." },
-  { name: "is_forged_belief", desc: "User believes it IS forged / NOT forged / not sure.", influence: "Weak suggestion. Prompt warns model not to be pressured by user's belief — must verify against image." },
+  { name: "is_forged_belief", desc: "User believes it IS forged / NOT forged / not sure.", influence: "Weak suggestion. Prompt warns model not to be pressured by user's belief - must verify against image." },
   { name: "shot_type", desc: "Close-up / full document / not sure.", influence: "Affects what evidence is visible. Close-up = micro-tremors, fiber details. Full doc = layout, font consistency." },
   { name: "lighting", desc: "Natural / raking / bright / not sure.", influence: "Critical for sympathetic_indented (needs raking light) and erasure detection (oblique light shows sheen)." },
   { name: "physical_clues", desc: "Specific clue user thinks they observed (16 options: indentation_grooves, carbon_streaks, ink_halo, paper_thinning, etc.).", influence: "STRONGEST per-variable bias. Each clue maps to a category. The prompt tells the model to verify but it nudges hard." },
@@ -465,7 +465,7 @@ function renderOverview() {
     {pair: "addition_insertion vs everything else", text: "<strong>500 words</strong> for addition_insertion; the prompt's gravitational center. When evidence is ambiguous and there's any check/numeric field, model leans here."},
     {pair: "traced_projection vs digital_cut_paste / digital_scanned", text: "<strong>300+ words</strong> for traced_projection with TWO critical-distinction blocks. High-overlap area; previously misclassified digital as traced (now patched)."},
     {pair: "obliteration_ink/whiteout/pigment", text: "<strong>5 words each</strong>. Model can barely distinguish them. Any complex coverage situation falls back to obliteration_ink as default."},
-    {pair: "sympathetic_indented vs traced_indentation", text: "<strong>UNADDRESSED OVERLAP.</strong> Both involve grooves. Difference (ink vs no ink in grooves) is not explicit in prompt. 15-word definition for sympathetic, 50 for traced — bias toward traced."},
+    {pair: "sympathetic_indented vs traced_indentation", text: "<strong>UNADDRESSED OVERLAP.</strong> Both involve grooves. Difference (ink vs no ink in grooves) is not explicit in prompt. 15-word definition for sympathetic, 50 for traced - bias toward traced."},
   ];
   document.getElementById('overview-issues').innerHTML = issues.map(i => `
     <div class="overlap-list" style="list-style:none;">
@@ -593,7 +593,7 @@ function drawGraph() {
     const nodeSvg = nodes.map(n => `
       <g class="node" data-id="${n.id}" transform="translate(${n.x},${n.y})">
         <circle r="${n.radius}" fill="${groupColors[n.group]}"></circle>
-        <text dy="${n.radius + 12}">${n.label.replace(/^.+— /,'')}</text>
+        <text dy="${n.radius + 12}">${n.label.replace(/^.+- /,'')}</text>
       </g>
     `).join('');
     svg.innerHTML = linkSvg + nodeSvg;

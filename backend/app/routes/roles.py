@@ -1,9 +1,9 @@
 """
-Role management routes — dynamic role + permission system.
+Role management routes - dynamic role + permission system.
 
 Superadmin can create, edit, and delete roles; can edit privileges of any role
 (except superadmin itself, which is always godmode). Users self-assign roles
-flagged as `is_self_assignable` (e.g., classroom sections).
+flagged as `is_self_assignable` (e.g., room sections).
 """
 
 import json
@@ -19,7 +19,7 @@ from ..models import Role, User
 router = APIRouter(prefix="/api/roles", tags=["roles"])
 
 
-# Canonical permission catalog — what superadmin can grant/revoke on each role.
+# Canonical permission catalog - what superadmin can grant/revoke on each role.
 AVAILABLE_PERMISSIONS = [
     {"key": "view_users", "label": "View users panel", "description": "Access the Users tab to view all user accounts, profiles, and account status information. Allows filtering and searching across user database.", "group": "Users"},
     {"key": "edit_users", "label": "Edit user accounts", "description": "Modify user profile fields including name, email, username, password, and account status. Changes are logged in audit trails.", "group": "Users"},
@@ -108,7 +108,7 @@ def create_role(
     if db.query(Role).filter(Role.name == name).first():
         raise HTTPException(status_code=400, detail="Role name already exists")
 
-    # Block creating new "is_superadmin" — only the seeded superadmin gets god mode.
+    # Block creating new "is_superadmin" - only the seeded superadmin gets god mode.
     perms = _validate_permissions(body.permissions)
     if "is_superadmin" in perms:
         raise HTTPException(status_code=400, detail="Only the built-in superadmin role can hold is_superadmin")

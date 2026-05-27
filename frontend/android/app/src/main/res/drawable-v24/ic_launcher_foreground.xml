@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Revelator app icon — foreground layer.
+  Revelator app icon - foreground layer.
   Mirror of /drawable/ic_launcher_foreground.xml (drawable-v24 takes priority on API 24+).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -53,7 +53,7 @@
         android:strokeLineJoin="round"
         android:pathData="M54,32 L78,72 L30,72 Z" />
 
-    <!-- Corner brackets — evidence frame -->
+    <!-- Corner brackets - evidence frame -->
     <path
         android:strokeColor="#00ff66"
         android:strokeWidth="1.2"

@@ -32,46 +32,46 @@ export default function Account() {
   const [roleMsg, setRoleMsg] = useState('');
   const [roleError, setRoleError] = useState('');
 
-  const [classrooms, setClassrooms] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [joinCode, setJoinCode] = useState('');
   const [joinMsg, setJoinMsg] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinBusy, setJoinBusy] = useState(false);
 
-  const loadClassrooms = useCallback(async () => {
+  const loadRooms = useCallback(async () => {
     try {
-      const data = await api.myClassrooms();
-      setClassrooms(data.classrooms || []);
+      const data = await api.myRooms();
+      setRooms(data.rooms || []);
     } catch {
       // non-fatal
     }
   }, []);
 
-  useEffect(() => { loadClassrooms(); }, [loadClassrooms]);
+  useEffect(() => { loadRooms(); }, [loadRooms]);
 
-  async function handleJoinClassroom(e) {
+  async function handleJoinRoom(e) {
     e?.preventDefault?.();
     setJoinError(''); setJoinMsg('');
     const code = joinCode.trim().toUpperCase();
     if (!code) { setJoinError('Enter a join code'); return; }
     setJoinBusy(true);
     try {
-      const classroom = await api.joinClassroom(code);
-      setJoinMsg(`Joined ${classroom.name}!`);
+      const room = await api.joinRoom(code);
+      setJoinMsg(`Joined ${room.name}!`);
       setJoinCode('');
-      await loadClassrooms();
+      await loadRooms();
     } catch (err) {
-      setJoinError(err.message || 'Could not join classroom');
+      setJoinError(err.message || 'Could not join room');
     } finally {
       setJoinBusy(false);
     }
   }
 
-  async function handleLeaveClassroom(classroomId, name) {
+  async function handleLeaveRoom(roomId, name) {
     if (!confirm(`Leave "${name}"?`)) return;
     try {
-      await api.removeClassroomMember(classroomId, user.id);
-      await loadClassrooms();
+      await api.removeRoomMember(roomId, user.id);
+      await loadRooms();
     } catch (err) {
       setJoinError(err.message);
     }
@@ -133,7 +133,7 @@ export default function Account() {
     const trimmed = newKeyValue.trim();
     const labelTrimmed = newKeyLabel.trim();
     if (!trimmed) { setKeyError('Paste your API key first'); return; }
-    if (!trimmed.startsWith('AIza')) { setKeyError('Invalid format — key must start with "AIza"'); return; }
+    if (!trimmed.startsWith('AIza')) { setKeyError('Invalid format  key must start with "AIza"'); return; }
     if (!labelTrimmed) { setKeyError('Give your key a name (e.g., "Account 1", "Backup")'); return; }
     try {
       await api.addApiKey(trimmed, labelTrimmed);
@@ -175,7 +175,7 @@ export default function Account() {
     setKeyError('');
     if (!editLabel.trim()) { setKeyError('Key name is required'); return; }
     const trimmedKey = editKeyValue.trim();
-    if (trimmedKey && !trimmedKey.startsWith('AIza')) { setKeyError('Invalid key format — must start with "AIza"'); return; }
+    if (trimmedKey && !trimmedKey.startsWith('AIza')) { setKeyError('Invalid key format, must start with "AIza"'); return; }
     try {
       const patch = { label: editLabel.trim() };
       if (trimmedKey) patch.api_key = trimmedKey;
@@ -260,7 +260,7 @@ export default function Account() {
         )}
       </div>
 
-      {/* My Classrooms */}
+      {/* My Rooms */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <GraduationCap size={20} strokeWidth={2} style={{ color: '#00ff66' }} />
@@ -268,14 +268,14 @@ export default function Account() {
             fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
             color: '#d8ffe6', margin: 0, fontWeight: 700,
           }}>
-            My Classrooms
+            My Rooms
           </h2>
           <span className="mono" style={{ fontSize: 11, color: '#3f6e4a', letterSpacing: 1, marginLeft: 'auto' }}>
-            {classrooms.length} JOINED
+            {rooms.length} JOINED
           </span>
         </div>
 
-        <form onSubmit={handleJoinClassroom} style={{
+        <form onSubmit={handleJoinRoom} style={{
           display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14,
           padding: 12, background: 'rgba(0,255,102,0.04)', border: '1px solid #1d3825', borderRadius: 4,
         }}>
@@ -316,13 +316,13 @@ export default function Account() {
           }}>⚠ {joinError}</div>
         )}
 
-        {classrooms.length === 0 ? (
+        {rooms.length === 0 ? (
           <p className="mono" style={{ fontSize: 12, color: '#6dba85', letterSpacing: 0.5, padding: '8px 0', fontStyle: 'italic' }}>
-            You're not in any classrooms yet. Ask your teacher for a join code.
+            You're not in any rooms yet. Ask your teacher for a join code.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {classrooms.map(c => (
+            {rooms.map(c => (
               <div key={c.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: 12,
                 background: 'rgba(0,255,102,0.03)', border: '1px solid #112418', borderRadius: 4,
@@ -342,8 +342,8 @@ export default function Account() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleLeaveClassroom(c.id, c.name)}
-                  title="Leave classroom"
+                  onClick={() => handleLeaveRoom(c.id, c.name)}
+                  title="Leave room"
                   style={{
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     color: '#ff8a99', padding: 6, display: 'inline-flex', flexShrink: 0,
@@ -415,7 +415,7 @@ export default function Account() {
         API Keys
         </h2>
         <p style={{ fontSize: 12, color: '#86efac', marginBottom: 14, lineHeight: 1.6 }}>
-          Each Google account gives you 1,500 free scans per day. Add keys from different accounts as backups — activate the one you want to use, the rest stay saved but inactive.
+          Each Google account gives you 1,500 free scans per day. Add keys from different accounts as backups, activate the one you want to use, the rest stay saved but inactive.
         </p>
 
         <a
@@ -432,7 +432,7 @@ export default function Account() {
           → Open Google AI Studio
         </a>
 
-        {/* How to get a key — collapsible tutorial */}
+        {/* How to get a key collapsible tutorial */}
         <details style={{
           background: 'rgba(0,255,102,0.04)', border: '1px solid rgba(0,255,102,0.15)',
           borderRadius: 3, padding: 12, marginBottom: 16,
@@ -454,7 +454,7 @@ export default function Account() {
               { step: 4, text: 'Click "Create Key"', img: '/tutorial-3.jpg' },
               { step: 5, text: 'Copy your API key (click the copy icon)', img: '/tutorial-4.jpg' },
               { step: 6, text: 'Come back here and paste it in the "API Key" field below, then click "Add Key"', img: null },
-              { step: 7, text: '(Optional but recommended) Sign in to a different Google account and get more API keys — quota resets every 12 hours', img: null },
+              { step: 7, text: '(Optional but recommended) Sign in to a different Google account and get more API keys, quota resets every 12 hours', img: null },
             ].map((item, idx) => (
               <div key={idx} style={{ display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.6 }}>
@@ -595,7 +595,7 @@ export default function Account() {
                           )}
                           {k.is_active && exhausted && (
                             <span style={{ color: '#ff8a99', marginLeft: 10 }}>
-                              ⚠ QUOTA EXHAUSTED — resets in ~{k.hours_until_reset}h
+                              ⚠ QUOTA EXHAUSTED, resets in ~{k.hours_until_reset}h
                             </span>
                           )}
                           {!k.is_active && exhausted && (

@@ -42,7 +42,7 @@ class User(Base):
 
 
 class Role(Base):
-    """Dynamic role definitions — managed by superadmin. User.role string references Role.name."""
+    """Dynamic role definitions - managed by superadmin. User.role string references Role.name."""
     __tablename__ = "roles"
 
     id = Column(String, primary_key=True, default=gen_uuid)
@@ -88,14 +88,14 @@ class Scan(Base):
     image_path = Column(String, nullable=True)  # relative path under UPLOAD_DIR
     training_warning = Column(Text, nullable=True)
     document_type = Column(String, nullable=True)  # key from document_types.py (passport, bank_check, etc.)
-    # Gemini Vision classification — one of the 19 codes in forgery.gemini_vision.CATEGORY_CODES.
+    # Gemini Vision classification - one of the 19 codes in forgery.gemini_vision.CATEGORY_CODES.
     detected_category = Column(String, nullable=True, index=True)
     detected_subtype = Column(String, nullable=True)
     category_explanation = Column(Text, nullable=True)
     tools_likely_used = Column(String, nullable=True)
     category_confidence = Column(Float, nullable=True)
     category_evidence = Column(Text, nullable=True)  # JSON array stored as string
-    # Extended fields — saved for full history replay
+    # Extended fields - saved for full history replay
     reasoning_steps = Column(Text, nullable=True)   # JSON array
     anomaly_location = Column(String, nullable=True)
     alternatives = Column(Text, nullable=True)       # JSON array
@@ -115,14 +115,14 @@ class Scan(Base):
     user = relationship("User", back_populates="scans")
 
 
-class Classroom(Base):
+class Room(Base):
     """A teacher-managed group of students, joined via a short alphanumeric code.
 
-    Inspired by Google Classroom — admins/superadmins create a classroom, share
+    Inspired by Google Room - admins/superadmins create a room, share
     its join code with students, and the students self-enroll. Members of a
-    classroom appear in its class list.
+    room appear in its class list.
     """
-    __tablename__ = "classrooms"
+    __tablename__ = "rooms"
 
     id = Column(String, primary_key=True, default=gen_uuid)
     name = Column(String, nullable=False)
@@ -134,19 +134,19 @@ class Classroom(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     owner = relationship("User", foreign_keys=[owner_id])
-    members = relationship("ClassroomMember", back_populates="classroom", cascade="all, delete-orphan")
+    members = relationship("RoomMember", back_populates="room", cascade="all, delete-orphan")
 
 
-class ClassroomMember(Base):
-    """Many-to-many join between users (students) and classrooms."""
-    __tablename__ = "classroom_members"
+class RoomMember(Base):
+    """Many-to-many join between users (students) and rooms."""
+    __tablename__ = "room_members"
 
     id = Column(String, primary_key=True, default=gen_uuid)
-    classroom_id = Column(String, ForeignKey("classrooms.id"), nullable=False, index=True)
+    room_id = Column(String, ForeignKey("rooms.id"), nullable=False, index=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     joined_at = Column(DateTime, default=datetime.utcnow)
 
-    classroom = relationship("Classroom", back_populates="members")
+    room = relationship("Room", back_populates="members")
     user = relationship("User", foreign_keys=[user_id])
 
 

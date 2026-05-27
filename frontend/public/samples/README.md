@@ -23,7 +23,7 @@ samples/
 - 5 pairs per category (`1`..`5`)
 - Each pair: `<n>-annotated.jpg` (with bounding boxes drawn) + `<n>-original.jpg` (raw)
 - Recommended: 800x600 or 4:3, JPEG quality ~85
-- Missing files render as styled placeholders — won't break the page
+- Missing files render as styled placeholders - won't break the page
 
 ## How-to-shoot guidance
 

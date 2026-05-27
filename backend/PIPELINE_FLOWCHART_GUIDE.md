@@ -1,4 +1,4 @@
-# Revelator Optimization Pipeline — Flowchart Guide
+# Revelator Optimization Pipeline - Flowchart Guide
 
 This document is designed to be easily converted into a BPMN diagram or flowchart using tools like Lucidchart, Draw.io, or Miro.
 
@@ -376,10 +376,10 @@ Critique and Ensemble could run in parallel:
 ### Confidence Score Scale
 
 ```
-0.90-1.00   ████████████████  "High — Multiple unambiguous signs"
-0.70-0.89   ██████████        "Medium — Clear signs but ambiguity"
-0.50-0.69   ███████           "Low — Suspicious but not definitive"
-0.30-0.49   ████              "Very Low — Weak signal"
+0.90-1.00   ████████████████  "High - Multiple unambiguous signs"
+0.70-0.89   ██████████        "Medium - Clear signs but ambiguity"
+0.50-0.69   ███████           "Low - Suspicious but not definitive"
+0.30-0.49   ████              "Very Low - Weak signal"
 0.00-0.29   ██                "No evidence"
 ```
 

@@ -133,7 +133,7 @@ function HistoryCard({ scan, onClick }) {
             borderRadius: 4, padding: '3px 8px',
             maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            {cat ? label : '—'}
+            {cat ? label : '-'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {scan.has_notes && (
@@ -258,7 +258,7 @@ function ScanDetailView({ detail, onBack }) {
         {/* category banner */}
         <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${color}33`, boxShadow: `inset 0 0 32px ${color}18` }}>
           <div className="oswald" style={{ fontSize: 30, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${color}99` }}>
-            {cat ? label : '—'}
+            {cat ? label : '-'}
           </div>
           {geminiOk && (
             <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
@@ -453,7 +453,7 @@ function NotesSection({ scanId, initialNotes }) {
             className="input"
             value={notes}
             onChange={e => { setNotes(e.target.value); if (status) setStatus(null); }}
-            placeholder="Add a note about this scan — context, follow-ups, what to verify next…"
+            placeholder="Add a note about this scan, context, follow-ups, what to verify next…"
             rows={4}
             maxLength={5000}
             style={{ resize: 'vertical', minHeight: 90, fontFamily: "'Source Sans Pro', sans-serif" }}
@@ -524,7 +524,7 @@ function NotesSection({ scanId, initialNotes }) {
           fontSize: 13, color: isLight ? '#3a5040' : '#6dba85',
           lineHeight: 1.6, margin: 0, fontStyle: 'italic',
         }}>
-          No notes yet — click above to add one.
+          No notes yet, click above to add one.
         </p>
       )}
     </div>

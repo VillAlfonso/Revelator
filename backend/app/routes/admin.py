@@ -1,5 +1,5 @@
 """
-Admin CRUD routes — all endpoints require is_admin=True.
+Admin CRUD routes - all endpoints require is_admin=True.
 """
 
 from typing import Optional
@@ -300,8 +300,8 @@ def gemini_status(_: User = Depends(get_current_admin), db: Session = Depends(ge
 
 
 # ============================================
-# Admin Actions (Ban User) — Super Admin Only
-# Regular admins are read-only — they cannot ban, delete, or modify users.
+# Admin Actions (Ban User) - Super Admin Only
+# Regular admins are read-only - they cannot ban, delete, or modify users.
 # ============================================
 
 @router.post("/users/{user_id}/ban")
@@ -408,7 +408,7 @@ def demote_admin(
 
 
 # ============================================
-# Audit Logs — Admin (read) and Super Admin
+# Audit Logs - Admin (read) and Super Admin
 # ============================================
 
 @router.get("/super/logs")

@@ -1,5 +1,5 @@
 """
-Email sending utilities — verification emails via SMTP.
+Email sending utilities - verification emails via SMTP.
 
 If SMTP is not configured, the verification link is printed to the server
 console instead so the flow can still be tested locally without a mail server.
@@ -93,7 +93,7 @@ def send_verification_email(to_email: str, token: str) -> None:
 
     if not sent:
         # Dev fallback so the flow is testable without a mail server.
-        print(f"[VERIFY EMAIL] SMTP unavailable — link for {to_email}:\n  {link}")
+        print(f"[VERIFY EMAIL] SMTP unavailable - link for {to_email}:\n  {link}")
 
 
 def _reset_html(link: str) -> str:
@@ -128,7 +128,7 @@ def _reset_html(link: str) -> str:
             <span style="color:#86efac;word-break:break-all;">{link}</span>
           </td></tr>
           <tr><td style="color:#3f6e4a;font-size:11px;padding-top:20px;">
-            If you didn't request a password reset, you can safely ignore this email —
+            If you didn't request a password reset, you can safely ignore this email -
             your password won't change.
           </td></tr>
         </table>
@@ -149,4 +149,4 @@ def send_reset_email(to_email: str, token: str) -> None:
         sent = False
 
     if not sent:
-        print(f"[RESET EMAIL] SMTP unavailable — link for {to_email}:\n  {link}")
+        print(f"[RESET EMAIL] SMTP unavailable - link for {to_email}:\n  {link}")

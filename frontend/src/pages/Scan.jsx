@@ -88,7 +88,7 @@ export default function Scan() {
       setFile(f);
       setPreview(photo.webPath);
     } catch (err) {
-      // ignore — camera cancel or transient error; user can retry
+      // ignore - camera cancel or transient error; user can retry
       if (err?.message && !/cancel/i.test(err.message)) console.error('Camera error:', err);
     }
   }
@@ -245,7 +245,7 @@ export default function Scan() {
           )}
         </div>
 
-        {/* Optional context — collapsed by default */}
+        {/* Optional context - collapsed by default */}
         <div style={{ border: '1px solid #112418', borderRadius: 3, background: 'rgba(0,255,102,0.02)' }}>
           <button
             type="button"
@@ -268,7 +268,7 @@ export default function Scan() {
           {showExtras && (
             <div style={{ padding: '0 16px 16px', display: 'grid', gap: 14 }}>
               <p style={{ fontSize: 12, color: '#86efac', margin: 0 }}>
-                Filling in context significantly improves accuracy — especially document type, suspected forgery, and any physical clues you noticed. All fields are optional but the more you provide, the fewer alternative hypotheses the model will need to hedge on.
+                Filling in context significantly improves accuracy, especially document type, suspected forgery, and any physical clues you noticed. All fields are optional but the more you provide, the fewer alternative hypotheses the model will need to hedge on.
               </p>
 
               <div>
@@ -285,7 +285,7 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Not sure / general document (default) —</option>
+                  <option value=""> Not sure / general document (default) -</option>
                   {documentTypes.map(dt => (
                     <option key={dt.key} value={dt.key} style={{ background: '#0a1605', color: '#d8ffe6' }}>
                       {dt.title}
@@ -335,7 +335,7 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Anywhere (default) —</option>
+                  <option value="">- Anywhere (default) -</option>
                   <option value="signature">Signature</option>
                   <option value="photo">Photo / face</option>
                   <option value="dates">Dates</option>
@@ -360,7 +360,7 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Not sure (default) —</option>
+                  <option value="">- Not sure (default) -</option>
                   <option value="phone_photo">Phone photo</option>
                   <option value="scanner">Scanner</option>
                   <option value="screenshot">Screenshot</option>
@@ -382,10 +382,10 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Not sure (default) —</option>
+                  <option value="">- Not sure (default) -</option>
                   <option value="yes_confident">Yes, I'm confident</option>
                   <option value="probably">Probably</option>
-                  <option value="just_checking">Just checking — could go either way</option>
+                  <option value="just_checking">Just checking, could go either way</option>
                   <option value="no_just_curious">No, just curious / authenticating</option>
                 </select>
               </div>
@@ -404,10 +404,10 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Not sure (default) —</option>
+                  <option value="">- Not sure (default) -</option>
                   <option value="macro_extreme_close">Macro / extreme close-up</option>
                   <option value="zoomed_close_up">Zoomed close-up of one region</option>
-                  <option value="normal_full_doc">Normal — whole document</option>
+                  <option value="normal_full_doc">Normal,whole document</option>
                   <option value="wide_with_context">Wide shot with surroundings</option>
                 </select>
               </div>
@@ -426,7 +426,7 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— Not sure / normal light (default) —</option>
+                  <option value="">- Not sure / normal light (default) -</option>
                   <option value="ultraviolet">Ultraviolet (UV) light</option>
                   <option value="raking_light">Raking / oblique light (for indentations)</option>
                   <option value="backlit">Backlit (light behind paper)</option>
@@ -449,7 +449,7 @@ export default function Scan() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="">— None / not sure (default) —</option>
+                  <option value="">- None / not sure (default) -</option>
                   <option value="indentation_grooves">Indentation grooves / canal marks behind writing</option>
                   <option value="carbon_streaks">Faint carbon residue along strokes</option>
                   <option value="uniform_traced_lines">Uniform line weight (looks traced)</option>
@@ -521,7 +521,7 @@ export default function Scan() {
               </div>
               <p style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.7, margin: '0 0 14px 0' }}>
                 {isNoKey
-                  ? "It seems your API key isn't set up yet. Head to the Account tab to paste in your Gemini API key — it's free from Google AI Studio."
+                  ? "It seems your API key isn't set up yet. Head to the Account tab to paste in your Gemini API key - it's free from Google AI Studio."
                   : <>Your current API key has used up its free daily quota (1,500 requests/day). It will <strong style={{ color: '#ffa040' }}>reset automatically in ~24 hours</strong>, or add a key from a different Google account to keep scanning now.</>
                 }
               </p>
@@ -577,7 +577,7 @@ function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
         </div>
         <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: 0, marginBottom: 10 }}>
           Upgrade to <strong style={{ color: '#a78bfa', textTransform: 'capitalize' }}>{requiredPlan}</strong> to
-          get a plain-language breakdown of every detection — what was flagged, where, and why it matters.
+          get a plain-language breakdown of every detectio,what was flagged, where, and why it matters.
         </p>
         <Link to="/account" style={{
           display: 'inline-block', padding: '6px 14px', borderRadius: 2,
@@ -636,7 +636,7 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
           lineHeight: 1.15,
           wordBreak: 'break-word',
         }}>
-          {geminiOk ? (result.detected_category_label || cat || '—') : '—'}
+          {geminiOk ? (result.detected_category_label || cat || '-') : '-'}
         </div>
         {geminiOk && (
           <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
@@ -677,14 +677,14 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
                 const isInconclusive = conf < 0.50;
                 const isUncertain = conf < 0.85;
                 const color = isInconclusive ? '#ff5555' : '#ffa040';
-                const label = isInconclusive ? 'INCONCLUSIVE — NOT A DEFINITIVE ANSWER'
-                              : isUncertain ? 'UNCERTAIN — TREAT AS A LEAD, NOT A VERDICT'
+                const label = isInconclusive ? 'INCONCLUSIVE,NOT A DEFINITIVE ANSWER'
+                              : isUncertain ? 'UNCERTAIN,TREAT AS A LEAD, NOT A VERDICT'
                               : 'BORDERLINE CONFIDENCE';
                 const message = isInconclusive
                   ? `The model could not determine a definitive forgery type. It guessed "${result.detected_category_label}" but only at ${(conf * 100).toFixed(0)}% confidence. ${altCount > 0 ? `The result could realistically be one of ${altCount} other types listed below.` : 'Manual review by a forensic examiner is recommended.'}`
                   : isUncertain
-                  ? `The model picked "${result.detected_category_label}" as its best guess at ${(conf * 100).toFixed(0)}% confidence — below the 85% threshold for a definitive call. ${altCount > 0 ? `It also seriously considered ${altCount} other forgery type${altCount > 1 ? 's' : ''} (see "Could Also Be" below). The image evidence is not strong enough to rule them out.` : 'Consider re-scanning with a higher-resolution image or adding context.'}`
-                  : `Confidence is ${(conf * 100).toFixed(0)}% — close to definitive but not quite. Review the alternatives before acting on this result.`;
+                  ? `The model picked "${result.detected_category_label}" as its best guess at ${(conf * 100).toFixed(0)}% confidence - below the 85% threshold for a definitive call. ${altCount > 0 ? `It also seriously considered ${altCount} other forgery type${altCount > 1 ? 's' : ''} (see "Could Also Be" below). The image evidence is not strong enough to rule them out.` : 'Consider re-scanning with a higher-resolution image or adding context.'}`
+                  : `Confidence is ${(conf * 100).toFixed(0)}% - close to definitive but not quite. Review the alternatives before acting on this result.`;
 
                 return (
                   <div style={{
@@ -771,13 +771,13 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
                 // Build confidence reasons
                 const confReasons = [];
                 if (minDim > 0 && minDim < 600) {
-                  confReasons.push(`Image resolution is very low (${w}×${h}px) — forensic artifacts like halos, fiber texture, and compression noise are difficult to distinguish below 600px on the shortest side.`);
+                  confReasons.push(`Image resolution is very low (${w}×${h}px) - forensic artifacts like halos, fiber texture, and compression noise are difficult to distinguish below 600px on the shortest side.`);
                 } else if (minDim > 0 && minDim < 1000) {
-                  confReasons.push(`Image resolution is moderate (${w}×${h}px) — some fine forensic details may be lost. Recommended minimum: 1000px on shortest side.`);
+                  confReasons.push(`Image resolution is moderate (${w}×${h}px) - some fine forensic details may be lost. Recommended minimum: 1000px on shortest side.`);
                 }
                 if (alts.length > 0) {
                   const altNames = alts.slice(0, 2).map(a => a.category_label).join(' and ');
-                  confReasons.push(`Visual indicators overlap with ${altNames} — these categories share similar surface characteristics that are hard to separate without higher image quality or context.`);
+                  confReasons.push(`Visual indicators overlap with ${altNames} - these categories share similar surface characteristics that are hard to separate without higher image quality or context.`);
                 }
                 if (!result.anomaly_location) {
                   confReasons.push('No specific anomaly location was identified, which limits certainty.');
@@ -790,13 +790,13 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
                 // Capture tips
                 const captureTips = [];
                 if (minDim < 1000) {
-                  captureTips.push('Shoot closer or use higher camera resolution. Target at least 1000×1000px — phone cameras at close range easily achieve this.');
+                  captureTips.push('Shoot closer or use higher camera resolution. Target at least 1000×1000px - phone cameras at close range easily achieve this.');
                 }
-                captureTips.push('Use even, diffuse lighting. Avoid harsh shadows or glare — tilt the document slightly if a flash is washing out surface texture.');
+                captureTips.push('Use even, diffuse lighting. Avoid harsh shadows or glare- tilt the document slightly if a flash is washing out surface texture.');
                 captureTips.push('Lay the document flat on a plain surface. Creases and perspective distortion make edge artifacts harder to detect.');
-                captureTips.push('If examining a signature or stamp, zoom in on just that area for a second scan — localized detail is more useful than the whole page at low resolution.');
+                captureTips.push('If examining a signature or stamp, zoom in on just that area for a second scan - localized detail is more useful than the whole page at low resolution.');
                 if (!hasContext) {
-                  captureTips.push('Fill in the Additional Context section before scanning — document type and your suspicion reason significantly narrow the analysis.');
+                  captureTips.push('Fill in the Additional Context section before scanning - document type and your suspicion reason significantly narrow the analysis.');
                 }
 
                 const showSection = alts.length > 0 || confReasons.length > 0;
@@ -874,7 +874,7 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
           </div>
         )}
 
-        {/* ── YOLO Detections — only when bounding boxes exist ── */}
+        {/* ── YOLO Detections - only when bounding boxes exist ── */}
         {hasYolo && (
           <div style={{ marginBottom: 16 }}>
             <p className="mono" style={{ fontSize: 9, letterSpacing: 3, color: '#6dba85', margin: '0 0 8px' }}>▸ YOLO · DETECTED REGIONS</p>
@@ -931,13 +931,13 @@ function ScanNotes({ scanId }) {
         </span>
       </div>
       <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: '0 0 12px' }}>
-        Anything you want to remember about this document — context, follow-ups, what to verify next. Notes appear in your scan history.
+        Notes appear in your scan history.
       </p>
       <textarea
         className="input"
         value={notes}
         onChange={e => { setNotes(e.target.value); if (status) setStatus(null); }}
-        placeholder="e.g. Comparison sample for the Cruz signature case — verify with original on file."
+        placeholder="e.g. Comparison sample for the Cruz signature case - verify with original on file."
         rows={4}
         maxLength={5000}
         style={{ resize: 'vertical', minHeight: 90, fontFamily: "'Source Sans Pro', sans-serif" }}

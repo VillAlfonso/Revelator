@@ -170,7 +170,7 @@ def verify_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Verify payment on success redirect and update user plan — no webhook needed."""
+    """Verify payment on success redirect and update user plan - no webhook needed."""
     if provider == "stripe":
         stripe = get_stripe()
         if not session_id:

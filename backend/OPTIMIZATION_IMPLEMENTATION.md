@@ -34,12 +34,12 @@ Savings: ~3,742 tokens per scan
 ### 2. Two-Stage Classification (60% text token reduction)
 **File:** `backend/app/forgery/optimize.py` → `triage_classify()` + `build_detailed_prompt()`
 
-**Stage 1 — Triage (Quick classification):**
+**Stage 1 - Triage (Quick classification):**
 - Uses a tiny prompt (~600 tokens) to get top-3 likely categories
 - Costs: ~$0.00007
 - Purpose: Narrow from 19 categories → 3 most plausible
 
-**Stage 2 — Detailed (Deep analysis):**
+**Stage 2 - Detailed (Deep analysis):**
 - Builds a focused prompt with ONLY the top-3 categories (not all 19)
 - Saves tokens by not repeating irrelevant category descriptions
 - Costs: ~$0.0003
@@ -258,15 +258,15 @@ END: return result to user
 ## Code Location & Files Modified
 
 ### New Files
-- `backend/app/forgery/optimize.py` — Core pipeline (preprocess, triage, detailed, confidence gate)
-- `backend/app/forgery/prompt_cache.py` — Gemini cache management
+- `backend/app/forgery/optimize.py` - Core pipeline (preprocess, triage, detailed, confidence gate)
+- `backend/app/forgery/prompt_cache.py` - Gemini cache management
 
 ### Modified Files
-- `backend/app/forgery/gemini_vision.py` — Added `use_cache` parameter to `classify()`
-- `backend/app/routes/analyze.py` — Integrated optimize pipeline into `/api/analyze` endpoint
+- `backend/app/forgery/gemini_vision.py` - Added `use_cache` parameter to `classify()`
+- `backend/app/routes/analyze.py` - Integrated optimize pipeline into `/api/analyze` endpoint
 
 ### Dependencies
-- `Pillow` (already in requirements.txt) — image resizing
+- `Pillow` (already in requirements.txt) - image resizing
 
 ---
 
@@ -417,7 +417,7 @@ curl -X POST http://localhost:8000/api/analyze \
 
 ### Triage picking wrong top-3
 - Triage prompt is tiny and may hallucinate on ambiguous images
-- It's only a hint — detailed analysis can override it
+- It's only a hint - detailed analysis can override it
 - If problematic, skip triage entirely (go straight to detailed analysis)
 
 ---

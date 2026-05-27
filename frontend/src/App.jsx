@@ -331,7 +331,7 @@ function Layout({ children }) {
         boxShadow: '0 1px 0 rgba(0,255,102,0.08), 0 8px 24px rgba(0,0,0,0.6)',
       }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          {/* Hamburger — left side, mobile only */}
+          {/* Hamburger - left side, mobile only */}
           {user && (
             <button
               className="nav-burger"
@@ -371,7 +371,7 @@ function Layout({ children }) {
             </div>
           </Link>
 
-          {/* Desktop nav — only on wide screens */}
+          {/* Desktop nav - only on wide screens */}
           {user && (
             <nav className="nav-desktop" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               <style>{`
@@ -440,7 +440,7 @@ function Layout({ children }) {
         </div>
       </header>
 
-      {/* API key tutorial overlay — dims everything below the header */}
+      {/* API key tutorial overlay - dims everything below the header */}
       {user && quotaExhausted && !drawerOpen && (
         <div
           onClick={() => { navigate('/account'); }}
@@ -473,7 +473,7 @@ function Layout({ children }) {
             </div>
           </div>
 
-          {/* Desktop hint — arrow pointing at Account nav */}
+          {/* Desktop hint - arrow pointing at Account nav */}
           <div
             className="nav-desktop"
             style={{
@@ -513,7 +513,7 @@ function Layout({ children }) {
         />
       )}
 
-      {/* Slide-in drawer — left edge, X/Twitter style */}
+      {/* Slide-in drawer - left edge, X/Twitter style */}
       {user && (
         <aside
           aria-hidden={!drawerOpen}
@@ -529,7 +529,7 @@ function Layout({ children }) {
             paddingTop: 'env(safe-area-inset-top, 0)',
           }}
         >
-          {/* Drawer header — user identity */}
+          {/* Drawer header - user identity */}
           <div style={{
             padding: '20px 18px 18px', borderBottom: '1px solid #112418',
             display: 'flex', alignItems: 'center', gap: 12,
@@ -620,7 +620,7 @@ function Layout({ children }) {
             })}
           </nav>
 
-          {/* Drawer footer — theme toggle + logout */}
+          {/* Drawer footer - theme toggle + logout */}
           <div style={{
             borderTop: '1px solid #112418',
             padding: '10px 12px',
@@ -660,7 +660,7 @@ function Layout({ children }) {
         </aside>
       )}
 
-      {/* Floating scan status pill — visible on all pages while a scan is running */}
+      {/* Floating scan status pill - visible on all pages while a scan is running */}
       {user && (scanStatus === 'scanning' || (scanStatus === 'done' && !onScanPage) || (scanStatus === 'error' && !onScanPage)) && (
         <div style={{
           position: 'fixed', bottom: 24, right: 20, zIndex: 200,

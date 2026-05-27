@@ -75,7 +75,7 @@ export default function Logo({ size = 48, glow = true, animated = false, classNa
         <circle cx="50" cy="60" r="1.4" fill="#00ff66" stroke="none" />
       </g>
 
-      {/* tiny corner brackets — evidence frame */}
+      {/* tiny corner brackets - evidence frame */}
       <g stroke="#00ff66" strokeWidth="1.2" fill="none" opacity="0.7">
         <path d="M 6 14 L 6 6 L 14 6" />
         <path d="M 86 6 L 94 6 L 94 14" />
@@ -86,7 +86,7 @@ export default function Logo({ size = 48, glow = true, animated = false, classNa
   );
 }
 
-// Wordmark — used on auth pages. Logo on left, REVELATOR text on right.
+// Wordmark - used on auth pages. Logo on left, REVELATOR text on right.
 export function LogoWordmark({ size = 64, style = {} }) {
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, ...style }}>

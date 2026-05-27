@@ -313,7 +313,7 @@ export default function Admin() {
       </div>
 
       {editing && (
-        <Modal onClose={() => setEditing(null)} title={`Edit user — ${editing.email}`}>
+        <Modal onClose={() => setEditing(null)} title={`Edit user ${editing.email}`}>
           <div style={{ display: 'grid', gap: 12 }}>
             <Field label="Email"><input className="input" value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} /></Field>
             <Field label="Username"><input className="input" value={editing.username} onChange={e => setEditing({ ...editing, username: e.target.value })} /></Field>
@@ -324,7 +324,7 @@ export default function Admin() {
             <Field label="Role">
               <select className="input" value={editing.role || 'user'} onChange={e => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
                 {roles.map(r => (
-                  <option key={r.id} value={r.name}>{r.name}{r.description ? ` — ${r.description}` : ''}</option>
+                  <option key={r.id} value={r.name}>{r.name}{r.description ? ` ${r.description}` : ''}</option>
                 ))}
               </select>
               {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11, marginTop: 4, display: 'block' }}>(cannot change own role)</span>}
@@ -335,8 +335,8 @@ export default function Admin() {
             </label>
             <div style={{ borderTop: '1px solid #112418', paddingTop: 12, fontSize: 12, color: '#86efac' }}>
               <div>ID: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.id}</span></div>
-              <div>Stripe customer: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_customer_id || '—'}</span></div>
-              <div>Stripe subscription: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_subscription_id || '—'}</span></div>
+              <div>Stripe customer: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_customer_id || '-'}</span></div>
+              <div>Stripe subscription: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.stripe_subscription_id || '-'}</span></div>
               <div>Scans this month: <span style={{ color: '#d8ffe6' }}>{editing.scans_this_month}</span></div>
               <div>Created: <span style={{ color: '#d8ffe6' }}>{editing.created_at}</span></div>
             </div>
@@ -363,7 +363,7 @@ export default function Admin() {
       )}
 
       {tab === 'sections' && (
-        <ClassroomsManager onError={setError} />
+        <RoomsManager onError={setError} />
       )}
 
       {tab === 'roles' && isSuperAdmin && (
@@ -393,7 +393,7 @@ export default function Admin() {
             fontSize: 13, letterSpacing: 2.5, textTransform: 'uppercase',
             color: '#6dba85', marginBottom: 14, margin: 0,
           }}>
-            ▸ How the Analyst Reasons — Live Prompt Analytics
+            ▸ How the Analyst Reasons - Live Prompt Analytics
           </h2>
           <p style={{ fontSize: 12, color: '#86efac', marginBottom: 16, lineHeight: 1.6 }}>
             Behind every classification is a prompt that defines 19 forgery categories, branching rules, and
@@ -656,7 +656,7 @@ function LogRow({ log }) {
             {isScan ? 'SCAN' : 'ADMIN'}
           </span>
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 13 }}>
-            {log.actor?.username || '—'}
+            {log.actor?.username || '-'}
           </span>
           {log.actor?.role && (
             <span className="mono" style={{ fontSize: 9, color: '#6dba85', letterSpacing: 1.5, textTransform: 'uppercase' }}>
@@ -955,7 +955,7 @@ function RolesManager({ roles, permissions, onReload, onError }) {
       {editing && (
         <Modal
           onClose={() => { setEditing(null); setCreating(false); }}
-          title={creating ? 'New role' : `Edit role — ${editing.name}`}
+          title={creating ? 'New role' : `Edit role ${editing.name}`}
         >
           <div style={{ display: 'grid', gap: 12 }}>
             <Field label="Name">
@@ -1085,11 +1085,11 @@ function RolesManager({ roles, permissions, onReload, onError }) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Classrooms (Sections) — admins create classrooms, students join via code
+// Rooms (Sections) - admins create rooms, students join via code
 // ──────────────────────────────────────────────────────────────────
 
-function ClassroomsManager({ onError }) {
-  const [classrooms, setClassrooms] = useState([]);
+function RoomsManager({ onError }) {
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -1100,8 +1100,8 @@ function ClassroomsManager({ onError }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.listClassrooms();
-      setClassrooms(data.classrooms || []);
+      const data = await api.listRooms();
+      setRooms(data.rooms || []);
     } catch (err) {
       onError(err.message);
     } finally {
@@ -1115,9 +1115,9 @@ function ClassroomsManager({ onError }) {
     if (!newName.trim()) { onError('Name is required'); return; }
     setBusy(true);
     try {
-      const created = await api.createClassroom(newName.trim(), newDescription.trim());
+      const created = await api.createRoom(newName.trim(), newDescription.trim());
       setNewName(''); setNewDescription(''); setCreating(false);
-      setClassrooms(cs => [created, ...cs]);
+      setRooms(cs => [created, ...cs]);
       setExpandedId(created.id);
     } catch (err) {
       onError(err.message);
@@ -1136,10 +1136,10 @@ function ClassroomsManager({ onError }) {
               fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
               color: '#d8ffe6', margin: 0, fontWeight: 700,
             }}>
-              Classrooms
+              Rooms
             </h2>
             <span className="mono" style={{ fontSize: 11, color: '#3f6e4a', letterSpacing: 1 }}>
-              {classrooms.length} TOTAL
+              {rooms.length} TOTAL
             </span>
           </div>
           {!creating && (
@@ -1149,7 +1149,7 @@ function ClassroomsManager({ onError }) {
               style={{ fontSize: 12, padding: '8px 14px', minHeight: 'unset', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Plus size={14} strokeWidth={2.5} />
-              Add Classroom
+              Add Room
             </button>
           )}
         </div>
@@ -1160,7 +1160,7 @@ function ClassroomsManager({ onError }) {
             borderRadius: 4, padding: 14, marginTop: 8,
           }}>
             <div style={{ marginBottom: 10 }}>
-              <label style={labelStyle}>Classroom name</label>
+              <label style={labelStyle}>Room name</label>
               <input
                 className="input"
                 value={newName}
@@ -1191,38 +1191,38 @@ function ClassroomsManager({ onError }) {
                 Cancel
               </button>
               <button className="btn btn-primary" onClick={handleCreate} disabled={busy}>
-                {busy ? 'Creating…' : 'Create Classroom'}
+                {busy ? 'Creating…' : 'Create Room'}
               </button>
             </div>
           </div>
         )}
 
         <p style={{ fontSize: 13, color: '#86efac', lineHeight: 1.6, margin: '8px 0 0' }}>
-          Share each classroom's join code with your students — they'll enter it from their account page to join. You'll see them in the class list below.
+          Share each room's join code with your students, they'll enter it from their account page to join. You'll see them in the class list below.
         </p>
       </div>
 
       {loading ? (
         <p className="mono" style={{ color: '#6dba85', textAlign: 'center', padding: 24 }}>
-          ◌ Loading classrooms…
+          ◌ Loading rooms…
         </p>
-      ) : classrooms.length === 0 ? (
+      ) : rooms.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 32 }}>
           <GraduationCap size={32} strokeWidth={1.5} style={{ color: '#3f6e4a', margin: '0 auto 10px' }} />
           <p className="mono" style={{ color: '#6dba85', letterSpacing: 1, fontSize: 13 }}>
-            No classrooms yet — click "Add Classroom" to create your first one.
+            No rooms yet, click "Add Room" to create your first one.
           </p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {classrooms.map(c => (
-            <ClassroomCard
+          {rooms.map(c => (
+            <RoomCard
               key={c.id}
-              classroom={c}
+              room={c}
               expanded={expandedId === c.id}
               onToggle={() => setExpandedId(id => id === c.id ? null : c.id)}
-              onChange={updated => setClassrooms(cs => cs.map(x => x.id === updated.id ? updated : x))}
-              onDelete={() => setClassrooms(cs => cs.filter(x => x.id !== c.id))}
+              onChange={updated => setRooms(cs => cs.map(x => x.id === updated.id ? updated : x))}
+              onDelete={() => setRooms(cs => cs.filter(x => x.id !== c.id))}
               onError={onError}
             />
           ))}
@@ -1232,11 +1232,11 @@ function ClassroomsManager({ onError }) {
   );
 }
 
-function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onError }) {
-  const [detail, setDetail] = useState(classroom);
+function RoomCard({ room, expanded, onToggle, onChange, onDelete, onError }) {
+  const [detail, setDetail] = useState(room);
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(classroom.name);
-  const [description, setDescription] = useState(classroom.description || '');
+  const [name, setName] = useState(room.name);
+  const [description, setDescription] = useState(room.description || '');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1244,9 +1244,9 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
   // Fetch full details (with members) when first expanded
   useEffect(() => {
     if (expanded && !detail.members) {
-      api.getClassroom(classroom.id).then(setDetail).catch(err => onError(err.message));
+      api.getRoom(room.id).then(setDetail).catch(err => onError(err.message));
     }
-  }, [expanded, classroom.id]);
+  }, [expanded, room.id]);
 
   async function copyCode() {
     try {
@@ -1262,7 +1262,7 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
     if (!confirm('Generate a new join code? The old code will stop working immediately.')) return;
     setBusy(true);
     try {
-      const res = await api.regenerateClassroomCode(classroom.id);
+      const res = await api.regenerateRoomCode(room.id);
       const updated = { ...detail, join_code: res.join_code };
       setDetail(updated);
       onChange(updated);
@@ -1276,7 +1276,7 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
   async function saveEdit() {
     setBusy(true);
     try {
-      const updated = await api.updateClassroom(classroom.id, {
+      const updated = await api.updateRoom(room.id, {
         name: name.trim(),
         description: description.trim(),
       });
@@ -1293,7 +1293,7 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
   async function doDelete() {
     setBusy(true);
     try {
-      await api.deleteClassroom(classroom.id);
+      await api.deleteRoom(room.id);
       onDelete();
     } catch (err) {
       onError(err.message);
@@ -1302,10 +1302,10 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
   }
 
   async function kickMember(userId, username) {
-    if (!confirm(`Remove ${username} from this classroom?`)) return;
+    if (!confirm(`Remove ${username} from this room?`)) return;
     try {
-      await api.removeClassroomMember(classroom.id, userId);
-      const fresh = await api.getClassroom(classroom.id);
+      await api.removeRoomMember(room.id, userId);
+      const fresh = await api.getRoom(room.id);
       setDetail(fresh);
       onChange(fresh);
     } catch (err) {
@@ -1425,7 +1425,7 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
           {editing && (
             <div style={{ marginTop: 12, padding: 12, border: '1px solid #1d3825', borderRadius: 4 }}>
               <div style={{ marginBottom: 8 }}>
-                <label style={labelStyle}>Classroom name</label>
+                <label style={labelStyle}>Room name</label>
                 <input className="input" value={name} onChange={e => setName(e.target.value)} maxLength={120} />
               </div>
               <div style={{ marginBottom: 10 }}>
@@ -1511,7 +1511,7 @@ function ClassroomCard({ classroom, expanded, onToggle, onChange, onDelete, onEr
                     </div>
                     <button
                       onClick={() => kickMember(m.id, m.username)}
-                      title="Remove from classroom"
+                      title="Remove from room"
                       style={{
                         background: 'transparent', border: 'none', cursor: 'pointer',
                         color: '#ff8a99', padding: 4, display: 'inline-flex',

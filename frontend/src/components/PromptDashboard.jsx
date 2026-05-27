@@ -3,7 +3,7 @@ import { api } from '../api/client';
 
 /**
  * Live Prompt Analysis dashboard.
- * Pulls /api/prompt-analysis on mount — every refresh reflects the
+ * Pulls /api/prompt-analysis on mount - every refresh reflects the
  * current state of gemini_vision.py.
  */
 export default function PromptDashboard() {
@@ -166,7 +166,7 @@ function Overlaps({ data, onSelect }) {
               {o.reason}
             </div>
             <div style={{ fontSize: 9, color: '#6dba85', marginTop: 4, letterSpacing: 1 }}>
-              {o.from_prompt ? 'EXPLICIT IN PROMPT' : 'SEMANTIC OVERLAP — NOT IN PROMPT'}
+              {o.from_prompt ? 'EXPLICIT IN PROMPT' : 'SEMANTIC OVERLAP - NOT IN PROMPT'}
             </div>
           </div>
         );

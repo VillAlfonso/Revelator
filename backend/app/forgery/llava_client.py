@@ -1,5 +1,5 @@
 """
-LLaVA inference client — STUB.
+LLaVA inference client - STUB.
 
 This module is the contract between Revelator's backend and the eventual
 fine-tuned LLaVA models hosted on Hugging Face Spaces. Two endpoints are

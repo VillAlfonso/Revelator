@@ -50,14 +50,14 @@ What is **out of scope**: nation-state attacks, advanced persistent threats, phy
 
 ### What is already in place (don't re-do these)
 
-- **JWT auth** with separate access (60-min) and refresh (30-day) tokens — [backend/app/auth.py](backend/app/auth.py)
-- **bcrypt password hashing** with 72-byte safe truncation — [backend/app/auth.py:21-27](backend/app/auth.py#L21-L27)
-- **Google OAuth** via ID-token verification — [backend/app/routes/auth.py:140-205](backend/app/routes/auth.py#L140-L205)
-- **Role-based permissions** with a `Role` table — [backend/app/auth.py:83-129](backend/app/auth.py#L83-L129)
-- **Admin audit log** (`admin_audit_logs` table) — [backend/app/models.py:116-127](backend/app/models.py#L116-L127)
-- **`is_active` enforcement** on every authenticated request — [backend/app/auth.py:78](backend/app/auth.py#L78)
-- **Idempotent SQLite migrations** in `_ensure_columns()` — [backend/app/database.py:33](backend/app/database.py#L33)
-- **Cloudflare Tunnel** in use for TLS termination — [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- **JWT auth** with separate access (60-min) and refresh (30-day) tokens - [backend/app/auth.py](backend/app/auth.py)
+- **bcrypt password hashing** with 72-byte safe truncation - [backend/app/auth.py:21-27](backend/app/auth.py#L21-L27)
+- **Google OAuth** via ID-token verification - [backend/app/routes/auth.py:140-205](backend/app/routes/auth.py#L140-L205)
+- **Role-based permissions** with a `Role` table - [backend/app/auth.py:83-129](backend/app/auth.py#L83-L129)
+- **Admin audit log** (`admin_audit_logs` table) - [backend/app/models.py:116-127](backend/app/models.py#L116-L127)
+- **`is_active` enforcement** on every authenticated request - [backend/app/auth.py:78](backend/app/auth.py#L78)
+- **Idempotent SQLite migrations** in `_ensure_columns()` - [backend/app/database.py:33](backend/app/database.py#L33)
+- **Cloudflare Tunnel** in use for TLS termination - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ---
 
@@ -78,7 +78,7 @@ Numbered for reference from later sections.
 | G9 | SQLite on a laptop with no backup strategy | Operational | Medium |
 | G10 | No request size limit on the FastAPI server | [backend/app/main.py](backend/app/main.py) | Medium |
 | G11 | Verbose error messages leak internals | Multiple `HTTPException(detail=str(e))` | Low |
-| G12 | `image_path` stored as a string — risk of path traversal if user-controlled | [analyze.py](backend/app/routes/analyze.py) | Low (currently we generate the path ourselves, but worth a guard) |
+| G12 | `image_path` stored as a string - risk of path traversal if user-controlled | [analyze.py](backend/app/routes/analyze.py) | Low (currently we generate the path ourselves, but worth a guard) |
 | G13 | No login lockout after N failures | Entire app | Low |
 | G14 | No email verification flow | Auth | Low |
 
@@ -94,7 +94,7 @@ Numbered for reference from later sections.
 
 ### 4.1 Lock down CORS (fixes G1)
 
-**Why:** `allow_origins=["*"]` combined with `allow_credentials=True` is a CORS misconfiguration — modern browsers actually block credentials in this combo, but any same-origin or proxied attacker can still hit the API. Restrict to known frontends only.
+**Why:** `allow_origins=["*"]` combined with `allow_credentials=True` is a CORS misconfiguration - modern browsers actually block credentials in this combo, but any same-origin or proxied attacker can still hit the API. Restrict to known frontends only.
 
 **File:** [backend/app/main.py:16-22](backend/app/main.py#L16-L22)
 
@@ -175,7 +175,7 @@ python run.py
 
 **File:** [backend/app/routes/analyze.py](backend/app/routes/analyze.py) around line 350
 
-**Change — add at module top:**
+**Change - add at module top:**
 ```python
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024   # 15 MB ceiling for a document image
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
@@ -187,12 +187,12 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", 
 if imageFile.content_type and imageFile.content_type not in ALLOWED_CONTENT_TYPES:
     raise HTTPException(status_code=415, detail="Unsupported image format")
 
-# Size guard — read in a bounded way
+# Size guard - read in a bounded way
 image_data = imageFile.file.read(MAX_UPLOAD_BYTES + 1)
 if len(image_data) > MAX_UPLOAD_BYTES:
     raise HTTPException(status_code=413, detail="Image too large (max 15 MB)")
 
-# Magic-byte check via PIL (already happening in try/except — keep it)
+# Magic-byte check via PIL (already happening in try/except - keep it)
 try:
     image = Image.open(io.BytesIO(image_data))
     image.verify()                              # PIL header sanity
@@ -223,12 +223,12 @@ That token is logged in server access logs, browser history, and any HTTP refere
 
 **Two viable approaches:**
 
-**Option A — Short-lived signed URLs (recommended, ~30 min):**
+**Option A - Short-lived signed URLs (recommended, ~30 min):**
 1. Add a `signed_image_token(scan_id, exp_seconds=300)` helper that JWT-encodes only `{scan_id, exp}`, *not* the user JWT.
 2. Image route validates this scan-scoped token instead of the auth token.
 3. Frontend calls a new `getScanImageSignedUrl(scanId)` endpoint that returns the signed URL on demand.
 
-**Option B — Fetch-as-blob (simpler, ~10 min):**
+**Option B - Fetch-as-blob (simpler, ~10 min):**
 Frontend fetches image binary with `Authorization` header, converts to a blob URL:
 ```js
 // frontend/src/api/client.js
@@ -243,7 +243,7 @@ async getScanImageBlob(scanId) {
 ```
 Then on each page that shows an image, `useEffect(() => { getScanImageBlob(id).then(setUrl) }, [id])`.
 
-**Recommendation:** Start with Option B — it removes the leak completely with minimal backend work. The route still uses `Depends(get_current_user)` instead of `get_user_from_token`, and `get_user_from_token` can be deleted from [auth.py:132-144](backend/app/auth.py#L132-L144).
+**Recommendation:** Start with Option B - it removes the leak completely with minimal backend work. The route still uses `Depends(get_current_user)` instead of `get_user_from_token`, and `get_user_from_token` can be deleted from [auth.py:132-144](backend/app/auth.py#L132-L144).
 
 ---
 
@@ -309,7 +309,7 @@ All of these are configured in the **Cloudflare dashboard** (no code changes). R
 
 **Verify:**
 ```bash
-# Try a classic SQLi probe — should get blocked by Cloudflare, never reaches backend
+# Try a classic SQLi probe - should get blocked by Cloudflare, never reaches backend
 curl "https://your-domain/api/auth/login?test=1' OR '1'='1"
 # Expect: Cloudflare 403 challenge page
 ```
@@ -434,7 +434,7 @@ Get-ChildItem (Split-Path $dst) -Filter "forgeguard-*.db" |
 
 **Verify after first run:** Check the OneDrive folder has the timestamped file.
 
-**Better long-term:** Migrate to PostgreSQL on a small managed instance ($5/mo Supabase free tier). Just change `DATABASE_URL` in `.env` — SQLAlchemy abstracts the rest.
+**Better long-term:** Migrate to PostgreSQL on a small managed instance ($5/mo Supabase free tier). Just change `DATABASE_URL` in `.env` - SQLAlchemy abstracts the rest.
 
 ---
 
@@ -444,18 +444,18 @@ Get-ChildItem (Split-Path $dst) -Filter "forgeguard-*.db" |
 
 **Approach:** Symmetric encryption with `cryptography.fernet`. Key lives in `.env`, encrypted blobs live in DB.
 
-**Step 1 — add to `requirements.txt`:**
+**Step 1 - add to `requirements.txt`:**
 ```
 cryptography>=42
 ```
 
-**Step 2 — add to `.env`:**
+**Step 2 - add to `.env`:**
 ```
 # Generate once: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 DATA_ENCRYPTION_KEY=...
 ```
 
-**Step 3 — new file `backend/app/crypto.py`:**
+**Step 3 - new file `backend/app/crypto.py`:**
 ```python
 from cryptography.fernet import Fernet
 from .config import DATA_ENCRYPTION_KEY
@@ -473,7 +473,7 @@ def decrypt_str(cipher: str) -> str:
     return _fernet.decrypt(cipher.encode()).decode()
 ```
 
-**Step 4 — wrap reads/writes in [backend/app/routes/auth.py](backend/app/routes/auth.py):**
+**Step 4 - wrap reads/writes in [backend/app/routes/auth.py](backend/app/routes/auth.py):**
 ```python
 # When saving:
 key = UserApiKey(api_key=encrypt_str(api_key.strip()), ...)
@@ -482,7 +482,7 @@ key = UserApiKey(api_key=encrypt_str(api_key.strip()), ...)
 api_key_plain = decrypt_str(active_key_row.api_key)
 ```
 
-**Step 5 — one-time migration script** (write to `backend/migrate_encrypt_keys.py`):
+**Step 5 - one-time migration script** (write to `backend/migrate_encrypt_keys.py`):
 ```python
 from app.database import SessionLocal
 from app.models import UserApiKey
@@ -556,9 +556,9 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 **Two ways:**
 
-**A) Cloudflare (no code) — Free tier caps at 100MB**, paid raises to 500MB. Already done if you're behind CF.
+**A) Cloudflare (no code) - Free tier caps at 100MB**, paid raises to 500MB. Already done if you're behind CF.
 
-**B) Uvicorn middleware** — `backend/app/main.py`:
+**B) Uvicorn middleware** - `backend/app/main.py`:
 ```python
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -605,7 +605,7 @@ Lower-impact polish for after the panel defense.
 **Schema:** `totp_secret` column on `User`, plus `totp_enabled` boolean
 **Flow:** Settings page → "Enable 2FA" → show QR code → user scans + confirms code → enabled. Login flow asks for 6-digit code after password.
 
-**Apply only to:** `role IN ('admin', 'superadmin')`. Don't force it on regular users — it's friction for free-tier capstone demos.
+**Apply only to:** `role IN ('admin', 'superadmin')`. Don't force it on regular users - it's friction for free-tier capstone demos.
 
 ---
 
@@ -706,16 +706,16 @@ the file and line number to point at.
 
 If you're picking this up cold:
 
-1. **Section 4.1 (CORS)** — 5 min, immediate win
-2. **Section 4.2 (SECRET_KEY)** — 5 min, prevents misconfig disasters
-3. **Section 4.3 (Upload validation)** — 15 min, closes the easy DoS vector
-4. **Section 4.4 (Token in URLs — Option B)** — 15 min, removes leaked-token risk
-5. **Section 4.5–4.6 (Passwords + errors)** — 10 min
-6. **Commit, deploy, sanity-check** — verify nothing broke
-7. **Section 5.1–5.5 (Cloudflare dashboard work)** — 30 min, no code
-8. **Section 6.1 (Backups)** — 15 min, set-and-forget
-9. **Section 6.2 (API key encryption)** — 30 min if you have time
-10. **Section 6.3–6.4** — when convenient
-11. **Section 7** — post-defense polish
+1. **Section 4.1 (CORS)** - 5 min, immediate win
+2. **Section 4.2 (SECRET_KEY)** - 5 min, prevents misconfig disasters
+3. **Section 4.3 (Upload validation)** - 15 min, closes the easy DoS vector
+4. **Section 4.4 (Token in URLs - Option B)** - 15 min, removes leaked-token risk
+5. **Section 4.5–4.6 (Passwords + errors)** - 10 min
+6. **Commit, deploy, sanity-check** - verify nothing broke
+7. **Section 5.1–5.5 (Cloudflare dashboard work)** - 30 min, no code
+8. **Section 6.1 (Backups)** - 15 min, set-and-forget
+9. **Section 6.2 (API key encryption)** - 30 min if you have time
+10. **Section 6.3–6.4** - when convenient
+11. **Section 7** - post-defense polish
 
 Total time for sections 4-6: **~2.5 hours** of focused work, spread over a couple of sessions.
