@@ -414,9 +414,7 @@ export default function Account() {
         <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
         API Keys
         </h2>
-        <p style={{ fontSize: 12, color: '#86efac', marginBottom: 14, lineHeight: 1.6 }}>
-          Each Google account gives you 1,500 free scans per day. Add keys from different accounts as backups, activate the one you want to use, the rest stay saved but inactive.
-        </p>
+      
 
         <a
           href="https://aistudio.google.com/api-keys"
