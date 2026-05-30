@@ -301,6 +301,19 @@ input.input::placeholder { color: #6dba85; font-family: 'JetBrains Mono', monosp
 
 select.input { font-family: 'Source Sans Pro', sans-serif; }
 
+/* Browser autofill (Chrome, Edge, Safari) forces a yellow/white background and
+   black text on prefilled inputs. Repaint it to match the theme. The huge
+   transition delay is the standard hack so the override doesn't flash. */
+input.input:-webkit-autofill,
+input.input:-webkit-autofill:hover,
+input.input:-webkit-autofill:focus,
+input.input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0a0f0c inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #00ff66;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 /* Badges (verdict pills) */
 .badge {
   display: inline-block;
@@ -585,6 +598,16 @@ select.input { font-family: 'Source Sans Pro', sans-serif; }
   box-shadow: 0 0 0 2px rgba(0, 122, 54, 0.25) !important;
 }
 [data-theme="light"] input.input::placeholder { color: #8aa590; }
+
+/* Autofill in light mode: keep the white surface but fix dark text color */
+[data-theme="light"] input.input:-webkit-autofill,
+[data-theme="light"] input.input:-webkit-autofill:hover,
+[data-theme="light"] input.input:-webkit-autofill:focus,
+[data-theme="light"] input.input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f1f15 !important;
+  caret-color: #007a36;
+}
 
 /* Buttons */
 [data-theme="light"] .btn-primary {

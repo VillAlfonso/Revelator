@@ -8,10 +8,25 @@ import { api } from '../api/client';
 import Logo from '../components/Logo';
 import { FingerprintWatermark } from '../components/ForensicMotifs';
 
+function FieldError({ msg }) {
+  if (!msg) return null;
+  return (
+    <div className="mono" style={{
+      fontSize: 11, color: '#ff8a99', marginTop: 5, letterSpacing: 0.5,
+    }}>
+      {msg}
+    </div>
+  );
+}
+
 export default function Register() {
   const { loginUser, user } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', username: '', password: '', full_name: '' });
+  const [form, setForm] = useState({
+    first_name: '', middle_initial: '', last_name: '',
+    email: '', username: '', password: '',
+  });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [agreed, setAgreed] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [error, setError] = useState('');
@@ -19,8 +34,59 @@ export default function Register() {
 
   if (user) { navigate('/scan', { replace: true }); return null; }
 
-  function update(field) {
-    return e => setForm(f => ({ ...f, [field]: e.target.value }));
+  function update(field, transform) {
+    return e => {
+      const v = transform ? transform(e.target.value) : e.target.value;
+      setForm(f => ({ ...f, [field]: v }));
+      if (fieldErrors[field]) setFieldErrors(fe => ({ ...fe, [field]: '' }));
+    };
+  }
+
+  // Compose backend-friendly full_name from the three parts so the database
+  // schema stays unchanged.
+  function composedFullName() {
+    const fn = form.first_name.trim();
+    const mi = form.middle_initial.trim().toUpperCase();
+    const ln = form.last_name.trim();
+    const parts = [fn];
+    if (mi) parts.push(mi + '.');
+    if (ln) parts.push(ln);
+    return parts.join(' ').trim();
+  }
+
+  function validate() {
+    const errs = {};
+    // Allow letters (incl. accented), spaces, hyphens, apostrophes, periods
+    const nameRe = /^[A-Za-zÀ-ſ\s'\-.]+$/;
+
+    if (!form.first_name.trim()) errs.first_name = 'First name is required';
+    else if (form.first_name.length > 50) errs.first_name = 'Too long (max 50)';
+    else if (!nameRe.test(form.first_name)) errs.first_name = 'Letters and basic punctuation only';
+
+    if (form.middle_initial && !/^[A-Za-z]$/.test(form.middle_initial.trim())) {
+      errs.middle_initial = 'Single letter';
+    }
+
+    if (!form.last_name.trim()) errs.last_name = 'Last name is required';
+    else if (form.last_name.length > 50) errs.last_name = 'Too long (max 50)';
+    else if (!nameRe.test(form.last_name)) errs.last_name = 'Letters and basic punctuation only';
+
+    if (!form.username.trim()) errs.username = 'Username is required';
+    else if (!/^[a-zA-Z][a-zA-Z0-9_]{2,19}$/.test(form.username)) {
+      errs.username = '3-20 chars, letters/numbers/underscore, must start with a letter';
+    }
+
+    if (!form.email.trim()) errs.email = 'Email is required';
+    else if (form.email.length > 254) errs.email = 'Email is too long';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email address';
+
+    if (!form.password) errs.password = 'Password is required';
+    else if (form.password.length < 8) errs.password = 'Minimum 8 characters';
+    else if (!/[A-Za-z]/.test(form.password) || !/\d/.test(form.password)) {
+      errs.password = 'Include at least one letter and one number';
+    }
+
+    return errs;
   }
 
   async function handleNativeGoogleSignUp() {
@@ -42,10 +108,16 @@ export default function Register() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!agreed) { setError('Please agree to the Terms of Service first.'); return; }
+    const errs = validate();
+    setFieldErrors(errs);
+    if (Object.keys(errs).length) {
+      setError('Please fix the highlighted fields.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await api.register(form.email, form.username, form.password, form.full_name);
+      await api.register(form.email.trim(), form.username.trim(), form.password, composedFullName());
       setRegistered(true);
     } catch (err) {
       setError(err.message);
@@ -76,7 +148,7 @@ export default function Register() {
             onClick={async () => {
               setError('');
               try {
-                await api.register(form.email, form.username, form.password, form.full_name);
+                await api.register(form.email.trim(), form.username.trim(), form.password, composedFullName());
                 setError('A new verification email is on its way.');
               } catch (err) {
                 setError(err.message);
@@ -134,22 +206,95 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Full Name</label>
-            <input className="input" value={form.full_name} onChange={update('full_name')} placeholder="John Doe" />
+            <label style={labelStyle}>First Name</label>
+            <input
+              className="input"
+              value={form.first_name}
+              onChange={update('first_name')}
+              placeholder="Juan"
+              maxLength={50}
+              autoComplete="given-name"
+              aria-invalid={!!fieldErrors.first_name}
+              required
+            />
+            <FieldError msg={fieldErrors.first_name} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div style={{ width: 96 }}>
+              <label style={labelStyle}>M.I.</label>
+              <input
+                className="input"
+                value={form.middle_initial}
+                onChange={update('middle_initial', v => v.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase())}
+                placeholder="D"
+                maxLength={1}
+                autoComplete="additional-name"
+                aria-invalid={!!fieldErrors.middle_initial}
+                style={{ textAlign: 'center', letterSpacing: 2 }}
+              />
+              <FieldError msg={fieldErrors.middle_initial} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label style={labelStyle}>Last Name</label>
+              <input
+                className="input"
+                value={form.last_name}
+                onChange={update('last_name')}
+                placeholder="Dela Cruz"
+                maxLength={50}
+                autoComplete="family-name"
+                aria-invalid={!!fieldErrors.last_name}
+                required
+              />
+              <FieldError msg={fieldErrors.last_name} />
+            </div>
           </div>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Username</label>
-            <input className="input" value={form.username} onChange={update('username')} placeholder="johndoe" required />
+            <input
+              className="input"
+              value={form.username}
+              onChange={update('username', v => v.replace(/[^A-Za-z0-9_]/g, '').slice(0, 20))}
+              placeholder="juandc"
+              maxLength={20}
+              autoComplete="username"
+              aria-invalid={!!fieldErrors.username}
+              required
+            />
+            <FieldError msg={fieldErrors.username} />
           </div>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Email</label>
-            <input className="input" type="email" value={form.email} onChange={update('email')} placeholder="you@example.com" required />
+            <input
+              className="input"
+              type="email"
+              value={form.email}
+              onChange={update('email', v => v.slice(0, 254))}
+              placeholder="you@example.com"
+              maxLength={254}
+              autoComplete="email"
+              aria-invalid={!!fieldErrors.email}
+              required
+            />
+            <FieldError msg={fieldErrors.email} />
           </div>
           <div style={{ marginBottom: 18 }}>
             <label style={labelStyle}>Password</label>
-            <input className="input" type="password" value={form.password} onChange={update('password')} placeholder="Min 6 characters" required minLength={6} />
+            <input
+              className="input"
+              type="password"
+              value={form.password}
+              onChange={update('password')}
+              placeholder="At least 8 chars, letters + numbers"
+              maxLength={128}
+              autoComplete="new-password"
+              aria-invalid={!!fieldErrors.password}
+              required
+              minLength={8}
+            />
+            <FieldError msg={fieldErrors.password} />
           </div>
           <label style={{
             display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 22,

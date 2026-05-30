@@ -471,20 +471,28 @@ function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, o
             <button
               className="btn"
               onClick={onPromote}
-              style={{ borderColor: '#a78bfa', color: '#c4b5fd' }}
+              style={{
+                background: 'rgba(0,255,102,0.06)',
+                borderColor: '#1f5d39',
+                color: '#00ff66',
+              }}
               title="Promote to admin"
             >
-              Promote → Admin
+              Promote to Admin
             </button>
           )}
           {user.role === 'admin' && (
             <button
               className="btn"
               onClick={onDemote}
-              style={{ borderColor: '#a78bfa', color: '#c4b5fd' }}
+              style={{
+                background: 'rgba(255,170,64,0.06)',
+                borderColor: '#7a4e10',
+                color: '#ffa040',
+              }}
               title="Demote to regular user"
             >
-              Demote → User
+              Demote to User
             </button>
           )}
           {user.is_active ? (
@@ -1131,7 +1139,6 @@ function RoomsManager({ onError }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <GraduationCap size={20} strokeWidth={2} style={{ color: '#00ff66' }} />
             <h2 className="oswald" style={{
               fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
               color: '#d8ffe6', margin: 0, fontWeight: 700,

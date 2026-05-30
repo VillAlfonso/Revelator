@@ -24,14 +24,12 @@ from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
     UNLIMITED, LLM_PLANS, UPLOAD_DIR,
 )
-from ..forgery.llm import get_llm_explanation
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
     preprocess_image, triage_classify, confidence_gated_analyze,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
-from ..forgery import llava_client
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -366,8 +364,10 @@ def analyze_document(
 
     verdict, confidence = _verdict_from_gemini(gemini)
 
-    # LLM explanation - always available in capstone
-    llm_explanation = get_llm_explanation(gemini, image=image)
+    # AI Forensic Explanation was retired - Gemini's category_explanation is
+    # already the user-facing prose. Keep the column for legacy data on the
+    # Scan model, just don't populate new rows.
+    llm_explanation = None
 
     scan_id = generate_scan_id()
 
