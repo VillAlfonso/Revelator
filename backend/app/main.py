@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import APP_NAME, APP_VERSION, FRONTEND_URL, UPLOAD_DIR
 from .database import init_db
-from .routes import auth, analyze, payments, admin, roles, rooms
+from .routes import auth, analyze, payments, admin, roles, rooms, prompt_analytics
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
 
@@ -27,6 +27,7 @@ app.include_router(payments.router)
 app.include_router(admin.router)
 app.include_router(roles.router)
 app.include_router(rooms.router)
+app.include_router(prompt_analytics.router)
 
 
 @app.on_event("startup")
