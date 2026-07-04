@@ -325,11 +325,15 @@ export const api = {
   },
 
   // Audit logs (admin + super admin)
-  adminViewLogs(limit = 100, offset = 0, kind = null) {
+  adminViewLogs(opts = {}) {
+    const { limit = 200, offset = 0, kind = null, action = null, actor = null,
+            role = null, verdict = null, start_date = null, end_date = null, q = null } = opts;
     const params = new URLSearchParams();
     params.set('limit', limit);
     params.set('offset', offset);
-    if (kind) params.set('kind', kind);
+    for (const [k, v] of Object.entries({ kind, action, actor, role, verdict, start_date, end_date, q })) {
+      if (v) params.set(k, v);
+    }
     return request(`/admin/super/logs?${params.toString()}`);
   },
 

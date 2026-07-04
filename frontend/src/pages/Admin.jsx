@@ -29,6 +29,8 @@ export default function Admin() {
   const [logsStats, setLogsStats] = useState({ admin_actions_total: 0, scans_total: 0, total: 0 });
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan'
+  const [logFilters, setLogFilters] = useState({ action: '', role: '', verdict: '', start_date: '', end_date: '', q: '' });
+  const [logMeta, setLogMeta] = useState({ available_actions: [], available_verdicts: [] });
   const [banningUserId, setBanningUserId] = useState(null);
   const [roles, setRoles] = useState([]);
   const [permissionsCatalog, setPermissionsCatalog] = useState([]);
@@ -69,19 +71,23 @@ export default function Admin() {
     setError('');
     try {
       const kind = logsFilter === 'all' ? null : logsFilter;
-      const data = await api.adminViewLogs(200, 0, kind);
+      const data = await api.adminViewLogs({ limit: 200, offset: 0, kind, ...logFilters });
       setLogs(data.logs || []);
       setLogsStats({
         admin_actions_total: data.admin_actions_total || 0,
         scans_total: data.scans_total || 0,
         total: data.total || 0,
       });
+      setLogMeta({
+        available_actions: data.available_actions || [],
+        available_verdicts: data.available_verdicts || [],
+      });
     } catch (err) {
       setError(err.message);
     } finally {
       setLogsLoading(false);
     }
-  }, [logsFilter]);
+  }, [logsFilter, logFilters]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (tab === 'logs') loadLogs(); }, [tab, loadLogs]);
@@ -416,6 +422,9 @@ export default function Admin() {
           filter={logsFilter}
           onFilterChange={setLogsFilter}
           onRefresh={loadLogs}
+          logFilters={logFilters}
+          setLogFilters={setLogFilters}
+          logMeta={logMeta}
         />
       )}
 
@@ -651,17 +660,23 @@ const ACTION_COLORS = {
   user_scan:      '#00ff66',
 };
 
-function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh }) {
+function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh, logFilters, setLogFilters, logMeta }) {
+  const [qDraft, setQDraft] = useState(logFilters.q || '');
+  useEffect(() => { setQDraft(logFilters.q || ''); }, [logFilters.q]);
+  const setF = (k, v) => setLogFilters(f => ({ ...f, [k]: v }));
+  const clearFilters = () => setLogFilters({ action: '', role: '', verdict: '', start_date: '', end_date: '', q: '' });
+  const hasAdvanced = Boolean(logFilters.action || logFilters.role || logFilters.verdict || logFilters.start_date || logFilters.end_date || logFilters.q);
+  const inp = { padding: '6px 8px', fontSize: 11, background: '#0a120c', border: '1px solid #1d3825', color: '#d8ffe6', borderRadius: 2, fontFamily: "'JetBrains Mono', monospace" };
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 }}>
         <StatCard label="Total Scans" value={logsStats.scans_total ?? 0} />
         <StatCard label="Admin Actions" value={logsStats.admin_actions_total ?? 0} />
-        <StatCard label="Total Events" value={logsStats.total ?? 0} />
+        <StatCard label="Matching Events" value={logsStats.total ?? 0} />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, textTransform: 'uppercase', marginRight: 4 }}>FILTER</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+        <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, textTransform: 'uppercase', marginRight: 4 }}>KIND</span>
         {[
           { id: 'all',   label: 'All' },
           { id: 'admin', label: 'Admin Actions' },
@@ -682,19 +697,48 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh 
             {opt.label}
           </button>
         ))}
-        <button
-          className="btn"
-          onClick={onRefresh}
-          disabled={loading}
-          style={{ marginLeft: 'auto', fontSize: 11 }}
-        >
+        <button className="btn" onClick={onRefresh} disabled={loading} style={{ marginLeft: 'auto', fontSize: 11 }}>
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <span className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 2, textTransform: 'uppercase', marginRight: 4 }}>FILTER</span>
+        <select value={logFilters.action} onChange={e => setF('action', e.target.value)} style={inp} title="Action">
+          <option value="">Any action</option>
+          {(logMeta.available_actions || []).map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+        </select>
+        <select value={logFilters.verdict} onChange={e => setF('verdict', e.target.value)} style={inp} title="Verdict">
+          <option value="">Any verdict</option>
+          {(logMeta.available_verdicts || []).map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select value={logFilters.role} onChange={e => setF('role', e.target.value)} style={inp} title="Actor role">
+          <option value="">Any role</option>
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+          <option value="superadmin">superadmin</option>
+        </select>
+        <input type="date" value={logFilters.start_date} max={logFilters.end_date || undefined} onChange={e => setF('start_date', e.target.value)} style={inp} title="From date" />
+        <span style={{ color: '#3f6e4a', fontSize: 11 }}>→</span>
+        <input type="date" value={logFilters.end_date} min={logFilters.start_date || undefined} onChange={e => setF('end_date', e.target.value)} style={inp} title="To date" />
+        <input
+          placeholder="search actor / file / category…"
+          value={qDraft}
+          onChange={e => setQDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') setF('q', qDraft); }}
+          onBlur={() => { if (qDraft !== (logFilters.q || '')) setF('q', qDraft); }}
+          style={{ ...inp, minWidth: 190, flex: 1 }}
+        />
+        {hasAdvanced && (
+          <button className="mono" onClick={clearFilters} style={{ fontSize: 11, padding: '6px 10px', background: 'transparent', border: '1px solid #ff8a99', color: '#ff8a99', borderRadius: 2, cursor: 'pointer' }}>
+            Clear
+          </button>
+        )}
+      </div>
+
       {loading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading logs...</div>}
       {!loading && logs.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No log entries.</div>
+        <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No log entries match these filters.</div>
       )}
       {logs.map(log => (
         <LogRow key={log.id} log={log} />
