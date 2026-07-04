@@ -4,8 +4,12 @@ Revelator SaaS API
 Forensic document forgery detection - FastAPI gateway + Gemini Vision.
 """
 
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from .config import APP_NAME, APP_VERSION, FRONTEND_URL, UPLOAD_DIR
 from .database import init_db
@@ -44,3 +48,24 @@ async def startup_event():
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "version": APP_VERSION}
+
+
+# ── Single-origin hosting: serve the built frontend ───────────────────────
+# After `npm run build`, frontend/dist exists and the backend serves the whole
+# app, so ONE Cloudflare Tunnel exposes everything at a single URL. In dev
+# (no dist) this block is skipped and you use the Vite dev server as before.
+_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if _DIST.is_dir():
+    _assets = _DIST / "assets"
+    if _assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        # /api/* routes are registered above and take precedence; guard anyway.
+        if full_path.startswith("api"):
+            raise HTTPException(status_code=404, detail="Not found")
+        candidate = (_DIST / full_path).resolve()
+        if str(candidate).startswith(str(_DIST)) and candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(_DIST / "index.html"))
