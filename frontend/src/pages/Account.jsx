@@ -133,7 +133,7 @@ export default function Account() {
     const trimmed = newKeyValue.trim();
     const labelTrimmed = newKeyLabel.trim();
     if (!trimmed) { setKeyError('Paste your API key first'); return; }
-    if (!trimmed.startsWith('AIza')) { setKeyError('Invalid format  key must start with "AIza"'); return; }
+    if (!(trimmed.startsWith('AIza') || trimmed.startsWith('AQ.'))) { setKeyError('Invalid format - key must start with "AIza" or "AQ."'); return; }
     if (!labelTrimmed) { setKeyError('Give your key a name (e.g., "Account 1", "Backup")'); return; }
     try {
       await api.addApiKey(trimmed, labelTrimmed);
@@ -175,7 +175,7 @@ export default function Account() {
     setKeyError('');
     if (!editLabel.trim()) { setKeyError('Key name is required'); return; }
     const trimmedKey = editKeyValue.trim();
-    if (trimmedKey && !trimmedKey.startsWith('AIza')) { setKeyError('Invalid key format, must start with "AIza"'); return; }
+    if (trimmedKey && !(trimmedKey.startsWith('AIza') || trimmedKey.startsWith('AQ.'))) { setKeyError('Invalid key format, must start with "AIza" or "AQ."'); return; }
     try {
       const patch = { label: editLabel.trim() };
       if (trimmedKey) patch.api_key = trimmedKey;
@@ -670,7 +670,7 @@ export default function Account() {
               <label style={{ fontSize: 10, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'block' }}>API Key</label>
               <input
                 className="input"
-                placeholder="Paste API key (AIza...)"
+                placeholder="Paste API key (AIza... or AQ...)"
                 value={newKeyValue}
                 onChange={e => setNewKeyValue(e.target.value)}
                 type="password"

@@ -92,8 +92,9 @@ def user_to_dict(user: User, db: Session = None) -> dict:
 
 # ── Endpoints ───────────────────────────────────────────
 
-@router.post("/register", response_model=RegisterResponse)
+@router.post("/register")
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    from ..config import REQUIRE_EMAIL_VERIFICATION
     if len(body.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
@@ -114,9 +115,29 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         db.delete(existing_username)
         db.commit()
 
-    # Stateless signup: no user row is created here. The registration payload
-    # is encoded into the verification token; the row is only inserted when the
-    # link in the email is clicked.
+    # Free / laptop-hosted deployments: skip the email round-trip, create a
+    # verified account now, and return tokens so the client auto-logs in.
+    if not REQUIRE_EMAIL_VERIFICATION:
+        user = User(
+            email=body.email,
+            username=body.username,
+            hashed_password=hash_password(body.password),
+            full_name=body.full_name or "",
+            is_verified=True,
+            scans_this_month=0,
+            scan_reset_date=datetime.utcnow(),
+        )
+        db.add(user)
+        db.commit()
+        return {
+            "access_token": create_access_token(user.id),
+            "refresh_token": create_refresh_token(user.id),
+            "user": user_to_dict(user, db),
+        }
+
+    # Verification required: stateless signup - no user row is created here. The
+    # registration payload is encoded into the verification token; the row is
+    # only inserted when the link in the email is clicked.
     token = create_signup_token(
         email=body.email,
         username=body.username,
@@ -125,10 +146,10 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     )
     send_verification_email(body.email, token)
 
-    return RegisterResponse(
-        message="Check your email to confirm your address. Your account is created once you click the link.",
-        email=body.email,
-    )
+    return {
+        "message": "Check your email to confirm your address. Your account is created once you click the link.",
+        "email": body.email,
+    }
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -426,8 +447,8 @@ class UpdateKeyRequest(BaseModel):
 @router.post("/api-keys")
 def add_api_key(body: AddKeyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     api_key = body.api_key.strip()
-    if not api_key.startswith("AIza"):
-        raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
+    if not (api_key.startswith("AIza") or api_key.startswith("AQ.")):
+        raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza' or 'AQ.'.")
 
     count = db.query(UserApiKey).filter(UserApiKey.user_id == current_user.id).count()
     if count >= 20:

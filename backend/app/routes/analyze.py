@@ -25,9 +25,10 @@ from ..config import (
     UNLIMITED, LLM_PLANS, UPLOAD_DIR,
 )
 from ..forgery.document_gate import check_is_document
+from ..config import USE_LOCAL_CLASSIFIER, LOCAL_CLASSIFIER_THRESHOLD
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
-    preprocess_image, confidence_gated_analyze,
+    preprocess_image, confidence_gated_analyze, explain_with_hint,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 
@@ -298,19 +299,37 @@ def analyze_document(
     ).first()
     api_key = active_key_row.api_key if active_key_row else (current_user.gemini_api_key or None)
 
-    # STAGE 1: Full classification with complete prompt (all 19 categories)
-    gemini = gemini_classify(
-        preprocessed,
-        document_type=document_type,
-        suspicion_reason=suspicion_reason,
-        area_of_concern=area_of_concern,
-        image_source=image_source,
-        is_forged_belief=is_forged_belief,
-        shot_type=shot_type,
-        lighting=lighting,
-        physical_clues=physical_clues,
-        api_key=api_key,
-    )
+    # STAGE 1a: Local classifier -> short explain-only Gemini call (fewer tokens) when confident.
+    gemini = None
+    if USE_LOCAL_CLASSIFIER:
+        try:
+            from ..forgery import local_classifier
+            hint = local_classifier.predict(preprocessed)
+        except Exception as exc:
+            print(f"[DEBUG] local classifier unavailable: {exc}")
+            hint = None
+        # Every scan goes through the trained classifier first; Gemini then double-checks
+        # its prediction (the explain-only pass can confirm, refine, or override it).
+        if hint:
+            print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} -> Gemini double-checks {hint['category']} ({hint['candidates']})")
+            hinted = explain_with_hint(preprocessed, hint["label"], hint["candidates"], api_key=api_key)
+            if not hinted.get("_unavailable"):
+                gemini = hinted
+
+    # STAGE 1b: Full classification (fallback, or when the classifier is unsure/absent).
+    if gemini is None:
+        gemini = gemini_classify(
+            preprocessed,
+            document_type=document_type,
+            suspicion_reason=suspicion_reason,
+            area_of_concern=area_of_concern,
+            image_source=image_source,
+            is_forged_belief=is_forged_belief,
+            shot_type=shot_type,
+            lighting=lighting,
+            physical_clues=physical_clues,
+            api_key=api_key,
+        )
 
     if gemini.get("_unavailable"):
         # If using a user key, mark it as quota exhausted so the frontend can show a reset timer

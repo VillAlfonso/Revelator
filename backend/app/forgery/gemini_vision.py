@@ -762,6 +762,90 @@ def classify(
 
 
 # ───────────────────────────────────────────────────────────────────────────
+# EXPLAIN-ONLY PATH - used when the local classifier is confident.
+# Gemini gets a tiny prompt (the classifier already chose the category), so it
+# only verifies + explains. Far fewer tokens than the full 15-category prompt.
+# ───────────────────────────────────────────────────────────────────────────
+
+EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier identified this document as: {label}.
+
+Confirm the SPECIFIC category from this list, judge whether it is actually forged or genuine, and explain concisely from visible evidence.
+Allowed categories: {candidates}
+
+If the image clearly does NOT match that description, say so in the explanation and use no_forgery_detected (authentic) or not_a_document (not a document).
+
+Return ONLY valid JSON, no prose outside it:
+{{
+  "category": "<one allowed category code>",
+  "subtype": "<specific kind or null>",
+  "confidence": <float 0.0-1.0>,
+  "anomaly_location": "<where the evidence is, or null>",
+  "explanation": "<start with the category's human name, then the visible evidence>",
+  "evidence": ["<short visible cue>", "<another>"]
+}}"""
+
+
+def explain_with_hint(
+    image: Image.Image,
+    label: str,
+    candidates: list[str],
+    api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Short verify-and-explain call given a category the local classifier chose."""
+    client = _client(api_key=api_key)
+    if client is None:
+        return _fallback("API key not configured or google-genai not installed")
+
+    buf = io.BytesIO()
+    (image if image.mode == "RGB" else image.convert("RGB")).save(buf, format="JPEG", quality=88)
+    buf.seek(0)
+
+    allowed = list(candidates) + ["no_forgery_detected", "not_a_document"]
+    prompt = EXPLAIN_PROMPT_TEMPLATE.format(label=label, candidates=", ".join(allowed))
+
+    from google.genai import types as genai_types
+    text = ""
+    last_exc: Optional[Exception] = None
+    model_used = None
+    for model in _model_chain():
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
+                config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+            )
+            text = response.text or ""
+            model_used = model
+            break
+        except Exception as exc:
+            if _is_rate_limited(exc):
+                last_exc = exc
+                continue
+            return _fallback(f"API call failed: {exc}")
+    else:
+        return _fallback(f"All models rate-limited: {last_exc}")
+
+    text = _strip_json_fence(text)
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            return _fallback("response was not valid JSON")
+        try:
+            parsed = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return _fallback("response was not valid JSON")
+    if not isinstance(parsed, dict):
+        return _fallback("response was not a JSON object")
+
+    result = _coerce(parsed)
+    result["model_used"] = model_used
+    result["_hinted"] = True
+    return result
+
+
+# ───────────────────────────────────────────────────────────────────────────
 # OPTIMIZATION PIPELINE - preprocess / triage / confidence-gated critique
 # ───────────────────────────────────────────────────────────────────────────
 

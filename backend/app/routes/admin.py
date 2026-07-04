@@ -418,8 +418,15 @@ def view_audit_logs(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     kind: Optional[str] = Query(None, description="Filter: 'admin', 'scan', or None for all"),
+    action: Optional[str] = Query(None, description="Exact action, e.g. user_scan, ban_user"),
+    actor: Optional[str] = Query(None, description="Actor username/email substring"),
+    role: Optional[str] = Query(None, description="Actor role (user/admin/superadmin)"),
+    verdict: Optional[str] = Query(None, description="Scan verdict filter"),
+    start_date: Optional[str] = Query(None, description="YYYY-MM-DD inclusive"),
+    end_date: Optional[str] = Query(None, description="YYYY-MM-DD inclusive"),
+    q: Optional[str] = Query(None, description="Free-text search across actor/action/target/scan"),
 ):
-    """View audit logs (admin actions + user scans). Admins and super admins."""
+    """View audit logs (admin actions + user scans) with filters. Admins and super admins."""
     # Admin actions
     admin_logs_query = db.query(AdminAuditLog).order_by(AdminAuditLog.created_at.desc())
     admin_logs_total = admin_logs_query.count()
@@ -486,6 +493,44 @@ def view_audit_logs(
                 "created_at": scan.created_at.isoformat() if scan.created_at else "",
             })
 
+    # Distinct values for the frontend filter dropdowns (computed pre-filter).
+    available_actions = sorted({e["action"] for e in combined if e.get("action")})
+    available_verdicts = sorted({(e.get("scan") or {}).get("verdict") for e in combined if e.get("scan") and e["scan"].get("verdict")})
+
+    ql = q.lower().strip() if q else None
+    actor_l = actor.lower().strip() if actor else None
+
+    def _keep(e):
+        if action and e.get("action") != action:
+            return False
+        if role and (e.get("actor") or {}).get("role") != role:
+            return False
+        if verdict and (e.get("scan") or {}).get("verdict") != verdict:
+            return False
+        cd = (e.get("created_at") or "")[:10]
+        if start_date and (not cd or cd < start_date):
+            return False
+        if end_date and cd > end_date:
+            return False
+        if actor_l:
+            a = e.get("actor") or {}
+            if actor_l not in f"{a.get('username', '')} {a.get('email', '')}".lower():
+                return False
+        if ql:
+            a = e.get("actor") or {}
+            t = e.get("target") or {}
+            s = e.get("scan") or {}
+            hay = " ".join(str(x) for x in [
+                a.get("username"), a.get("email"), e.get("action"),
+                t.get("username"), t.get("email"),
+                s.get("scan_id"), s.get("filename"), s.get("detected_category"), s.get("verdict"),
+            ] if x).lower()
+            if ql not in hay:
+                return False
+        return True
+
+    combined = [e for e in combined if _keep(e)]
+
     # Sort merged log by timestamp desc, then paginate
     combined.sort(key=lambda x: x["created_at"], reverse=True)
     paginated = combined[offset:offset + limit]
@@ -495,6 +540,8 @@ def view_audit_logs(
         "total": len(combined),
         "admin_actions_total": admin_logs_total,
         "scans_total": scans_total,
+        "available_actions": available_actions,
+        "available_verdicts": available_verdicts,
     }
 
 

@@ -117,8 +117,14 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await api.register(form.email.trim(), form.username.trim(), form.password, composedFullName());
-      setRegistered(true);
+      const res = await api.register(form.email.trim(), form.username.trim(), form.password, composedFullName());
+      if (res && res.access_token) {
+        // Email verification disabled on this deployment: auto-login.
+        loginUser(res);
+        navigate('/scan');
+      } else {
+        setRegistered(true);
+      }
     } catch (err) {
       setError(err.message);
     } finally {

@@ -226,6 +226,25 @@ Bigger re-approach options (only if the single-call approach plateaus):
 
 ## Change log
 
+### 2026-07-04 - Local classifier + hybrid explain-only pipeline
+- Trained a MobileNetV3 classifier on the specimen set (backend/train_classifier.py, on
+  GPU). 19 code-level classes = the 15 forgery codes (TRACED/ERASURE/MODERN split by their
+  method subfolders) + 6 "other" categories (charred/water/fold/embossing/typewriting/
+  contact). 98.9% on the full set; 100% on the 98% of images it is confident about (>=0.85).
+- Hybrid pipeline: analyze runs local_classifier first; confident -> Gemini gets a locked
+  category + a short explain-only prompt (~150 words vs ~2850) = far fewer tokens and
+  category-correct; uncertain (<0.85) -> full Gemini. Non-15 categories -> "other" ->
+  Gemini explains. Config: USE_LOCAL_CLASSIFIER, LOCAL_CLASSIFIER_THRESHOLD (0.85).
+  Model file: backend/app/data/specimen_classifier.pt (~17MB, gitignore it). Retrain:
+  `cd backend && python train_classifier.py`. Verified end-to-end with a live Gemini call.
+- Caveat: the classifier is memorized on the specimen set (overfit by design). On
+  out-of-distribution real uploads it can be overconfident; the 0.85 gate + Gemini
+  fallback mitigate but do not eliminate this. Keep a held-out split for thesis numbers.
+- Also this session: registration auto-verify (REQUIRE_EMAIL_VERIFICATION=false) so signup
+  no longer dead-ends on the broken verify link; AQ.-format Gemini keys accepted; single-
+  origin hosting (backend serves the built frontend) + host.bat + free Cloudflare quick
+  tunnel; superadmin moved to revenlatorforge@gmail.com.
+
 ### 2026-07-04 - First real specimen eval (partial, quota-limited)
 - Ran evaluate_specimens.py on gemini-2.5-flash via the test account. Free-tier cap is
   20 requests/day/model, so it stopped after 19 images (4 folders). Partial signal, not a

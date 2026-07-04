@@ -26,6 +26,11 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 
+# When false, registration creates a verified account immediately and returns
+# tokens (no email round-trip). Right for free / laptop-hosted deployments that
+# lack reliable transactional email or a stable public URL for the verify link.
+REQUIRE_EMAIL_VERIFICATION = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
+
 # ============================================
 # OAUTH (Google)
 # ============================================
@@ -63,6 +68,13 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 # a structured JSON verdict against the 19-category taxonomy.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
+
+# Local specimen classifier (backend/train_classifier.py). When it is present and
+# confident (>= threshold), the analyze route hands Gemini a locked category + a
+# short explain-only prompt -> far fewer tokens, category-correct on the specimen set.
+# Set USE_LOCAL_CLASSIFIER=false to always use the full Gemini prompt.
+USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "true").lower() == "true"
+LOCAL_CLASSIFIER_THRESHOLD = float(os.getenv("LOCAL_CLASSIFIER_THRESHOLD", "0.85"))
 
 # ============================================
 # YOLO
