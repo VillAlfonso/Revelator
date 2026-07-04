@@ -99,7 +99,7 @@ const GROUPS = [
     label: 'Obliteration',
     Icon: EyeOff,
     color: '#f87171',
-    description: 'Original content is intentionally concealed, not erased or replaced, but covered. Ink, correction fluid, or opaque pigment is applied over existing text to hide it while the surrounding document remains intact.',
+    description: 'Original content is intentionally concealed, not erased or replaced, but covered. Ink or correction fluid is applied over existing text to hide it while the surrounding document remains intact.',
     categories: [
       {
         id: 'obliteration_ink',
@@ -112,12 +112,6 @@ const GROUPS = [
         label: 'Obliteration, White Out',
         description: 'Correction fluid (Wite-Out, Tipp-Ex) is applied as an opaque white layer over existing text. The fluid leaves a distinctive raised, chalky surface texture that is visible to touch and sometimes to oblique light.',
         indicators: ['Correction fluid layer over text', 'Raised chalky surface texture', 'Whitened patch inconsistent with paper'],
-      },
-      {
-        id: 'obliteration_pigment',
-        label: 'Obliteration, Pigment',
-        description: 'An opaque marker, paint, or solid pigment is used to cover text. Unlike whiteout, pigment obliteration may use any color and can be detected by the coating\'s opacity and edge characteristics.',
-        indicators: ['Opaque marker or paint over text', 'Coating edge visible under magnification'],
       },
     ],
   },

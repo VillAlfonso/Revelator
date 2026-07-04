@@ -1,4 +1,4 @@
-// Master catalog of all 16 forgery categories, used by Scan and SampleGallery.
+// Master catalog of all 15 forgery categories, used by Scan and SampleGallery.
 // `apiKey` matches the leaf class id the backend's /analyze endpoint accepts.
 // `id`     is the URL slug used by /samples/:categoryId.
 // `tier`   1 = easy, 2 = medium, 3 = hard (informs grouping + accent color).
@@ -55,12 +55,6 @@ export const CATEGORIES = [
     code: 'INK', icon: '▮',   color: '#00ffaa',
     title: 'Ink Obliteration',
     description: 'Original text scribbled or crossed out with ink to conceal it.',
-  },
-  {
-    id: 'pigment',           apiKey: 'obliteration_pigment',    tier: 2,
-    code: 'PIG', icon: '⬛',   color: '#3affb9',
-    title: 'Opaque Pigment',
-    description: 'Paint or thick marker fully blocking underlying text.',
   },
   {
     id: 'mech_erasure',      apiKey: 'erasure_mechanical',      tier: 2,
@@ -177,14 +171,6 @@ export const GUIDANCE = {
       'Capture multiple angles if the obliteration is glossy',
     ],
     detector: 'Looks for ink-density anomalies, residual character outlines, and uniform machine-like coverage.',
-  },
-  pigment: {
-    shooting: [
-      'Side lighting reveals brush strokes and applicator marks',
-      'Photograph the entire opaque patch including sharp edges',
-      'Don\'t over-correct exposure - let dark areas stay dark',
-    ],
-    detector: 'Looks for solid uniform fill, raised paint texture, and applicator-stroke patterns.',
   },
   mech_erasure: {
     shooting: [

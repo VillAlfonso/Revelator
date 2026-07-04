@@ -11,11 +11,15 @@ Endpoint:
     GET /api/prompt-analysis  -> JSON consumed by the admin PromptDashboard
 """
 
+import json
 from pathlib import Path
 
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/api", tags=["prompt-analytics"])
+
+# Written by backend/evaluate_specimens.py after each specimen evaluation run.
+ACCURACY_FILE = Path(__file__).resolve().parent.parent / "data" / "specimen_accuracy.json"
 
 
 def extract_rules_from_prompt():
@@ -60,6 +64,27 @@ def extract_rules_from_prompt():
         return []
 
 
+@router.get("/prompt-analysis/accuracy")
+def get_system_accuracy():
+    """Live specimen-evaluation accuracy, written by backend/evaluate_specimens.py.
+
+    Returns {"status": "no_data"} until the harness has been run at least once.
+    The frontend dashboards poll this endpoint so the numbers update on their own
+    whenever a new evaluation run finishes.
+    """
+    if not ACCURACY_FILE.exists():
+        return {
+            "status": "no_data",
+            "message": "No evaluation run yet. Run: cd backend && python evaluate_specimens.py --sample 3",
+        }
+    try:
+        data = json.loads(ACCURACY_FILE.read_text(encoding="utf-8"))
+        data["status"] = "ok"
+        return data
+    except Exception as exc:
+        return {"status": "error", "message": f"Could not read accuracy file: {exc}"}
+
+
 @router.get("/prompt-analysis")
 def get_prompt_analysis():
     """Prompt analysis data, rules read live from gemini_vision.py."""
@@ -93,7 +118,6 @@ def get_prompt_analysis():
             {"id": "digital_scanned", "label": "Digital - Scanned", "group": "digital", "word_count": 200, "detail_level": "HIGH", "first_line": "Real document scanned, then digital elements composited onto scan image (stamp, signature, dates).", "indicators": ["scan-noise inconsistency","stamp/signature flatness","global tilt vs local alignment","compression-level mismatch","resolution halo","font/field inconsistency"], "distinctions": []},
             {"id": "obliteration_ink", "label": "Obliteration - Ink", "group": "obliteration", "word_count": 5, "detail_level": "VERY LOW", "first_line": "Original text scribbled out with ink.", "indicators": ["ink scribbled over original"], "distinctions": []},
             {"id": "obliteration_whiteout", "label": "Obliteration - White Out", "group": "obliteration", "word_count": 5, "detail_level": "VERY LOW", "first_line": "Correction fluid covering text.", "indicators": ["correction fluid covering text"], "distinctions": []},
-            {"id": "obliteration_pigment", "label": "Obliteration - Pigment", "group": "obliteration", "word_count": 5, "detail_level": "VERY LOW", "first_line": "Opaque marker, paint, or pigment covering text.", "indicators": ["opaque marker/paint"], "distinctions": []},
             {"id": "sympathetic_indented", "label": "Sympathetic - Indented", "group": "sympathetic", "word_count": 15, "detail_level": "VERY LOW", "first_line": "Indented writing visible only via raking light. No ink in the grooves.", "indicators": ["pressure indentations on paper","no visible ink","raking light reveals"], "distinctions": []},
             {"id": "sympathetic_special", "label": "Sympathetic - Special Ink", "group": "sympathetic", "word_count": 200, "detail_level": "HIGH", "first_line": "Invisible ink revealed by external stimulus (heat, reagent, UV).", "indicators": ["heat-activated (browned/charred)","chemical-activated (color reaction)","UV/fluorescent","specific substances (lemon, milk, phenolphthalein)"], "distinctions": []},
             {"id": "currency_analysis", "label": "Currency", "group": "currency", "word_count": 5, "detail_level": "VERY LOW", "first_line": "Suspected counterfeit banknote.", "indicators": ["counterfeit banknote suspected"], "distinctions": []},
@@ -115,8 +139,6 @@ def get_prompt_analysis():
             {"source": "erasure_chemical", "target": "erasure_mechanical", "strength": 0.8, "severity": "HIGH", "from_prompt": True, "reason": "Both remove + replace. Chemical = solvent (smooth, stained); mechanical = abrasion (rough, fuzzy fibers)."},
             {"source": "erasure_chemical", "target": "obliteration_ink", "strength": 0.7, "severity": "MEDIUM", "from_prompt": True, "reason": "Both can show ink smudges. Erasure smudge = at EDGE of blank where char used to be. Obliteration = covering text intentionally."},
             {"source": "obliteration_ink", "target": "obliteration_whiteout", "strength": 0.5, "severity": "LOW", "from_prompt": False, "reason": "Both cover text. Different materials but only 5 words of detail each, model has minimal cues to distinguish."},
-            {"source": "obliteration_ink", "target": "obliteration_pigment", "strength": 0.5, "severity": "LOW", "from_prompt": False, "reason": "Both use covering material. Lack of detail makes distinction fragile."},
-            {"source": "obliteration_whiteout", "target": "obliteration_pigment", "strength": 0.6, "severity": "MEDIUM", "from_prompt": False, "reason": "Whiteout = white correction fluid; pigment = colored marker/paint. Visually similar covering function."},
         ],
         "variables": [
             {"name": "document_type", "desc": "Type of document (passport, check, contract, ID, etc.). Selected from a fixed list.", "influence": "Activates document-specific rules (e.g., bank check rule, ID security features). Strong nudge toward category-relevant indicators."},

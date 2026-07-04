@@ -11,6 +11,7 @@ export default function PromptDashboard() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState('overview');
   const [selected, setSelected] = useState(null);
+  const [accuracy, setAccuracy] = useState(null);
 
   useEffect(() => {
     api.getPromptAnalysis()
@@ -18,11 +19,22 @@ export default function PromptDashboard() {
       .catch(err => setError(err.message || 'Failed to load prompt analysis.'));
   }, []);
 
+  // Poll the live specimen-evaluation accuracy so the panel updates on its own
+  // whenever a new evaluate_specimens.py run finishes.
+  useEffect(() => {
+    let alive = true;
+    const load = () => api.getSystemAccuracy().then(d => { if (alive) setAccuracy(d); }).catch(() => {});
+    load();
+    const id = setInterval(load, 15000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
   if (error) return <Box color="#ff6688">{error}</Box>;
   if (!data) return <Box color="#86efac">Loading prompt analysis…</Box>;
 
   const tabs = [
     { id: 'overview',   label: 'Overview' },
+    { id: 'accuracy',   label: 'System Accuracy' },
     { id: 'detail',     label: 'Detail Levels' },
     { id: 'overlaps',   label: 'Overlaps' },
     { id: 'aux',        label: 'Auxiliary Prompts' },
@@ -53,17 +65,106 @@ export default function PromptDashboard() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
-        <div>
-          {tab === 'overview' && <Overview data={data} onSelect={setSelected} />}
-          {tab === 'detail' && <DetailBars data={data} onSelect={setSelected} selected={selected} />}
-          {tab === 'overlaps' && <Overlaps data={data} onSelect={setSelected} />}
-          {tab === 'aux' && <AuxPrompts data={data} />}
-          {tab === 'rules' && <Rules data={data} />}
-          {tab === 'variables' && <Variables data={data} />}
+      {tab === 'accuracy' ? (
+        <Accuracy data={accuracy} />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+          <div>
+            {tab === 'overview' && <Overview data={data} onSelect={setSelected} />}
+            {tab === 'detail' && <DetailBars data={data} onSelect={setSelected} selected={selected} />}
+            {tab === 'overlaps' && <Overlaps data={data} onSelect={setSelected} />}
+            {tab === 'aux' && <AuxPrompts data={data} />}
+            {tab === 'rules' && <Rules data={data} />}
+            {tab === 'variables' && <Variables data={data} />}
+          </div>
+          <Inspector data={data} selected={selected} />
         </div>
-        <Inspector data={data} selected={selected} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LIVE SYSTEM ACCURACY (polls /api/prompt-analysis/accuracy)
+// ─────────────────────────────────────────────────────────────────
+
+function pctColor(p) {
+  if (p == null) return '#525252';
+  if (p >= 80) return '#00ff66';
+  if (p >= 60) return '#ffaa00';
+  return '#ff6688';
+}
+
+function Accuracy({ data }) {
+  if (!data) return <Box color="#86efac">Loading accuracy…</Box>;
+  if (data.status === 'error') return <Box color="#ff6688">{data.message}</Box>;
+  if (data.status === 'no_data') {
+    return (
+      <div style={{
+        background: 'rgba(0,255,102,0.05)', border: '1px solid #112418',
+        borderLeft: '3px solid #00ff66', padding: 16, borderRadius: 3, color: '#d8ffe6', fontSize: 13, lineHeight: 1.7,
+      }}>
+        <strong style={{ color: '#00ff66' }}>No evaluation run yet.</strong>
+        <p style={{ margin: '8px 0' }}>Populate this panel by scoring the classifier against the specimen set:</p>
+        <pre style={{ background: '#000', padding: 10, borderRadius: 3, margin: '8px 0', color: '#86efac', fontSize: 12, overflowX: 'auto' }}>cd backend
+python evaluate_specimens.py --sample 3</pre>
+        <p style={{ margin: 0 }}>This panel polls the backend every 15s and fills in on its own once a run completes.</p>
       </div>
+    );
+  }
+
+  const o = data.overall || {};
+  const folders = data.folders || [];
+  const when = data.generated_at ? new Date(data.generated_at).toLocaleString() : 'unknown';
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+        <BigStat label="Forged / Genuine accuracy" value={`${o.label_pct ?? 0}%`} sub={`${o.label_ok}/${o.n} correct`} color={pctColor(o.label_pct)} />
+        <BigStat label="Category-hit rate" value={o.cat_n ? `${o.cat_pct ?? 0}%` : 'n/a'} sub={`${o.cat_hit}/${o.cat_n} forged`} color={pctColor(o.cat_pct)} />
+        <BigStat label="Images evaluated" value={data.total_images ?? 0} sub={`${data.sample_per_bucket}/bucket${data.critique ? ' · critique' : ''}`} color="#00ff66" />
+        <BigStat label="Model" value={String(data.model || '').replace('gemini-', '')} sub={`run ${when}`} color="#5b8def" />
+      </div>
+
+      <div style={{ background: 'rgba(0,255,102,0.05)', border: '1px solid #112418', padding: 10, borderRadius: 3, fontSize: 11, color: '#86efac', marginBottom: 16, lineHeight: 1.6 }}>
+        <strong style={{ color: '#00ff66' }}>Forged/Genuine</strong> = verdict matched the specimen's Forged/Genuine label. <strong style={{ color: '#00ff66' }}>Category-hit</strong> = on forged specimens, the predicted category was acceptable for that folder. Auto-refreshes every 15s.
+      </div>
+
+      <h4 style={{ fontSize: 11, letterSpacing: 2, color: '#6dba85', textTransform: 'uppercase', margin: '0 0 8px' }}>▸ Per-folder accuracy</h4>
+      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr', gap: 8, fontSize: 10, color: '#3f6e4a', letterSpacing: 1, textTransform: 'uppercase', padding: '0 8px 6px' }}>
+        <span>Specimen folder</span><span>Forged / Genuine</span><span>Category hit</span>
+      </div>
+      {folders.map(f => (
+        <div key={f.folder} style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr', gap: 8, alignItems: 'center', padding: '5px 8px', borderRadius: 2, background: '#0a120c', marginBottom: 3 }}>
+          <span style={{ fontSize: 11, color: '#d8ffe6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.folder}</span>
+          <Meter pct={f.label_pct} label={`${f.label_ok}/${f.n}`} />
+          {f.cat_n ? <Meter pct={f.cat_pct} label={`${f.cat_hit}/${f.cat_n}`} /> : <span style={{ fontSize: 10, color: '#525252' }}>n/a</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Meter({ pct, label }) {
+  const color = pctColor(pct);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, height: 12, background: '#000', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct || 0}%`, background: color, boxShadow: `0 0 6px ${color}40` }} />
+      </div>
+      <span style={{ fontSize: 10, color: '#86efac', fontFamily: "'JetBrains Mono', monospace", minWidth: 60, textAlign: 'right' }}>
+        {pct == null ? '-' : `${pct}%`} <span style={{ color: '#3f6e4a' }}>{label}</span>
+      </span>
+    </div>
+  );
+}
+
+function BigStat({ label, value, sub, color }) {
+  return (
+    <div style={{ background: '#0a120c', border: '1px solid #112418', borderRadius: 3, padding: 12, textAlign: 'center' }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color, textShadow: `0 0 8px ${color}40`, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
+      <div style={{ fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase', color: '#3f6e4a', marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 9, color: '#6dba85', marginTop: 3 }}>{sub}</div>}
     </div>
   );
 }

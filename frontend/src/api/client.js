@@ -350,6 +350,10 @@ export const api = {
     return request('/prompt-analysis', { noAuth: true });
   },
 
+  getSystemAccuracy() {
+    return request('/prompt-analysis/accuracy', { noAuth: true });
+  },
+
   // Health
   health() {
     return request('/health', { noAuth: true });

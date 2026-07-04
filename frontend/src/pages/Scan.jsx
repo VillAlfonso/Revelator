@@ -460,7 +460,6 @@ export default function Scan() {
                   <option value="cut_paste_edges">Visible cut/paste edges or texture mismatch</option>
                   <option value="whiteout_correction">Correction fluid covering text</option>
                   <option value="ink_scribbles">Ink scribbled over original text</option>
-                  <option value="opaque_pigment_cover">Marker / paint covering text</option>
                   <option value="counterfeit_currency">Suspect counterfeit banknote</option>
                   <option value="computer_generated">Looks computer-generated / desktop-published</option>
                   <option value="scan_tampering_artifacts">Scanned document with visible digital edits on top</option>

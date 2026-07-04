@@ -58,7 +58,6 @@ CATEGORIES = [
     # Obliteration
     ("obliteration_ink",         "Obliteration - Ink Stroke"),
     ("obliteration_whiteout",    "Obliteration - White Out"),
-    ("obliteration_pigment",     "Obliteration - Opaque Pigment"),
     # Sympathetic Ink
     ("sympathetic_indented",     "Sympathetic Ink - Indented Writing"),
     ("sympathetic_special",      "Sympathetic Ink - Special Ink"),
@@ -74,7 +73,7 @@ CATEGORY_CODES = [c[0] for c in CATEGORIES]
 CATEGORY_LABELS = dict(CATEGORIES)
 
 
-SYSTEM_PROMPT = """You are a forensic document examiner. Classify the image into EXACTLY ONE of the 19 categories below. Reason step by step before answering, and only flag a forgery when you can point to specific visible evidence.
+SYSTEM_PROMPT = """You are a forensic document examiner. Classify the image into EXACTLY ONE of the 18 categories below. Reason step by step before answering, and only flag a forgery when you can point to specific visible evidence.
 
 CATEGORIES (use the code on the left in your JSON):
 
@@ -173,7 +172,6 @@ Cut and Paste / Digital Fabrication:
 Obliteration:
   obliteration_ink         - Original text scribbled out with ink.
   obliteration_whiteout    - Correction fluid covering text.
-  obliteration_pigment     - Opaque marker, paint, or pigment covering text.
 
 Sympathetic Ink:
   sympathetic_indented     - Indented writing visible only via raking light. Pressure indentations on paper with no visible ink.
@@ -199,7 +197,7 @@ Currency:
 Fallbacks (use ONLY when nothing above fits):
   no_forgery_detected      - Document looks authentic, no tampering signs.
   not_a_document           - Image is not a document at all (selfie, meme, screenshot).
-  other                    - Real forgery that does NOT match any of the 16 specific types. Do NOT use this if the forgery matches a specific category - even partially. For example: if you identify traced_projection, use traced_projection, not other with subtype traced_projection.
+  other                    - Real forgery that does NOT match any of the 15 specific types. Do NOT use this if the forgery matches a specific category - even partially. For example: if you identify traced_projection, use traced_projection, not other with subtype traced_projection.
 
 ═══════════════════════════════════════════════════════════════════════════
 IGNORE these (they are NOT forgery indicators):
@@ -308,7 +306,6 @@ Categories (code - name):
   digital_scanned         - Real scan with digital elements added
   obliteration_ink        - Text scribbled over
   obliteration_whiteout   - Correction fluid
-  obliteration_pigment    - Opaque marker/paint
   sympathetic_indented    - Indented writing under raking light
   sympathetic_special     - Hidden ink (invisible, UV, heat-activated)
   currency_analysis       - Counterfeit currency
@@ -389,10 +386,6 @@ CATEGORY_DETAIL = {
 
     "obliteration_whiteout": """
     obliteration_whiteout - Correction fluid covering text.
-    """,
-
-    "obliteration_pigment": """
-    obliteration_pigment - Opaque marker, paint, or pigment covering text.
     """,
 
     "sympathetic_indented": """
@@ -533,7 +526,6 @@ def _build_user_context_block(
             "cut_paste_edges": "visible cut/paste edges or texture mismatch",
             "whiteout_correction": "correction fluid covering text",
             "ink_scribbles": "ink scribbled over original text",
-            "opaque_pigment_cover": "marker/paint covering text",
             "counterfeit_currency": "suspect counterfeit banknote",
             "computer_generated": "looks computer-generated / desktop-published",
             "scan_tampering_artifacts": "scanned document with visible digital edits layered on top",
@@ -908,7 +900,6 @@ _GROUP_MAP: Dict[str, str] = {
     "digital_scanned": "digital",
     "obliteration_ink": "obliteration",
     "obliteration_whiteout": "obliteration",
-    "obliteration_pigment": "obliteration",
     "sympathetic_indented": "sympathetic",
     "sympathetic_special": "sympathetic",
     "currency_analysis": "currency",
@@ -1067,15 +1058,13 @@ def analyze_prompts() -> Dict[str, Any]:
         ("sympathetic_indented", "traced_indentation", "Both involve grooves; sympathetic has grooves WITHOUT ink, traced has grooves WITH ink. Not explicitly distinguished in prompt."),
         ("erasure_chemical", "obliteration_ink", "Both can show smudges/halos. Erasure smudge at edge of blank; obliteration covers text."),
         ("obliteration_ink", "obliteration_whiteout", "Both cover text. Minimal prompt detail (≤5 words each)."),
-        ("obliteration_ink", "obliteration_pigment", "Both use covering material. Minimal prompt detail."),
-        ("obliteration_whiteout", "obliteration_pigment", "Whiteout is white correction fluid; pigment is colored marker/paint."),
     ]
     existing = {(o["source"], o["target"]) for o in overlaps} | {(o["target"], o["source"]) for o in overlaps}
     for src, tgt, reason in semantic:
         if (src, tgt) not in existing and (tgt, src) not in existing:
             overlaps.append({"source": src, "target": tgt, "reason": reason, "from_prompt": False})
     aux_prompts = [
-        {"name": "SYSTEM_PROMPT", "purpose": "Main 19-category classification (full pass)", "word_count": _prompt_word_count(system), "char_count": len(system)},
+        {"name": "SYSTEM_PROMPT", "purpose": "Main 18-category classification (full pass)", "word_count": _prompt_word_count(system), "char_count": len(system)},
         {"name": "TRIAGE_PROMPT", "purpose": "Stage 1 quick top-3 classification (~$0.00005)", "word_count": _prompt_word_count(TRIAGE_PROMPT), "char_count": len(TRIAGE_PROMPT)},
         {"name": "DETAILED_PROMPT_TEMPLATE", "purpose": "Stage 2 narrowed prompt (currently unused - kept for experiments)", "word_count": _prompt_word_count(DETAILED_PROMPT_TEMPLATE), "char_count": len(DETAILED_PROMPT_TEMPLATE)},
         {"name": "CRITIQUE_PROMPT_TEMPLATE", "purpose": "Stage 3 self-critique when confidence < 0.80", "word_count": _prompt_word_count(CRITIQUE_PROMPT_TEMPLATE), "char_count": len(CRITIQUE_PROMPT_TEMPLATE)},

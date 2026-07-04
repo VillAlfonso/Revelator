@@ -27,7 +27,7 @@ from ..config import (
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
-    preprocess_image, triage_classify, confidence_gated_analyze,
+    preprocess_image, confidence_gated_analyze,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 
@@ -283,11 +283,13 @@ def analyze_document(
         }
 
     # ─────────────────────────────────────────────────────────────────
-    # Optimize pipeline: preprocess → triage → full classify → merge alternatives
+    # Pipeline: preprocess -> full classify -> (conditional) self-critique.
+    # The triage pre-pass was removed: it only seeded alternatives that the
+    # full classify already returns, at the cost of a whole extra vision call.
     # ─────────────────────────────────────────────────────────────────
-    # STAGE 0: Preprocess (50-75% image token reduction, zero accuracy impact)
+    # STAGE 0: Preprocess (image-token reduction, zero accuracy impact)
     preprocessed = preprocess_image(image)
-    print(f"[DEBUG] Image preprocessed: {image.size} → {preprocessed.size}")
+    print(f"[DEBUG] Image preprocessed: {image.size} -> {preprocessed.size}")
 
     # Get active API key from multi-key table, fall back to legacy single key
     active_key_row = db.query(UserApiKey).filter(
@@ -296,12 +298,7 @@ def analyze_document(
     ).first()
     api_key = active_key_row.api_key if active_key_row else (current_user.gemini_api_key or None)
 
-    # STAGE 1: Triage - used only to seed alternatives, NOT to narrow the main analysis
-    triage = triage_classify(preprocessed, api_key=api_key)
-    triage_top3 = triage.get("top_3", [])
-    print(f"[DEBUG] Triage candidates: {triage_top3}")
-
-    # STAGE 2: Full classification with complete prompt (all 19 categories)
+    # STAGE 1: Full classification with complete prompt (all 19 categories)
     gemini = gemini_classify(
         preprocessed,
         document_type=document_type,
@@ -326,20 +323,6 @@ def analyze_document(
             )
         raise HTTPException(status_code=503, detail="no_api_key")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
-
-    # STAGE 2.5: Merge triage candidates into alternatives
-    # Ensures categories the triage flagged (but Gemini missed) appear in alternatives
-    existing_alt_cats = {a["category"] for a in gemini.get("alternatives", [])}
-    existing_alt_cats.add(gemini.get("category", ""))
-    for cat in triage_top3:
-        if cat not in existing_alt_cats and cat in CATEGORY_LABELS:
-            gemini.setdefault("alternatives", []).append({
-                "category": cat,
-                "category_label": CATEGORY_LABELS[cat],
-                "reasoning": "Flagged as candidate by triage model - consider if primary classification seems off.",
-            })
-            existing_alt_cats.add(cat)
-    print(f"[DEBUG] Alternatives after merge: {[a['category'] for a in gemini.get('alternatives', [])]}")
 
     # STAGE 2: Confidence-gated self-critique (only fires when model is uncertain)
     user_ctx = ""
