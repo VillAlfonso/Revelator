@@ -226,6 +226,18 @@ Bigger re-approach options (only if the single-call approach plateaus):
 
 ## Change log
 
+### 2026-07-04 - First real specimen eval (partial, quota-limited)
+- Ran evaluate_specimens.py on gemini-2.5-flash via the test account. Free-tier cap is
+  20 requests/day/model, so it stopped after 19 images (4 folders). Partial signal, not a
+  final number: 7/19 forged-vs-genuine, 1/9 category-hit. 19 scans saved to test history.
+- Clear failure pattern (17 misses): heavy FALSE POSITIVES - 9/17 were genuine docs
+  flagged "forged" at 0.85-1.00 confidence. `digital_scanned` over-fires on ordinary phone
+  photos (3/3 genuine ADDITION), magnified close-ups get rejected as not_a_document, and
+  charred docs fall into obliteration_ink/erasure. Confidence is not calibrated (0.95 on
+  wrong answers) so the <0.80 critique never engages. Fix priorities: negative cues for
+  digital_scanned, looser not_a_document for close-ups, and a genuine-bias / two-evidence
+  threshold before "forged". A full run needs a paid key (removes the 20/day cap).
+
 ### 2026-07-04 - Remove opaque-pigment category + live accuracy dashboard
 - Removed `obliteration_pigment` ("Opaque Pigment") end to end: gemini_vision.py
   (taxonomy, prompt, detail, group map, triage list, overlaps, clue label),

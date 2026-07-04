@@ -1,0 +1,18 @@
+folder,label,file,predicted_category,confidence,verdict,pred_binary,acceptable
+ADDITION,forged,INTERLINEATION_1.png,obliteration_whiteout,0.95,forged,forged,addition_insertion|addition_interlineation
+ADDITION,forged,a2e75fd5-1b58-4d6c-971f-e18b172d5774_1.jpg,no_forgery_detected,0.95,no_forgery_detected,genuine,addition_insertion|addition_interlineation
+ADDITION,genuine,G.ADDITION3_1.jpg,digital_scanned,0.75,forged,forged,addition_insertion|addition_interlineation
+ADDITION,genuine,ORIGINAL(2)_1.jpg,digital_scanned,0.85,forged,forged,addition_insertion|addition_interlineation
+ADDITION,genuine,6071035182157860762 (1)_1_1.jpg,digital_scanned,0.92,forged,forged,addition_insertion|addition_interlineation
+CHARRED DOCUMENTS,forged,IMG_20260527_085824_693.jpg,erasure_chemical,0.90,forged,forged,other
+CHARRED DOCUMENTS,forged,IMG_20260527_085716_875.jpg,obliteration_ink,0.90,forged,forged,other
+CHARRED DOCUMENTS,forged,(1)_1.jpg,obliteration_ink,0.75,forged,forged,other
+CHARRED DOCUMENTS,genuine,IMG_20260527_085749_133_1.jpg,erasure_chemical,0.85,forged,forged,other
+CHARRED DOCUMENTS,genuine,CHARRED(2)_1.jpg,obliteration_ink,0.95,forged,forged,other
+CHARRED DOCUMENTS,genuine,(2)_1.jpg,other,1.00,forged,forged,other
+CONTACT WRITING,forged,MAGNIFIED VIEW(2)_1.jpg,not_a_document,0.95,not_a_document,not_a_document,other|traced_carbon
+CONTACT WRITING,forged,7ebbf2d4-671e-4fe0-9bce-66f459ad6fe2_1.jpg,erasure_mechanical,0.95,forged,forged,other|traced_carbon
+CONTACT WRITING,forged,MAGNIFIED VIEW_1.jpg,not_a_document,0.95,not_a_document,not_a_document,other|traced_carbon
+CONTACT WRITING,genuine,2acd2d7b-f8ec-4fc2-98bf-f0ed05a0f22d_1.jpg,sympathetic_special,0.95,forged,forged,other|traced_carbon
+CONTACT WRITING,genuine,photo_6102886371862187467_x_1.jpg,other,0.75,forged,forged,other|traced_carbon
+COUNTERFEITED-FALSIFIED DOCUMENTS,genuine,NORMAL VIEW(3)_1.jpg,currency_analysis,0.95,forged,forged,addition_insertion|currency_analysis|digital_cut_paste|digital_desktop|digital_scanned|erasure_chemical|erasure_mechanical|other

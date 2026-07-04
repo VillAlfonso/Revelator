@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-07-04T07:50:03.226305+00:00",
+  "model": "gemini-2.5-flash",
+  "sample_per_bucket": 3,
+  "critique": false,
+  "category_filter": null,
+  "total_images": 19,
+  "overall": {
+    "n": 19,
+    "label_ok": 7,
+    "label_pct": 36.8,
+    "cat_hit": 1,
+    "cat_n": 9,
+    "cat_pct": 11.1
+  },
+  "folders": [
+    {
+      "folder": "ADDITION",
+      "n": 6,
+      "label_ok": 2,
+      "label_pct": 33.3,
+      "cat_hit": 1,
+      "cat_n": 3,
+      "cat_pct": 33.3
+    },
+    {
+      "folder": "CHARRED DOCUMENTS",
+      "n": 6,
+      "label_ok": 3,
+      "label_pct": 50.0,
+      "cat_hit": 0,
+      "cat_n": 3,
+      "cat_pct": 0.0
+    },
+    {
+      "folder": "CONTACT WRITING",
+      "n": 6,
+      "label_ok": 2,
+      "label_pct": 33.3,
+      "cat_hit": 0,
+      "cat_n": 3,
+      "cat_pct": 0.0
+    },
+    {
+      "folder": "COUNTERFEITED-FALSIFIED DOCUMENTS",
+      "n": 1,
+      "label_ok": 0,
+      "label_pct": 0.0,
+      "cat_hit": 0,
+      "cat_n": 0,
+      "cat_pct": null
+    }
+  ],
+  "misses": 17
+}
