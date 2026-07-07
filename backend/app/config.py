@@ -31,6 +31,16 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 # lack reliable transactional email or a stable public URL for the verify link.
 REQUIRE_EMAIL_VERIFICATION = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
 
+# Two-factor authentication: a 6-digit code emailed on password login. When on
+# (and SMTP is configured) a password sign-in must confirm the code unless the
+# device was remembered. Google logins are exempt (Google already does MFA).
+# If SMTP is not configured the login flow falls back to no-2FA so nobody gets
+# locked out. Per-user opt-out lives on User.two_factor_enabled.
+TWO_FACTOR_ENABLED = os.getenv("TWO_FACTOR_ENABLED", "true").lower() == "true"
+TWO_FACTOR_CODE_TTL_MINUTES = int(os.getenv("TWO_FACTOR_CODE_TTL_MINUTES", "10"))
+TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv("TWO_FACTOR_MAX_ATTEMPTS", "5"))
+TRUSTED_DEVICE_DAYS = int(os.getenv("TRUSTED_DEVICE_DAYS", "30"))
+
 # ============================================
 # OAUTH (Google)
 # ============================================

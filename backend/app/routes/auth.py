@@ -2,21 +2,26 @@
 Authentication routes: register, login, refresh, me, Google OAuth.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, UserApiKey
+from ..models import User, UserApiKey, LoginCode, TrustedDevice
 from ..auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, create_verification_token,
     create_signup_token, create_reset_token, decode_token, get_current_user,
+    generate_otp_code, generate_device_token, hash_token,
 )
-from ..config import GOOGLE_CLIENT_ID, FRONTEND_URL
-from ..email_utils import send_verification_email, send_reset_email
+from ..config import (
+    GOOGLE_CLIENT_ID, FRONTEND_URL,
+    TWO_FACTOR_ENABLED, TWO_FACTOR_CODE_TTL_MINUTES, TWO_FACTOR_MAX_ATTEMPTS,
+    TRUSTED_DEVICE_DAYS,
+)
+from ..email_utils import send_verification_email, send_reset_email, send_2fa_code_email, _smtp_configured
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -32,6 +37,17 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+    device_token: str | None = None  # remembered-device token, skips 2FA when valid
+
+
+class Verify2FARequest(BaseModel):
+    email: str
+    code: str
+    remember_device: bool = False
+
+
+class Toggle2FARequest(BaseModel):
+    enabled: bool
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -86,8 +102,76 @@ def user_to_dict(user: User, db: Session = None) -> dict:
         "role": role_name,
         "role_color": color,
         "is_active": bool(user.is_active),
+        "two_factor_enabled": bool(user.two_factor_enabled) if user.two_factor_enabled is not None else True,
         "created_at": user.created_at.isoformat() if user.created_at else "",
     }
+
+
+# ── Two-factor helpers ──────────────────────────────────
+
+def _issue_login(user: User, db: Session, device_token: str | None = None) -> dict:
+    """Build the standard authenticated response (tokens + user)."""
+    resp = {
+        "requires_2fa": False,
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
+        "user": user_to_dict(user, db),
+    }
+    if device_token:
+        resp["device_token"] = device_token
+    return resp
+
+
+def _device_is_trusted(user: User, device_token: str | None, db: Session) -> bool:
+    """True if this remembered-device token is valid and unexpired for the user."""
+    if not device_token:
+        return False
+    dev = (
+        db.query(TrustedDevice)
+        .filter(TrustedDevice.user_id == user.id,
+                TrustedDevice.token_hash == hash_token(device_token))
+        .first()
+    )
+    if not dev:
+        return False
+    if dev.expires_at and dev.expires_at < datetime.utcnow():
+        db.delete(dev)
+        db.commit()
+        return False
+    dev.last_used_at = datetime.utcnow()
+    db.commit()
+    return True
+
+
+def _send_login_code(user: User, db: Session) -> bool:
+    """Issue a fresh 6-digit code (replacing any prior one) and email it.
+
+    Returns whether the email was actually sent."""
+    db.query(LoginCode).filter(LoginCode.user_id == user.id).delete()
+    code = generate_otp_code()
+    db.add(LoginCode(
+        user_id=user.id,
+        code_hash=hash_token(code),
+        expires_at=datetime.utcnow() + timedelta(minutes=TWO_FACTOR_CODE_TTL_MINUTES),
+        attempts=0,
+    ))
+    db.commit()
+    return send_2fa_code_email(user.email, code, TWO_FACTOR_CODE_TTL_MINUTES)
+
+
+def _twofa_required_for(user: User) -> bool:
+    """Whether a password login for this user must pass the email-code step.
+
+    Gated on the global flag, the per-user opt-in, that the account actually has
+    a password (Google-only accounts are exempt), and that email can be sent at
+    all (never lock a user out when SMTP is down)."""
+    return bool(
+        TWO_FACTOR_ENABLED
+        and user.two_factor_enabled
+        and user.hashed_password
+        and _smtp_configured()
+    )
 
 
 # ── Endpoints ───────────────────────────────────────────
@@ -152,7 +236,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.hashed_password):
@@ -162,11 +246,95 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Please verify your email before signing in. Check your inbox or request a new link.")
 
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-        user=user_to_dict(user, db),
+    # A remembered device skips the code entirely.
+    if _device_is_trusted(user, body.device_token, db):
+        return _issue_login(user, db)
+
+    # Otherwise, if 2FA applies, email a code and pause; the client finishes at
+    # /verify-2fa. If the send fails we fall through and log them in rather than
+    # trap them behind a code they never receive.
+    if _twofa_required_for(user):
+        if _send_login_code(user, db):
+            return {
+                "requires_2fa": True,
+                "email": user.email,
+                "message": f"We emailed a 6-digit code to {user.email}. Enter it to finish signing in.",
+            }
+
+    return _issue_login(user, db)
+
+
+@router.post("/verify-2fa")
+def verify_2fa(body: Verify2FARequest, db: Session = Depends(get_db)):
+    """Finish a 2FA login by confirming the emailed 6-digit code."""
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid or expired code")
+
+    rec = (
+        db.query(LoginCode)
+        .filter(LoginCode.user_id == user.id)
+        .order_by(LoginCode.created_at.desc())
+        .first()
     )
+    if not rec:
+        raise HTTPException(status_code=401, detail="No sign-in code is pending. Please sign in again.")
+
+    if rec.expires_at < datetime.utcnow():
+        db.delete(rec)
+        db.commit()
+        raise HTTPException(status_code=401, detail="That code has expired. Request a new one.")
+
+    if rec.attempts >= TWO_FACTOR_MAX_ATTEMPTS:
+        db.delete(rec)
+        db.commit()
+        raise HTTPException(status_code=429, detail="Too many attempts. Please sign in again for a new code.")
+
+    code = (body.code or "").strip().replace(" ", "")
+    if hash_token(code) != rec.code_hash:
+        rec.attempts += 1
+        db.commit()
+        remaining = max(0, TWO_FACTOR_MAX_ATTEMPTS - rec.attempts)
+        raise HTTPException(status_code=401, detail=f"Incorrect code. {remaining} attempt(s) left.")
+
+    # Correct: consume every pending code for this user.
+    db.query(LoginCode).filter(LoginCode.user_id == user.id).delete()
+
+    device_token = None
+    if body.remember_device:
+        device_token = generate_device_token()
+        db.add(TrustedDevice(
+            user_id=user.id,
+            token_hash=hash_token(device_token),
+            expires_at=datetime.utcnow() + timedelta(days=TRUSTED_DEVICE_DAYS),
+            last_used_at=datetime.utcnow(),
+        ))
+    db.commit()
+
+    return _issue_login(user, db, device_token=device_token)
+
+
+@router.post("/resend-2fa")
+def resend_2fa(body: ResendRequest, db: Session = Depends(get_db)):
+    """Re-send the login code. Always 200 so accounts can't be enumerated."""
+    user = db.query(User).filter(User.email == body.email).first()
+    if user and user.is_active and user.is_verified and _twofa_required_for(user):
+        _send_login_code(user, db)
+    return {"message": "If a sign-in is in progress, a new code has been sent."}
+
+
+@router.put("/2fa")
+def set_two_factor(
+    body: Toggle2FARequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Turn email 2FA on or off for the signed-in account."""
+    current_user.two_factor_enabled = bool(body.enabled)
+    if not body.enabled:
+        db.query(LoginCode).filter(LoginCode.user_id == current_user.id).delete()
+    db.commit()
+    return {"success": True, "two_factor_enabled": bool(current_user.two_factor_enabled)}
 
 
 @router.post("/refresh", response_model=TokenResponse)

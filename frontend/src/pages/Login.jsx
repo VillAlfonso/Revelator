@@ -19,6 +19,9 @@ export default function Login() {
   const [info, setInfo] = useState('');
   const [needsResend, setNeedsResend] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState('login');   // 'login' | 'code'
+  const [code, setCode] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(false);
 
   if (user) { navigate('/scan', { replace: true }); return null; }
 
@@ -48,9 +51,16 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setInfo('');
     setLoading(true);
     try {
       const data = await api.login(email, password);
+      if (data.requires_2fa) {
+        setStage('code');
+        setCode('');
+        setInfo(data.message || `Enter the code we emailed to ${email}.`);
+        return;
+      }
       loginUser(data);
       navigate('/scan');
     } catch (err) {
@@ -59,6 +69,34 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleVerifyCode(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await api.verify2fa(email, code.trim(), rememberDevice);
+      loginUser(data);
+      navigate('/scan');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResendCode() {
+    setError('');
+    try { await api.resend2fa(email); } catch {}
+    setInfo('A new code has been sent. Check your inbox.');
+  }
+
+  function backToLogin() {
+    setStage('login');
+    setCode('');
+    setError('');
+    setInfo('');
   }
 
   return (
@@ -89,7 +127,7 @@ export default function Login() {
           fontSize: 18, marginBottom: 20, letterSpacing: 3, textTransform: 'uppercase',
           color: '#d8ffe6',
         }}>
-          ▸ Sign In
+          {stage === 'code' ? '▸ Verify Sign-In' : '▸ Sign In'}
         </h2>
 
         {verifiedParam === '1' && (
@@ -143,70 +181,109 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Email</label>
-            <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Password</label>
-            <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" required />
-          </div>
-          <div style={{ textAlign: 'right', marginBottom: 24 }}>
-            <Link to="/forgot-password" style={{ fontSize: 12, color: '#6dba85' }}>Forgot password?</Link>
-          </div>
-          <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
-            {loading ? '◌ Authenticating…' : '▶ Sign In'}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #112418' }}>
-          <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', textAlign: 'center', marginBottom: 12, letterSpacing: 1 }}>
-            OR SIGN IN WITH
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            {Capacitor.isNativePlatform() ? (
-              <button
-                onClick={handleNativeGoogleSignIn}
-                disabled={loading}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                  background: '#fff', color: '#3c4043', border: 'none', borderRadius: 4,
-                  fontSize: 14, fontWeight: 500, cursor: 'pointer', minHeight: 44, width: '100%',
-                  justifyContent: 'center',
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
-                Sign in with Google
-              </button>
-            ) : (
-              <GoogleLogin
-                onSuccess={async (credentialResponse) => {
-                  setError('');
-                  setLoading(true);
-                  try {
-                    const data = await api.googleLogin(credentialResponse.credential);
-                    loginUser(data);
-                    navigate('/scan');
-                  } catch (err) {
-                    setError(err.message);
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                onError={() => setError('Google sign-in failed')}
-                theme="filled_black"
-                shape="rectangular"
-                text="signin_with_google"
-                size="large"
+        {stage === 'code' ? (
+          <form onSubmit={handleVerifyCode}>
+            <div style={{ marginBottom: 16 }}>
+              <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>6-Digit Code</label>
+              <input
+                className="input mono"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="______"
+                autoFocus
+                required
+                style={{ textAlign: 'center', letterSpacing: 12, fontSize: 24 }}
               />
-            )}
-          </div>
-        </div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, cursor: 'pointer', fontSize: 13, color: '#86efac' }}>
+              <input type="checkbox" checked={rememberDevice} onChange={e => setRememberDevice(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#00ff66' }} />
+              Trust this device for 30 days
+            </label>
+            <button className="btn btn-primary" type="submit" disabled={loading || code.length < 6} style={{ width: '100%' }}>
+              {loading ? '◌ Verifying…' : '▶ Verify & Sign In'}
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+              <button type="button" onClick={backToLogin} style={{ background: 'transparent', border: 'none', color: '#6dba85', fontSize: 12, cursor: 'pointer', padding: 0 }}>
+                ← Back
+              </button>
+              <button type="button" onClick={handleResendCode} style={{ background: 'transparent', border: 'none', color: '#6dba85', fontSize: 12, cursor: 'pointer', padding: 0 }}>
+                ↻ Resend code
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 16 }}>
+                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Email</label>
+                <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Password</label>
+                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" required />
+              </div>
+              <div style={{ textAlign: 'right', marginBottom: 24 }}>
+                <Link to="/forgot-password" style={{ fontSize: 12, color: '#6dba85' }}>Forgot password?</Link>
+              </div>
+              <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
+                {loading ? '◌ Authenticating…' : '▶ Sign In'}
+              </button>
+            </form>
 
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#86efac' }}>
-          New here? <Link to="/register">Create an account</Link>
-        </p>
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #112418' }}>
+              <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', textAlign: 'center', marginBottom: 12, letterSpacing: 1 }}>
+                OR SIGN IN WITH
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {Capacitor.isNativePlatform() ? (
+                  <button
+                    onClick={handleNativeGoogleSignIn}
+                    disabled={loading}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
+                      background: '#fff', color: '#3c4043', border: 'none', borderRadius: 4,
+                      fontSize: 14, fontWeight: 500, cursor: 'pointer', minHeight: 44, width: '100%',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+                    Sign in with Google
+                  </button>
+                ) : (
+                  <GoogleLogin
+                    onSuccess={async (credentialResponse) => {
+                      setError('');
+                      setLoading(true);
+                      try {
+                        const data = await api.googleLogin(credentialResponse.credential);
+                        loginUser(data);
+                        navigate('/scan');
+                      } catch (err) {
+                        setError(err.message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    onError={() => setError('Google sign-in failed')}
+                    theme="filled_black"
+                    shape="rectangular"
+                    text="signin_with_google"
+                    size="large"
+                  />
+                )}
+              </div>
+            </div>
+
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#86efac' }}>
+              New here? <Link to="/register">Create an account</Link>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

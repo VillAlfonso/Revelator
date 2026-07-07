@@ -226,6 +226,57 @@ Bigger re-approach options (only if the single-call approach plateaus):
 
 ## Change log
 
+### 2026-07-07 - Email-OTP 2FA, auto-start hosting, light-mode drawer fix
+- Added two-factor sign-in (email code). Password login now returns
+  `{requires_2fa:true, email, message}` instead of tokens when 2FA applies; the client
+  finishes at `POST /api/auth/verify-2fa` (email + 6-digit code + remember_device).
+  New: `POST /api/auth/resend-2fa`, `PUT /api/auth/2fa` (per-user toggle; surfaced in
+  Account -> Security). Backend: `LoginCode` + `TrustedDevice` tables (create_all),
+  `users.two_factor_enabled` column (ensured in database.py), auth helpers
+  `generate_otp_code`/`generate_device_token`/`hash_token` (sha256), email template
+  `send_2fa_code_email`. Config: `TWO_FACTOR_ENABLED` (default on),
+  `TWO_FACTOR_CODE_TTL_MINUTES` (10), `TWO_FACTOR_MAX_ATTEMPTS` (5),
+  `TRUSTED_DEVICE_DAYS` (30). Codes are stored hashed, one live code per user, expiry +
+  attempt-capped; trusted-device tokens (stored hashed, per-email in localStorage) skip
+  the code for 30 days. Guardrails: only enforced when SMTP is configured (else login
+  falls through so nobody is locked out), Google logins exempt, signup still auto-logs in.
+  Frontend: Login.jsx gains a code-entry stage; client.js `verify2fa/resend2fa/setTwoFactor`
+  + per-email device-token storage. Verified end-to-end (12/12 checks) against the live
+  server, then DB cleaned of test users.
+- Light-mode drawer bug: tapping the burger in light mode looked like the screen went
+  blank. Cause: the drawer kept its dark background while light-theme CSS remapped its
+  text to dark (dark-on-dark = invisible) and the backdrop's rgba(0,0,0,0.6) veil
+  darkened the whole light page. Fix in App.jsx: drawer panel + backdrop veil are now
+  theme-aware (`isLight = theme==='light'`) - white drawer surface + soft light veil so
+  the page just blurs, matching dark mode.
+- Easy hosting: `tools/revelator-startup.vbs` launches host-revelator.bat hidden; a copy
+  lives in the per-user Startup folder so the server + tunnel auto-start at login.
+  host-revelator.bat now uses `start /min`. Manual double-click still works. Delete the
+  Startup copy to stop auto-hosting. (Google sign-in still needs the account owner to add
+  https://revelator.site to the OAuth client's Authorized JavaScript origins - console-only.)
+
+### 2026-07-06 - Live on revelator.site (named Cloudflare tunnel)
+- Domain revelator.site bought at Namecheap, nameservers moved to a free Cloudflare
+  account (zone Active). This replaces the account-less quick tunnel (random URL +
+  Safe-Browsing "Dangerous" flag) with a stable custom domain and a real cert.
+- Named tunnel "revelator" (id ac5f952f-02ad-457d-8d2d-64cafbc359ec). One-time setup:
+  `cloudflared login` -> `tunnel create revelator` -> `tunnel route dns --overwrite-dns
+  revelator revelator.site` (and www). Had to delete Namecheap's imported apex A record
+  first; --overwrite-dns clobbers a same-type record but not a leftover parking A at the
+  apex, so that one deletion was manual in the Cloudflare DNS dashboard.
+- Config at %USERPROFILE%\.cloudflared\config.yml: tunnel id + credentials-file +
+  ingress (revelator.site and www.revelator.site -> http://localhost:8010, else 404).
+  Credentials json lives beside it (secret, machine-local, not in repo).
+- run.py now honors PORT and RELOAD env vars (default 8000). We host on :8010 because
+  another local app ("AAAFlow Studio") holds :8000. New launcher host-revelator.bat
+  starts the server on :8010 and `cloudflared tunnel run revelator` in two windows.
+- Still free: free Cloudflare account, free Universal SSL, laptop-hosted, local SQLite.
+  Only paid item is the domain itself. CORS is allow_origins=["*"] and the SPA is served
+  same-origin, so no origin config was needed. Google OAuth is NOT in the current build
+  (no client id in the bundle); if re-added, add https://revelator.site to the OAuth
+  client's Authorized JavaScript origins. FRONTEND_URL still defaults to localhost:5173
+  (only affects password-reset link text; email is effectively off).
+
 ### 2026-07-04 - Local classifier + hybrid explain-only pipeline
 - Trained a MobileNetV3 classifier on the specimen set (backend/train_classifier.py, on
   GPU). 19 code-level classes = the 15 forgery codes (TRACED/ERASURE/MODERN split by their

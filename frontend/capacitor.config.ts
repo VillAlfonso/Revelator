@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      serverClientId: '412368654322-55pcnvummc3fup2vgr13f6nctjqvkpll.apps.googleusercontent.com',
+      serverClientId: '676322212303-52bprvcqb4dao6c71m3500lqh2i9i6mb.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
     },
     Camera: {

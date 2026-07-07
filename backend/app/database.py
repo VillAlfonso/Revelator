@@ -60,6 +60,8 @@ def _ensure_columns():
                 # verification shipped is treated as already verified, so we
                 # don't lock out current users when login starts requiring it.
                 conn.execute(text("UPDATE users SET is_verified = 1"))
+            if "two_factor_enabled" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN NOT NULL DEFAULT 1"))
 
             # Plan rename migration: legacy 'basic' -> new 'pro' ($5 unlimited);
             # legacy 'pro' (1000-scan tier) -> new 'premium' ($10 unlimited + AI).

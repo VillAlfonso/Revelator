@@ -150,3 +150,58 @@ def send_reset_email(to_email: str, token: str) -> None:
 
     if not sent:
         print(f"[RESET EMAIL] SMTP unavailable - link for {to_email}:\n  {link}")
+
+
+def _twofa_html(code: str, ttl_minutes: int) -> str:
+    spaced = " ".join(list(code))  # render the digits with a little air
+    return f"""\
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#07120b;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#07120b;padding:32px 0;">
+      <tr><td align="center">
+        <table width="480" cellpadding="0" cellspacing="0"
+               style="background:#0c1a12;border:1px solid #173a25;border-radius:6px;padding:36px;">
+          <tr><td align="center" style="padding-bottom:20px;">
+            <h1 style="margin:0;color:#00ff66;letter-spacing:6px;font-size:26px;">{APP_NAME.upper()}</h1>
+            <p style="margin:8px 0 0;color:#6dba85;font-size:11px;letter-spacing:3px;">
+              [ SIGN-IN VERIFICATION ]
+            </p>
+          </td></tr>
+          <tr><td style="color:#cfe9d8;font-size:14px;line-height:1.6;padding:8px 0 20px;">
+            Someone is signing in to your {APP_NAME} account. Enter this code to
+            finish signing in. It expires in {ttl_minutes} minutes.
+          </td></tr>
+          <tr><td align="center" style="padding-bottom:24px;">
+            <div style="display:inline-block;background:#04140a;border:1px solid #00ff66;
+                        border-radius:6px;padding:16px 28px;color:#00ff66;font-weight:bold;
+                        font-size:32px;letter-spacing:12px;font-family:'Courier New',monospace;">
+              {spaced}
+            </div>
+          </td></tr>
+          <tr><td style="color:#3f6e4a;font-size:12px;line-height:1.6;border-top:1px solid #173a25;padding-top:18px;">
+            If you didn't try to sign in, someone may have your password. Change it
+            as soon as you can - this code alone won't let them in.
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>"""
+
+
+def send_2fa_code_email(to_email: str, code: str, ttl_minutes: int = 10) -> bool:
+    """Send (or print, if SMTP unconfigured) the 2FA login code.
+
+    Returns True if the email was actually sent. The caller uses this to decide
+    whether it can require the code (never lock a user out when mail is down)."""
+    subject = f"Your {APP_NAME} sign-in code: {code}"
+    try:
+        sent = send_email(to_email, subject, _twofa_html(code, ttl_minutes))
+    except Exception as e:
+        logger.warning(f"2FA code email to {to_email} failed: {e}")
+        sent = False
+
+    if not sent:
+        print(f"[2FA CODE] SMTP unavailable - code for {to_email}: {code}")
+    return sent

@@ -35,6 +35,7 @@ class User(Base):
     scan_reset_date = Column(DateTime, nullable=True)
     gemini_api_key = Column(String, nullable=True)  # legacy single-key field (kept for migration)
     verification_sent_at = Column(DateTime, nullable=True)  # last time a verification email was sent
+    two_factor_enabled = Column(Boolean, default=True, nullable=False)  # email-OTP 2FA on password login
 
     # Relationships
     scans = relationship("Scan", back_populates="user", cascade="all, delete-orphan")
@@ -69,6 +70,40 @@ class UserApiKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="api_keys")
+
+
+class LoginCode(Base):
+    """A short-lived 6-digit email code for a single in-progress password login.
+
+    Only the SHA-256 hash of the code is stored. One live code per user at a
+    time (the login step deletes prior codes before issuing a new one). Guarded
+    by an expiry and an attempt counter.
+    """
+    __tablename__ = "login_codes"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    code_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TrustedDevice(Base):
+    """A browser/device the user chose to remember, so it skips the 2FA step.
+
+    The client keeps the raw token in localStorage; the server stores only its
+    SHA-256 hash. Valid until expires_at (TRUSTED_DEVICE_DAYS).
+    """
+    __tablename__ = "trusted_devices"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String, nullable=False, index=True)
+    label = Column(String, default="")  # e.g. a coarse user-agent hint
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
 
 
 class Scan(Base):

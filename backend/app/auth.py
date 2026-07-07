@@ -2,6 +2,8 @@
 JWT authentication utilities.
 """
 
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -92,6 +94,27 @@ def create_reset_token(user_id: str) -> str:
         SECRET_KEY,
         algorithm=JWT_ALGORITHM,
     )
+
+
+# ── Two-factor / trusted-device helpers ─────────────────
+
+def generate_otp_code() -> str:
+    """A random zero-padded 6-digit login code."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def generate_device_token() -> str:
+    """An opaque, URL-safe token stored (hashed) as a remembered device."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(raw: str) -> str:
+    """SHA-256 of a secret we only ever need to compare, never reveal.
+
+    Used for the 6-digit code (random + short-lived + attempt-capped) and for
+    remembered-device tokens (long random). Not for passwords (bcrypt handles those).
+    """
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def decode_token(token: str) -> Optional[dict]:

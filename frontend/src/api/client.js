@@ -24,6 +24,19 @@ function clearTokens() {
   localStorage.removeItem('fg_user');
 }
 
+// ── Remembered-device tokens (skip 2FA) ─────────────────
+// Stored per-email so several accounts can share one browser without
+// clobbering each other's trust.
+function deviceKey(email) {
+  return `fg_device_token:${(email || '').trim().toLowerCase()}`;
+}
+function getDeviceToken(email) {
+  return localStorage.getItem(deviceKey(email)) || null;
+}
+function saveDeviceToken(email, token) {
+  if (token) localStorage.setItem(deviceKey(email), token);
+}
+
 async function request(path, options = {}) {
   const token = getToken();
   const headers = { ...options.headers };
@@ -92,8 +105,30 @@ export const api = {
   login(email, password) {
     return request('/auth/login', {
       method: 'POST', noAuth: true,
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, device_token: getDeviceToken(email) }),
     });
+  },
+
+  // Finish an email-2FA login. On success the server may return a device_token
+  // to remember this browser; stash it so next time skips the code.
+  async verify2fa(email, code, rememberDevice = false) {
+    const data = await request('/auth/verify-2fa', {
+      method: 'POST', noAuth: true,
+      body: JSON.stringify({ email, code, remember_device: rememberDevice }),
+    });
+    if (data && data.device_token) saveDeviceToken(email, data.device_token);
+    return data;
+  },
+
+  resend2fa(email) {
+    return request('/auth/resend-2fa', {
+      method: 'POST', noAuth: true,
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  setTwoFactor(enabled) {
+    return request('/auth/2fa', { method: 'PUT', body: JSON.stringify({ enabled }) });
   },
 
   googleLogin(idToken) {

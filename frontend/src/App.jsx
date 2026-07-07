@@ -316,6 +316,7 @@ function Layout({ children }) {
   const backdropOpacity = drawerOpen
     ? Math.max(0, 1 + drawerOffset / DRAWER_WIDTH)
     : Math.max(0, Math.min(1, drawerOffset / DRAWER_WIDTH));
+  const isLight = theme === 'light';
 
   return (
     <div>
@@ -505,7 +506,9 @@ function Layout({ children }) {
           onClick={() => setDrawerOpen(false)}
           style={{
             position: 'fixed', inset: 0, zIndex: 60,
-            background: `rgba(0,0,0,${0.6 * backdropOpacity})`,
+            background: isLight
+              ? `rgba(10,26,16,${0.32 * backdropOpacity})`
+              : `rgba(0,0,0,${0.6 * backdropOpacity})`,
             backdropFilter: `blur(${4 * backdropOpacity}px)`,
             WebkitBackdropFilter: `blur(${4 * backdropOpacity}px)`,
             transition: drawerOffset === 0 ? 'background 0.25s, backdrop-filter 0.25s' : 'none',
@@ -520,7 +523,9 @@ function Layout({ children }) {
           style={{
             position: 'fixed', top: 0, left: 0, bottom: 0,
             width: DRAWER_WIDTH, maxWidth: '85vw', zIndex: 70,
-            background: 'linear-gradient(180deg, #06120a 0%, #02080a 100%)',
+            background: isLight
+              ? 'linear-gradient(180deg, #ffffff 0%, #eef4f0 100%)'
+              : 'linear-gradient(180deg, #06120a 0%, #02080a 100%)',
             borderRight: '1px solid #1d3825',
             boxShadow: drawerOpen ? '4px 0 32px rgba(0,255,102,0.12), 8px 0 60px rgba(0,0,0,0.85)' : 'none',
             transform: drawerTransform,
