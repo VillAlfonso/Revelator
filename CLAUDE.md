@@ -275,6 +275,45 @@ Bigger re-approach options (only if the single-call approach plateaus):
   NOTE: backend changes (download route + currency prompt) require a server restart to go
   live; the static web bundle is already served fresh from disk.
 
+### 2026-07-10 (second pass) - Synthesized the groupmate's currency work from forgeguard-v2, live-validated
+- Correction to the note above: the groupmate's work DOES exist, in a separate checkout at
+  `C:\Revelator\forgeguard-v2` (its own git repo, not a branch here). Reviewed his
+  gemini_vision.py: a ~12,600-word SYSTEM_PROMPT (2.8x ours) with a full genuine-bias
+  reasoning framework (AUTHENTICITY FIRST, DIRECT/PARTIAL/INFERRED observability, category
+  evidence scoring, hallucination prevention, tie-breaking) and a very detailed Philippine
+  banknote (BSP) currency block with NGC/NDS series awareness and UV handling. He also
+  removed the local classifier (pure Gemini) and RE-ADDED the triage pre-pass (an extra
+  vision call). His `category_explanation = gemini["explanation"]` is identical to ours, so
+  "Gemini response straight to the description" was already true here.
+- Per the "max accuracy + MIN tokens" goal, did NOT adopt his prompt wholesale (it is
+  ~22K tokens/scan) or re-add his triage call. Instead: distilled his currency
+  discriminators into our block (now 355 words / VERY HIGH): NGC and NDS both legal tender,
+  the "security features PRESENT but SIMULATED (flat/printed/sticker-like) = counterfeit"
+  test, and the genuine-note photo caveat (blur/wear/fade/low-light alone != counterfeit).
+  Net SYSTEM_PROMPT ~4,720 words / ~8.3K tokens (38% of his).
+- Key structural fix (analyze.py): the specimen local_classifier routes ANY banknote to its
+  "counterfeit" class at ~1.0 conf, and the terse explain-only prompt cannot tell genuine
+  from fake. So currency hints now SKIP the explain-only shortcut and fall through to the
+  full prompt (which carries the genuine-vs-counterfeit discriminators). Only currency
+  images pay for the full prompt; other categories keep the explain-only token saving.
+- Tried adding a cross-category "EVIDENCE DISCIPLINE" genuine-bias block (distilled from his
+  framework) but REMOVED it: it was unvalidated across the other 14 categories, added tokens,
+  and the currency block already fixes the currency false positive on its own.
+- Live-validated with the user's Gemini keys (from API_KEYS.md, gitignored) against the
+  SPECIMEN PICTURES/.../PHILIPPINE CURRENCY set on gemini-2.5-flash: genuine notes
+  (100/200/500/1000) reliably return no_forgery_detected (the reported false positive is
+  fixed), clear fakes are caught as currency_analysis/forged; borderline fakes (a
+  design-correct multi-note sheet, a genuine-looking macro crop, a moderate ~1000 repro
+  whose only tell is a simulated thread) are inconsistent at temperature 0.2. That
+  precision/recall trade is intentional: tightening to catch borderline fakes reintroduces
+  the false positives on real money that were the actual complaint. (Free-tier keys are
+  quota-limited, ~a handful of scans each; "other/0.0" verdicts in testing were quota
+  failures, not real classifications.)
+- APK NOT reassembled: this pass changed backend only. The prompt runs server-side; the
+  installed APK and the website both call the same backend, so the currency improvements
+  apply after a backend restart with no new APK build. Prompt-analytics py + html currency
+  entries and the SYSTEM_PROMPT word/char counts were synced.
+
 ### 2026-07-07 - Email-OTP 2FA, auto-start hosting, light-mode drawer fix
 - Added two-factor sign-in (email code). Password login now returns
   `{requires_2fa:true, email, message}` instead of tokens when 2FA applies; the client

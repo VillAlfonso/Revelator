@@ -310,11 +310,26 @@ def analyze_document(
             hint = None
         # Every scan goes through the trained classifier first; Gemini then double-checks
         # its prediction (the explain-only pass can confirm, refine, or override it).
+        #
+        # EXCEPTION - currency: the specimen classifier routes ANY banknote to the
+        # "counterfeit" class at ~1.0 confidence, and the terse explain-only prompt cannot
+        # tell a genuine note from a fake (verified live: it missed real counterfeits AND
+        # would over-trust genuine notes). So when the hint is currency, skip the shortcut
+        # and fall through to the full prompt below, which carries the genuine-vs-counterfeit
+        # discriminators (BSP security features, "features present but simulated" test). Only
+        # currency images pay for the full prompt; every other category keeps the token saving.
         if hint:
-            print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} -> Gemini double-checks {hint['category']} ({hint['candidates']})")
-            hinted = explain_with_hint(preprocessed, hint["label"], hint["candidates"], api_key=api_key)
-            if not hinted.get("_unavailable"):
-                gemini = hinted
+            hint_is_currency = (
+                hint.get("category") == "currency_analysis"
+                or "currency_analysis" in hint.get("candidates", [])
+            )
+            if hint_is_currency:
+                print(f"[DEBUG] classifier hinted currency ({hint['class']} {hint['confidence']:.2f}) -> routing to FULL classify for genuine-vs-counterfeit discrimination")
+            else:
+                print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} -> Gemini double-checks {hint['category']} ({hint['candidates']})")
+                hinted = explain_with_hint(preprocessed, hint["label"], hint["candidates"], api_key=api_key)
+                if not hinted.get("_unavailable"):
+                    gemini = hinted
 
     # STAGE 1b: Full classification (fallback, or when the classifier is unsure/absent).
     if gemini is None:
