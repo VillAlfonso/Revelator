@@ -226,6 +226,55 @@ Bigger re-approach options (only if the single-call approach plateaus):
 
 ## Change log
 
+### 2026-07-10 - Currency false-positive fix, prompt-analytics sync, desktop burger removal, downloadable APK
+- Root problem reported: genuine banknotes were being flagged as forged via
+  `currency_analysis`. Cause was two-fold: (1) the `currency_analysis` prompt block was
+  ~5 words ("Suspected counterfeit banknote."), so the model had no way to tell genuine
+  from counterfeit and defaulted to flagging; (2) the local classifier's "counterfeit"
+  class hinted `currency_analysis` with a prejudicial label ("a counterfeit / falsified
+  document") that primed the short explain-only pass to confirm counterfeit even on real
+  money. Note: a groupmate had described similar fixes, but none of his work was ever
+  pushed to this repo (checked all local + origin branches), so these were reimplemented
+  and reviewed here rather than merged.
+- Fix (all prompt-level, no extra API calls, ~180 words added to a statically-cached
+  prefix so token cost is negligible):
+  - `gemini_vision.py`: expanded the `currency_analysis` block to ~200 words with concrete
+    COUNTERFEIT signs (no raised intaglio relief, watermark/thread printed-on or missing,
+    blurry microprint, photocopy dot rosettes, non-shifting colour-shift ink, wrong-font
+    or mismatched serials) and GENUINE signs, plus Philippine-peso (BSP) specifics.
+    Added a top-level `⚠ GENUINE CURRENCY RULE`: real money is not a forgery, use
+    `currency_analysis` only with a specific counterfeit sign, else `no_forgery_detected`.
+    Mirrored the same detail into `CATEGORY_DETAIL["currency_analysis"]`.
+  - Strengthened `EXPLAIN_PROMPT_TEMPLATE` with a GENUINE BIAS + CURRENCY caution (the
+    classifier only narrows, judge from the image, authentic -> no_forgery_detected).
+  - `local_classifier.py`: neutralized the "counterfeit" label to
+    "a banknote or official document (verify authenticity)".
+  - Gemini's raw `explanation` already flows straight into the result description
+    (`category_explanation = gemini["explanation"]`, no post-processing); left intact.
+- Prompt analytics synced to the new block: `routes/prompt_analytics.py` and
+  `PROMPT_ANALYSIS.html` currency entries updated (word_count 5 -> 203, detail VERY LOW
+  -> HIGH, real indicators, a currency_analysis vs no_forgery_detected distinction);
+  stale SYSTEM_PROMPT word/char count refreshed. The live analyzer (`analyze_prompts()`)
+  picks up the new block automatically.
+- Desktop burger removal: the burger is the ONLY nav on phone widths and inside the APK
+  (the horizontal `.nav-desktop` bar is hidden there), so it was NOT removed outright.
+  Lowered the switch-over breakpoint 900px -> 767px in index.css so tablets/laptops/desktop
+  show the nav bar (no burger), while true phone widths and the Android app keep the
+  burger. Added a compaction rule for the 768-991px range so the extra items fit.
+- Downloadable APK: built the debug APK (Android Studio JBR as JAVA_HOME, SDK 34).
+  The web bundle bakes the API base at build time, so the APK needs the ABSOLUTE base
+  (it loads from localhost) while the hosted web bundle stays RELATIVE `/api` (same-origin).
+  Process: build web with VITE_API_URL=https://revelator.site (temporarily move
+  `.env.production.local` aside so `.env` wins) -> `npx cap sync android` ->
+  `android/gradlew assembleDebug` -> copy `app-debug.apk` to `backend/downloads/revelator.apk`
+  -> restore env and rebuild web (relative). New backend route `GET /download/revelator.apk`
+  (registered before the SPA catch-all, media type application/vnd.android.package-archive,
+  attachment disposition). Login.jsx shows a "Download Android App (.apk)" button on web
+  only (hidden on native). The APK and `android/local.properties` are gitignored like the
+  `.pt` model. Verified via TestClient: route returns 200, 9.2MB, correct headers.
+  NOTE: backend changes (download route + currency prompt) require a server restart to go
+  live; the static web bundle is already served fresh from disk.
+
 ### 2026-07-07 - Email-OTP 2FA, auto-start hosting, light-mode drawer fix
 - Added two-factor sign-in (email code). Password login now returns
   `{requires_2fa:true, email, message}` instead of tokens when 2FA applies; the client

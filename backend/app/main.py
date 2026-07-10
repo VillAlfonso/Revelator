@@ -50,6 +50,27 @@ def health_check():
     return {"status": "healthy", "version": APP_VERSION}
 
 
+# ── Android app download ──────────────────────────────────────────────────
+# The built debug APK is staged at backend/downloads/revelator.apk and served
+# here so the site can offer it directly. Registered before the SPA catch-all
+# below so this exact path wins. Rebuild the APK with:
+#   cd frontend && (build web with VITE_API_URL=https://revelator.site)
+#   npx cap sync android && android/gradlew assembleDebug
+#   cp android/app/build/outputs/apk/debug/app-debug.apk backend/downloads/revelator.apk
+_APK_PATH = Path(__file__).resolve().parent.parent / "downloads" / "revelator.apk"
+
+
+@app.get("/download/revelator.apk")
+def download_apk():
+    if not _APK_PATH.is_file():
+        raise HTTPException(status_code=404, detail="APK not available")
+    return FileResponse(
+        str(_APK_PATH),
+        media_type="application/vnd.android.package-archive",
+        filename="revelator.apk",
+    )
+
+
 # ── Single-origin hosting: serve the built frontend ───────────────────────
 # After `npm run build`, frontend/dist exists and the backend serves the whole
 # app, so ONE Cloudflare Tunnel exposes everything at a single URL. In dev

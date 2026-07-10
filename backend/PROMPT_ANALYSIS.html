@@ -414,7 +414,7 @@ const categories = [
   { id: "sympathetic_special", label: "Sympathetic - Special Ink", group: "sympathetic", wordCount: 200, indicators: ["heat-activated (browned/charred)","chemical-activated (color reaction)","UV/fluorescent","specific substances (lemon, milk, phenolphthalein)"], detail: "HIGH", explanation: "Invisible ink revealed by external stimulus (heat, reagent, UV)." },
 
   // CURRENCY
-  { id: "currency_analysis", label: "Currency", group: "currency", wordCount: 5, indicators: ["counterfeit banknote suspected"], detail: "VERY LOW", explanation: "Suspected counterfeit banknote.", flags: ["Almost no detail in prompt"] },
+  { id: "currency_analysis", label: "Currency", group: "currency", wordCount: 203, indicators: ["no raised intaglio relief","watermark/thread printed on surface or missing","blurry/broken microprint","photocopy dot rosettes","colour-shift ink that does not shift","wrong-font or mismatched serials","Philippine peso (BSP) security features"], detail: "HIGH", explanation: "Counterfeit banknote. A genuine banknote is NOT a forgery - flag only with a specific counterfeit sign, otherwise no_forgery_detected. Includes Philippine peso (BSP) security features.", flags: ["Genuine-currency guard: real money is not auto-flagged"] },
 ];
 
 const overlaps = [

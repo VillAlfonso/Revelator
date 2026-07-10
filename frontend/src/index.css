@@ -477,9 +477,17 @@ input.input:-webkit-autofill:active {
 .card p[style*="line-height"] { line-height: 1.7 !important; }
 
 /* Mobile-first responsive */
-@media (max-width: 900px) {
+/* Burger is for phone widths and the Android app only. Tablets/laptops/desktop
+   show the horizontal nav bar instead, so the burger never duplicates it. */
+@media (max-width: 767px) {
   .nav-desktop { display: none !important; }
   .nav-burger { display: inline-flex !important; }
+}
+
+/* Keep the desktop nav bar tidy on the narrower end (tablet landscape / small
+   laptops) so the extra items still fit once the burger is gone there. */
+@media (min-width: 768px) and (max-width: 991px) {
+  .nav-desktop a { padding: 8px 10px !important; font-size: 12px !important; letter-spacing: 1px !important; }
 }
 
 @media (max-width: 768px) {

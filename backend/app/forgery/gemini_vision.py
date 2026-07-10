@@ -192,7 +192,10 @@ Sympathetic Ink:
     ⚠ DISTINCTION from erasure_mechanical: Mechanical erasure leaves a GHOST of text that WAS THERE and was removed - the paper surface will be roughened/disturbed and the faint remnants are irregular. Sympathetic ink reveals text that was ALWAYS HIDDEN - the paper surface is undisturbed and the strokes are uniformly faint. If there is also NEW text written over the faint area (suggesting erase-then-rewrite), choose erasure_mechanical, not sympathetic_special.
 
 Currency:
-  currency_analysis        - Suspected counterfeit banknote.
+  currency_analysis        - Counterfeit banknote. A genuine banknote is NOT a forgery: use this code ONLY when a specific counterfeit sign is visible. If the note looks authentic, or you cannot point to a concrete counterfeit sign, classify no_forgery_detected instead.
+    COUNTERFEIT signs (need at least one to flag): flat print with NO raised intaglio relief where a real note is embossed (portrait, value); a watermark or security thread that is printed ON the surface or missing, instead of embedded in the paper/polymer; blurry, broken, or unreadable microprint; photocopy/inkjet halftone dot rosettes across areas that should be solid ink; color-shift ink that does not actually shift with angle; serial numbers in the wrong font, uneven, or mismatched between their two printed instances; wrong paper/polymer feel or visibly off colour registration.
+    GENUINE signs (lean no_forgery_detected): crisp microprint, sharp raised intaglio, an embedded see-through watermark and thread, clean colour-shift, correctly-formed matching serials.
+    Philippine peso (BSP) specifics: New Generation Currency notes carry an embossed value, a windowed security thread, a watermark of the portrait plus the denomination, microprinted "Bangko Sentral ng Pilipinas", and colour-shifting value numerals on higher denominations. A real peso note photographed normally is authentic - do NOT flag it just for being money.
 
 Fallbacks (use ONLY when nothing above fits):
   no_forgery_detected      - Document looks authentic, no tampering signs.
@@ -221,6 +224,7 @@ REASONING - work through these steps in order before you classify:
   7. Pick the single best category code based on the PRIMARY evidence.
   8. Set confidence based on how clear the evidence is (see scale below).
   ⚠ BANK CHECK RULE: When analyzing a check, always compare the numeric amount field AND the written-out pesos/dollars line. If they don't match, or if a digit appears squeezed against the currency symbol, classify as addition_insertion even if other anomalies (like a smudge or lighter patch) also exist.
+  ⚠ GENUINE CURRENCY RULE: Photographing real money is not a forgery. When the image is a banknote, look for the specific COUNTERFEIT signs listed under currency_analysis. If you cannot point to at least one, classify no_forgery_detected. NEVER assign currency_analysis merely because the subject is currency - that code means "counterfeit detected", not "this is money".
   ⚠ INK LAYERING RULE: On any document with printed (toner/inkjet) text, if you see a stroke or mark that has a different texture, sheen, or "wetness" than the surrounding printed characters - especially if it appears to sit ON TOP of the printed text - this is addition_insertion (subtype B: character conversion). Do NOT classify abrasion or disrupted paper fiber as erasure_mechanical if the dominant anomaly is a visually different ink stroke overlaid on top of printed text.
   ⚠ INCOMPLETE WORD RULE: If a word or name appears to be missing characters at one end or in the middle, AND there is a patch of paper damage (roughened surface, shadow patch, ghost smudge) at exactly the gap, classify as erasure_mechanical. A word that cannot stand alone as a real word but would be a real word if characters were prepended is a strong signal (e.g., "RENSIC" → "FORENSIC", "OAN" → "LOAN").
   ⚠ SEMANTIC CONFLICT / CHEMICAL ERASURE RULE: If the written-out amount (e.g., "THREE THOUSAND") does NOT match the numeric field (e.g., "000" with a smudge where the leading digit should be), a leading digit was likely chemically erased. Ink eradicator dissolves the original digit, causing the new ink applied in the cleaned spot to bleed and feather into the damaged paper sizing - this creates dark smudges or halos at the edges of the erased area that can look like obliteration_ink. Key distinguisher: obliteration_ink smears cover text intentionally; erasure_chemical smears appear at the EDGE of a blank area where a character USED TO BE. If the smudge is adjacent to missing/blank space where a digit is expected (based on the written-out amount), classify as erasure_chemical, not obliteration_ink.
@@ -398,7 +402,9 @@ CATEGORY_DETAIL = {
     """,
 
     "currency_analysis": """
-    currency_analysis - Suspected counterfeit banknote.
+    currency_analysis - Counterfeit banknote. A genuine note is NOT a forgery - use this ONLY with a specific counterfeit sign, otherwise no_forgery_detected.
+    Counterfeit signs: no raised intaglio relief; watermark or security thread printed on the surface or missing (not embedded); blurry/broken microprint; photocopy dot rosettes over solid ink; colour-shift ink that does not shift; wrong-font or mismatched serial numbers; wrong paper/polymer feel or off colour registration.
+    Philippine peso (BSP): New Generation notes have an embossed value, a windowed security thread, a portrait+denomination watermark, "Bangko Sentral ng Pilipinas" microprint, and colour-shifting numerals. A real peso photographed normally is authentic - do not flag it.
     """,
 
     "no_forgery_detected": """
@@ -767,12 +773,13 @@ def classify(
 # only verifies + explains. Far fewer tokens than the full 15-category prompt.
 # ───────────────────────────────────────────────────────────────────────────
 
-EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier identified this document as: {label}.
+EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier narrowed this image to: {label}.
 
-Confirm the SPECIFIC category from this list, judge whether it is actually forged or genuine, and explain concisely from visible evidence.
+The classifier only narrows the search and CAN be wrong - judge from the image itself. Confirm the SPECIFIC category from this list, decide whether it is actually forged or genuine, and explain concisely from visible evidence.
 Allowed categories: {candidates}
 
-If the image clearly does NOT match that description, say so in the explanation and use no_forgery_detected (authentic) or not_a_document (not a document).
+GENUINE BIAS: a document or banknote that looks authentic is NOT a forgery. If you cannot point to a specific tampering or counterfeit sign, use no_forgery_detected (authentic). If the image is not a document at all, use not_a_document.
+CURRENCY: a real banknote photographed normally is authentic. Use currency_analysis ONLY when you can see a concrete counterfeit sign (no raised intaglio relief, a watermark/security thread printed on the surface or missing, blurry microprint, photocopy dot rosettes, colour-shift ink that does not shift, or wrong/mismatched serial numbers). Otherwise classify no_forgery_detected.
 
 Return ONLY valid JSON, no prose outside it:
 {{

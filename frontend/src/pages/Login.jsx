@@ -282,6 +282,28 @@ export default function Login() {
             <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#86efac' }}>
               New here? <Link to="/register">Create an account</Link>
             </p>
+
+            {!Capacitor.isNativePlatform() && (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #112418', textAlign: 'center' }}>
+                <a
+                  href="/download/revelator.apk"
+                  download="revelator.apk"
+                  className="mono"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    fontSize: 12, letterSpacing: 1, color: '#00ff66',
+                    border: '1px solid #1d3825', borderRadius: 4,
+                    padding: '10px 16px', textDecoration: 'none',
+                    background: 'rgba(0,255,102,0.04)',
+                  }}
+                >
+                  ▼ Download Android App (.apk)
+                </a>
+                <p className="mono" style={{ fontSize: 9, color: '#3f6e4a', marginTop: 8, letterSpacing: 1 }}>
+                  Android only • enable "Install unknown apps"
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

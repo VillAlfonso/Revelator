@@ -34,7 +34,7 @@ CLASS_TO_GEMINI = {
     "obliteration": ("obliteration_ink", ["obliteration_ink", "obliteration_whiteout"], "an obliteration (ink or white-out)"),
     "sympathetic_indented": ("sympathetic_indented", ["sympathetic_indented"], "indented (impression) writing"),
     "sympathetic_special": ("sympathetic_special", ["sympathetic_special"], "secret / sympathetic ink"),
-    "counterfeit": ("currency_analysis", ["currency_analysis", "digital_desktop", "other"], "a counterfeit / falsified document"),
+    "counterfeit": ("currency_analysis", ["currency_analysis", "digital_desktop", "other"], "a banknote or official document (verify authenticity)"),
     "charred": ("other", ["other"], "a charred / burned document"),
     "water_soaked": ("other", ["other"], "a water-soaked / liquid-damaged document"),
     "paper_fold": ("other", ["other"], "a paper-fold / crease specimen"),
