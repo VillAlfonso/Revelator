@@ -118,6 +118,42 @@ export const CATEGORIES = [
 export const CATEGORY_BY_ID  = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 export const CATEGORY_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.apiKey, c]));
 
+export const MAIN_CATEGORY_BY_KEY = {
+  traced_carbon: 'Traced Signatures',
+  traced_indentation: 'Traced Signatures',
+  traced_projection: 'Traced Signatures',
+  addition_insertion: 'Document Alteration',
+  addition_interlineation: 'Document Alteration',
+  erasure_chemical: 'Document Alteration',
+  erasure_mechanical: 'Document Alteration',
+  digital_cut_paste: 'Digital Fabrication',
+  digital_desktop: 'Digital Fabrication',
+  digital_scanned: 'Digital Fabrication',
+  obliteration_ink: 'Obliteration',
+  obliteration_whiteout: 'Obliteration',
+  sympathetic_indented: 'Sympathetic Ink',
+  sympathetic_special: 'Sympathetic Ink',
+  currency_analysis: 'Currency Counterfeit',
+};
+
+export const MAIN_CATEGORY_CODE_BY_KEY = {
+  traced_carbon: 'TRACED',
+  traced_indentation: 'TRACED',
+  traced_projection: 'TRACED',
+  addition_insertion: 'ALTERATION',
+  addition_interlineation: 'ALTERATION',
+  erasure_chemical: 'ALTERATION',
+  erasure_mechanical: 'ALTERATION',
+  digital_cut_paste: 'DIGITAL',
+  digital_desktop: 'DIGITAL',
+  digital_scanned: 'DIGITAL',
+  obliteration_ink: 'OBLITERATION',
+  obliteration_whiteout: 'OBLITERATION',
+  sympathetic_indented: 'SYMPATHETIC',
+  sympathetic_special: 'SYMPATHETIC',
+  currency_analysis: 'CURRENCY',
+};
+
 export function categoriesByTier(tier) {
   return CATEGORIES.filter(c => c.tier === tier);
 }

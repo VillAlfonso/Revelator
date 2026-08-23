@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Sparkles, ImageOff, StickyNote, Check, AlertTriangle, Pencil } from 'lucide-react';
 import { api } from '../api/client';
-import { CATEGORY_BY_KEY } from '../categories';
+import { CATEGORY_BY_KEY, MAIN_CATEGORY_CODE_BY_KEY } from '../categories';
 import { useTheme } from '../App';
 import { themed, tintedBg } from '../themeColors';
 
@@ -195,6 +195,8 @@ function ScanDetailView({ detail, onBack }) {
   const cat = detail.detected_category;
   const color = geminiColor(cat);
   const label = geminiLabel(cat, detail.detected_category_label);
+  const mainCategoryCode = MAIN_CATEGORY_CODE_BY_KEY[cat];
+  const leafLabel = label.replace(/^[^-]+\s+-\s+/, '');
   const geminiOk = typeof detail.category_confidence === 'number' && detail.category_confidence > 0;
   const geminiForgery = geminiOk && cat !== 'no_forgery_detected' && cat !== 'not_a_document';
   const hasYolo = detail.annotations?.length > 0 && geminiForgery;
@@ -258,8 +260,13 @@ function ScanDetailView({ detail, onBack }) {
         {/* category banner */}
         <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${color}33`, boxShadow: `inset 0 0 32px ${color}18` }}>
           <div className="oswald" style={{ fontSize: 30, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: 5, textShadow: `0 0 18px ${color}99` }}>
-            {cat ? label : '-'}
+            {cat ? leafLabel : '-'}
           </div>
+          {geminiOk && mainCategoryCode && (
+            <div className="oswald" style={{ color, marginTop: 8, fontSize: 'clamp(12px, 3.3vw, 19px)', fontWeight: 600, letterSpacing: 'clamp(1.5px, 0.35vw, 3px)', textTransform: 'uppercase', textShadow: `0 0 8px ${color}66` }}>
+              ({mainCategoryCode})
+            </div>
+          )}
           {geminiOk && (
             <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
               GEMINI {(detail.category_confidence * 100).toFixed(1)}% ·{' '}
@@ -276,10 +283,10 @@ function ScanDetailView({ detail, onBack }) {
                 {hasYolo ? '▸ YOLO · ANNOTATED IMAGE' : '▸ UPLOADED IMAGE'}
               </p>
               {hasYolo ? (
-                <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 3, border: '1px solid #1d3825' }} />
+                <canvas ref={canvasRef} style={{ display: 'block', width: '100%', maxWidth: 900, margin: '0 auto', borderRadius: 3, border: '1px solid #1d3825' }} />
               ) : (
                 <img src={api.getScanImageUrl(detail.scan_id)} alt={detail.filename}
-                  style={{ maxWidth: '100%', borderRadius: 3, border: '1px solid #1d3825' }} />
+                  style={{ display: 'block', width: '100%', maxWidth: 900, height: 'auto', margin: '0 auto', borderRadius: 3, border: '1px solid #1d3825' }} />
               )}
             </div>
           )}
@@ -314,11 +321,42 @@ function ScanDetailView({ detail, onBack }) {
                     </ul>
                   </div>
                 )}
+                {detail.anomaly_location && (
+                  <p style={{ fontSize: 12, color: '#ffc888', margin: '0 0 8px', borderTop: '1px solid #112418', paddingTop: 8 }}>
+                    <span className="mono" style={{ color: '#ffa040', letterSpacing: 1.5, marginRight: 6 }}>LOCATION:</span>
+                    {detail.anomaly_location}
+                  </p>
+                )}
                 {detail.tools_likely_used && (
                   <p style={{ fontSize: 12, color: '#86efac', margin: 0, borderTop: '1px solid #112418', paddingTop: 8 }}>
                     <span className="mono" style={{ color, letterSpacing: 1.5, marginRight: 6 }}>TOOLS USED:</span>
                     {detail.tools_likely_used}
                   </p>
+                )}
+                {detail.reasoning_steps?.length > 0 && (
+                  <details style={{ marginTop: 10, borderTop: '1px solid #112418', paddingTop: 8 }}>
+                    <summary className="mono" style={{ fontSize: 10, color: '#3f6e4a', letterSpacing: 1.5, cursor: 'pointer' }}>
+                      ▸ REASONING STEPS ({detail.reasoning_steps.length})
+                    </summary>
+                    <ol style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 12, color: '#86efac', lineHeight: 1.7 }}>
+                      {detail.reasoning_steps.map((step, i) => <li key={i}>{step}</li>)}
+                    </ol>
+                  </details>
+                )}
+                {detail.alternatives?.length > 0 && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid #112418', paddingTop: 10 }}>
+                    <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#ffa040', margin: '0 0 8px' }}>
+                      ⚠ COULD ALSO BE ({detail.alternatives.length})
+                    </p>
+                    {detail.alternatives.map((alternative, i) => (
+                      <div key={i} style={{ background: 'rgba(255,160,64,0.04)', border: '1px solid rgba(255,160,64,0.18)', borderRadius: 2, padding: '8px 12px', marginBottom: 6 }}>
+                        <p className="oswald" style={{ fontSize: 12, color: '#ffd680', margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                          {alternative.category_label}
+                        </p>
+                        {alternative.reasoning && <p style={{ fontSize: 12, color: '#c4a45a', margin: 0, lineHeight: 1.6 }}>{alternative.reasoning}</p>}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -373,9 +411,9 @@ function ScanDetailView({ detail, onBack }) {
             </div>
           )}
 
-          <NotesSection scanId={detail.scan_id} initialNotes={detail.notes || ''} />
         </div>
       </div>
+      <NotesSection scanId={detail.scan_id} initialNotes={detail.notes || ''} />
     </div>
   );
 }

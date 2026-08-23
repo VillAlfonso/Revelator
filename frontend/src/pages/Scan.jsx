@@ -5,7 +5,7 @@ import { StickyNote, Check, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth, useScan } from '../App';
 import { MagnifierIcon } from '../components/ForensicMotifs';
-import { CATEGORY_BY_KEY } from '../categories';
+import { CATEGORY_BY_KEY, MAIN_CATEGORY_CODE_BY_KEY } from '../categories';
 
 export default function Scan() {
   const { user } = useAuth();
@@ -592,6 +592,9 @@ function LlmUpgradePrompt({ requiredPlan = 'premium' }) {
 
 function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabel }) {
   const cat = result.detected_category;
+  const mainCategoryCode = MAIN_CATEGORY_CODE_BY_KEY[cat];
+  const categoryLabel = result.detected_category_label || cat || '-';
+  const leafLabel = categoryLabel.replace(/^[^-]+\s+-\s+/, '');
 
   // Gemini succeeded only when confidence > 0 (0 = fallback/error/unavailable)
   const geminiOk = typeof result.category_confidence === 'number' && result.category_confidence > 0;
@@ -635,8 +638,13 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
           lineHeight: 1.15,
           wordBreak: 'break-word',
         }}>
-          {geminiOk ? (result.detected_category_label || cat || '-') : '-'}
+          {geminiOk ? leafLabel : '-'}
         </div>
+        {geminiOk && mainCategoryCode && (
+          <div className="oswald" style={{ color: geminiAccent, marginTop: 8, fontSize: 'clamp(12px, 3.3vw, 19px)', fontWeight: 600, letterSpacing: 'clamp(1.5px, 0.35vw, 3px)', textTransform: 'uppercase', textShadow: `0 0 8px ${geminiAccent}66` }}>
+            ({mainCategoryCode})
+          </div>
+        )}
         {geminiOk && (
           <div className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 12, letterSpacing: 1.5 }}>
             {(result.category_confidence * 100).toFixed(1)}% CONF
