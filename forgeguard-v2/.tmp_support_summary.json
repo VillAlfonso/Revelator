@@ -1,0 +1,97 @@
+[
+  {
+    "key": "addition_insertion",
+    "count": 1,
+    "line": "  addition_insertion       - One or more characters were added INSIDE an existing word or number on a genuine document to change its meaning or value. There are TWO subtypes - both are addition_insertion:"
+  },
+  {
+    "key": "addition_interlineation",
+    "count": 1,
+    "line": "  addition_interlineation  - New writing squeezed BETWEEN existing lines of text (not inside a word, but in the whitespace between lines). Look for: text that is smaller or at a different baseline than surrounding lines, ink that differs from surrounding lines, spacing that is unnaturally compressed around the inserted line."
+  },
+  {
+    "key": "erasure_chemical",
+    "count": 1,
+    "line": "  erasure_chemical requires paper discoloration OR solvent halo."
+  },
+  {
+    "key": "not_a_document",
+    "count": 1,
+    "line": "  not_a_document           - Image is not a document at all (selfie, meme, screenshot)."
+  },
+  {
+    "key": "obliteration_ink",
+    "count": 1,
+    "line": "  obliteration_ink         - Original text scribbled out with ink. Look for dense overlapping black ink or dark ink applied in methodical strokes, multiple passes, and deliberate horizontal and diagonal coverage that obscures signatures or names. Visible-light inspection should note edge irregularities, stray extension lines, and uniform fresh ink appearance with no natural fading or bleed. Compare with prior specimens to confirm the same blackout shape, placement, and technique across the set."
+  },
+  {
+    "key": "obliteration_pigment",
+    "count": 1,
+    "line": "  obliteration_pigment     - Opaque marker, paint, or pigment covering text."
+  },
+  {
+    "key": "obliteration_whiteout",
+    "count": 1,
+    "line": "  obliteration_whiteout    - Correction fluid covering text."
+  },
+  {
+    "key": "other",
+    "count": 1,
+    "line": "  other                    - Real forgery that does NOT match any of the 16 specific types. Do NOT use this if the forgery matches a specific category - even partially. For example: if you identify traced_projection, use traced_projection, not other with subtype traced_projection."
+  },
+  {
+    "key": "sympathetic_indented",
+    "count": 1,
+    "line": "  sympathetic_indented     - Indented writing visible only via raking light. Pressure indentations on paper with no visible ink."
+  },
+  {
+    "key": "sympathetic_special",
+    "count": 1,
+    "line": "  sympathetic_special requires evidence of hidden ink development."
+  },
+  {
+    "key": "traced_carbon",
+    "count": 1,
+    "line": "  traced_carbon requires carbon residue AND hesitation AND transfer evidence."
+  },
+  {
+    "key": "traced_indentation",
+    "count": 1,
+    "line": "  traced_indentation requires a visible groove AND pressure impression."
+  },
+  {
+    "key": "no_forgery_detected",
+    "count": 2,
+    "line": "    no_forgery_detected > other > alteration categories > forgery categories"
+  },
+  {
+    "key": "traced_projection",
+    "count": 3,
+    "line": "  traced_projection        - Projection tracing: forger projects a genuine signature onto the target document using a light table, transparency projector, camera lucida, or digital projector, then inks over the projected lines. Exhibits uniform/monotonous pen pressure, micro-tremors from following a visual guide, frequent pen lifts causing ink blobs or overlapping strokes, no carbon residue, no physical indentation grooves. The signature may be a suspiciously perfect match to the original, with direct correspondence between reference sheet ovals and questioned signature loops."
+  },
+  {
+    "key": "digital_scanned",
+    "count": 4,
+    "line": "digital_scanned requires clear evidence that elements were digitally ADDED *after* the scan (e.g., a signature/stamp with halo, flat appearance against the grain, mismatched noise/sharpness only on that element, while the rest of the document shows authentic physical interaction)."
+  },
+  {
+    "key": "digital_cut_paste",
+    "count": 9,
+    "line": "  digital_cut_paste        - A genuine element (signature, stamp, photo, text block) was digitally lifted from one document and composited onto this one using Photoshop, GIMP, or a PDF editor. Key indicators:"
+  },
+  {
+    "key": "digital_desktop",
+    "count": 9,
+    "line": "  digital_desktop          - The ENTIRE document (or a large section) was fabricated from scratch using word-processing or design software (Microsoft Word, Google Docs, Canva, Photoshop) rather than physically typed or printed on authentic forms. Key indicators:"
+  },
+  {
+    "key": "erasure_mechanical",
+    "count": 10,
+    "line": "  erasure_mechanical       - Original ink was physically scraped off using a razor blade, sandpaper, eraser, or knife, often followed by new text written or printed on the scraped area. This is a two-step substitution: abrade original → replace with new. Key indicators:"
+  },
+  {
+    "key": "currency_analysis",
+    "count": 35,
+    "line": "  currency_analysis        - Suspected counterfeit banknote. Use this when the image shows direct, observable evidence that a Philippine legal tender banknote is counterfeit, simulated, or poorly fabricated."
+  }
+]

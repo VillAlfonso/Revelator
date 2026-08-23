@@ -1,0 +1,135 @@
+[
+  {
+    "category": "obliteration_whiteout",
+    "main_chars": 60,
+    "main_lines": 1,
+    "detail_chars": 55,
+    "detail_lines": 1
+  },
+  {
+    "category": "obliteration_pigment",
+    "main_chars": 76,
+    "main_lines": 1,
+    "detail_chars": 70,
+    "detail_lines": 1
+  },
+  {
+    "category": "sympathetic_indented",
+    "main_chars": 128,
+    "main_lines": 1,
+    "detail_chars": 122,
+    "detail_lines": 1
+  },
+  {
+    "category": "traced_indentation",
+    "main_chars": 71,
+    "main_lines": 1,
+    "detail_chars": 263,
+    "detail_lines": 2
+  },
+  {
+    "category": "erasure_chemical",
+    "main_chars": 64,
+    "main_lines": 1,
+    "detail_chars": 293,
+    "detail_lines": 2
+  },
+  {
+    "category": "sympathetic_special",
+    "main_chars": 66,
+    "main_lines": 1,
+    "detail_chars": 307,
+    "detail_lines": 2
+  },
+  {
+    "category": "other",
+    "main_chars": 281,
+    "main_lines": 1,
+    "detail_chars": 121,
+    "detail_lines": 1
+  },
+  {
+    "category": "addition_interlineation",
+    "main_chars": 326,
+    "main_lines": 1,
+    "detail_chars": 243,
+    "detail_lines": 2
+  },
+  {
+    "category": "addition_insertion",
+    "main_chars": 204,
+    "main_lines": 1,
+    "detail_chars": 394,
+    "detail_lines": 3
+  },
+  {
+    "category": "not_a_document",
+    "main_chars": 87,
+    "main_lines": 1,
+    "detail_chars": 538,
+    "detail_lines": 2
+  },
+  {
+    "category": "traced_carbon",
+    "main_chars": 77,
+    "main_lines": 1,
+    "detail_chars": 722,
+    "detail_lines": 4
+  },
+  {
+    "category": "no_forgery_detected",
+    "main_chars": 113,
+    "main_lines": 2,
+    "detail_chars": 937,
+    "detail_lines": 9
+  },
+  {
+    "category": "digital_scanned",
+    "main_chars": 846,
+    "main_lines": 4,
+    "detail_chars": 334,
+    "detail_lines": 2
+  },
+  {
+    "category": "obliteration_ink",
+    "main_chars": 499,
+    "main_lines": 1,
+    "detail_chars": 1308,
+    "detail_lines": 7
+  },
+  {
+    "category": "digital_cut_paste",
+    "main_chars": 1633,
+    "main_lines": 9,
+    "detail_chars": 466,
+    "detail_lines": 3
+  },
+  {
+    "category": "digital_desktop",
+    "main_chars": 1926,
+    "main_lines": 9,
+    "detail_chars": 273,
+    "detail_lines": 2
+  },
+  {
+    "category": "traced_projection",
+    "main_chars": 1944,
+    "main_lines": 3,
+    "detail_chars": 284,
+    "detail_lines": 2
+  },
+  {
+    "category": "erasure_mechanical",
+    "main_chars": 2637,
+    "main_lines": 10,
+    "detail_chars": 282,
+    "detail_lines": 2
+  },
+  {
+    "category": "currency_analysis",
+    "main_chars": 4401,
+    "main_lines": 35,
+    "detail_chars": 3738,
+    "detail_lines": 24
+  }
+]

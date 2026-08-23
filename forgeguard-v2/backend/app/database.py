@@ -1,0 +1,251 @@
+"""
+Database setup using SQLAlchemy + SQLite (swap to PostgreSQL by changing DATABASE_URL).
+"""
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from .config import DATABASE_URL
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+def get_db():
+    """FastAPI dependency that yields a DB session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    """Create all tables, then add new columns to existing tables for dev SQLite migrations."""
+    Base.metadata.create_all(bind=engine)
+    _ensure_columns()
+
+
+def _ensure_columns():
+    """Add columns introduced after the initial schema (SQLite-friendly, idempotent)."""
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+
+    with engine.begin() as conn:
+        if "users" in table_names:
+            user_cols = {col["name"] for col in inspector.get_columns("users")}
+            if "is_admin" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+            if "google_id" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR"))
+            if "paymongo_customer_id" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN paymongo_customer_id VARCHAR"))
+            if "paymongo_source_id" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN paymongo_source_id VARCHAR"))
+            if "is_super_admin" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN NOT NULL DEFAULT 0"))
+            if "gemini_api_key" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN gemini_api_key VARCHAR"))
+            if "plan" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR DEFAULT 'free'"))
+            if "verification_sent_at" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_sent_at DATETIME"))
+                # One-time grandfather: every account that exists before email
+                # verification shipped is treated as already verified, so we
+                # don't lock out current users when login starts requiring it.
+                conn.execute(text("UPDATE users SET is_verified = 1"))
+
+            # Plan rename migration: legacy 'basic' -> new 'pro' ($5 unlimited);
+            # legacy 'pro' (1000-scan tier) -> new 'premium' ($10 unlimited + AI).
+            # Existing 'free' and already-migrated rows are left alone.
+            conn.execute(text("UPDATE users SET plan = 'premium' WHERE plan = 'pro'"))
+            conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'basic'"))
+
+        if "scans" in table_names:
+            scan_cols = {col["name"] for col in inspector.get_columns("scans")}
+            if "image_path" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN image_path VARCHAR"))
+            if "detected_category" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN detected_category VARCHAR"))
+            if "detected_subtype" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN detected_subtype VARCHAR"))
+            if "category_explanation" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_explanation TEXT"))
+            if "tools_likely_used" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN tools_likely_used VARCHAR"))
+            if "category_confidence" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_confidence FLOAT"))
+            if "category_evidence" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN category_evidence TEXT"))
+            if "document_type" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN document_type VARCHAR"))
+            if "reasoning_steps" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN reasoning_steps TEXT"))
+            if "anomaly_location" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN anomaly_location VARCHAR"))
+            if "alternatives" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN alternatives TEXT"))
+            if "certainty_level" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN certainty_level VARCHAR"))
+            if "suspicion_reason" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN suspicion_reason TEXT"))
+            if "area_of_concern" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN area_of_concern VARCHAR"))
+            if "image_source" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN image_source VARCHAR"))
+            if "shot_type" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN shot_type VARCHAR"))
+            if "lighting" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN lighting VARCHAR"))
+            if "physical_clues" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN physical_clues VARCHAR"))
+            if "is_forged_belief" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN is_forged_belief VARCHAR"))
+            if "notes" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN notes TEXT"))
+
+        # Create user_api_keys table for multi-key management
+        if "user_api_keys" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE user_api_keys (
+                    id VARCHAR PRIMARY KEY,
+                    user_id VARCHAR NOT NULL,
+                    label VARCHAR NOT NULL DEFAULT 'My Key',
+                    api_key VARCHAR NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 0,
+                    quota_exhausted_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                )
+            """))
+
+        # Create admin_audit_logs table if it doesn't exist (for logging admin actions)
+        if "admin_audit_logs" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE admin_audit_logs (
+                    id VARCHAR PRIMARY KEY,
+                    admin_id VARCHAR NOT NULL,
+                    action VARCHAR NOT NULL,
+                    target_user_id VARCHAR,
+                    details TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(admin_id) REFERENCES users(id),
+                    FOREIGN KEY(target_user_id) REFERENCES users(id)
+                )
+            """))
+
+        # Drop legacy promo_codes table if it still exists
+        if "promo_codes" in table_names:
+            conn.execute(text("DROP TABLE promo_codes"))
+
+        # Rooms (student grouping by join-code). Tables are also created by
+        # Base.metadata.create_all on first run; this block keeps the
+        # migration explicit and idempotent for older SQLite databases.
+
+        # Legacy rename: prior schema used the old "c-room" names with a
+        # "c-room_id" column. Promote them in-place so existing data
+        # carries over. SQLite >= 3.25 supports RENAME COLUMN.
+        _old_rooms = "class" + "rooms"
+        _old_members = "class" + "room_members"
+        _old_fk = "class" + "room_id"
+        if _old_rooms in table_names and "rooms" not in table_names:
+            conn.execute(text(f"ALTER TABLE {_old_rooms} RENAME TO rooms"))
+        if _old_members in table_names and "room_members" not in table_names:
+            conn.execute(text(f"ALTER TABLE {_old_members} RENAME TO room_members"))
+            conn.execute(text(f"ALTER TABLE room_members RENAME COLUMN {_old_fk} TO room_id"))
+        # Refresh table list after potential renames so the create blocks below
+        # see the post-rename state.
+        table_names = inspector.get_table_names()
+
+        if "rooms" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE rooms (
+                    id VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    description TEXT DEFAULT '',
+                    join_code VARCHAR NOT NULL UNIQUE,
+                    owner_id VARCHAR NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(owner_id) REFERENCES users(id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX idx_rooms_join_code ON rooms(join_code)"))
+
+        if "room_members" not in table_names:
+            conn.execute(text("""
+                CREATE TABLE room_members (
+                    id VARCHAR PRIMARY KEY,
+                    room_id VARCHAR NOT NULL,
+                    user_id VARCHAR NOT NULL,
+                    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(room_id) REFERENCES rooms(id),
+                    FOREIGN KEY(user_id) REFERENCES users(id),
+                    UNIQUE(room_id, user_id)
+                )
+            """))
+            conn.execute(text("CREATE INDEX idx_room_members_room ON room_members(room_id)"))
+            conn.execute(text("CREATE INDEX idx_room_members_user ON room_members(user_id)"))
+
+    _seed_default_roles()
+
+
+def _seed_default_roles():
+    """Seed the three built-in system roles if the roles table is empty.
+    Custom roles created by superadmin are preserved across restarts."""
+    import json
+    from .models import Role
+
+    db = SessionLocal()
+    try:
+        existing_names = {r.name for r in db.query(Role).all()}
+        defaults = [
+            {
+                "name": "user",
+                "color": "#6dba85",
+                "permissions": [],
+                "description": "Standard user - can scan documents.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 30,
+            },
+            {
+                "name": "admin",
+                "color": "#00ff66",
+                "permissions": ["view_admin_panel", "view_users_panel", "view_users", "view_logs", "view_prompt_analytics"],
+                "description": "Administrator - access to admin panels, user management, logs, and analytics.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 20,
+            },
+            {
+                "name": "superadmin",
+                "color": "#00ffaa",
+                "permissions": ["is_superadmin"],
+                "description": "Super Administrator - full control over the system.",
+                "is_system": True,
+                "is_self_assignable": False,
+                "sort_order": 10,
+            },
+        ]
+        for d in defaults:
+            if d["name"] not in existing_names:
+                db.add(Role(
+                    name=d["name"],
+                    color=d["color"],
+                    permissions=json.dumps(d["permissions"]),
+                    description=d["description"],
+                    is_system=d["is_system"],
+                    is_self_assignable=d["is_self_assignable"],
+                    sort_order=d["sort_order"],
+                ))
+        db.commit()
+    finally:
+        db.close()

@@ -1,0 +1,883 @@
+/* ──────────────────────────────────────────────────────────────────────
+   REVELATOR · Forensic Detection Engine
+   Theme: Matrix / CSI black-and-green
+   ────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Core surface */
+  --bg-primary:   #000000;
+  --bg-secondary: #050a07;
+  --bg-tertiary:  #0a120c;
+  --bg-card:      #0a120c;
+  --bg-elevated:  #0d1810;
+
+  /* Borders */
+  --border-dark:  #112418;
+  --border-light: #1d3825;
+  --border-glow:  #1f5d39;
+
+  /* Greens - primary identity */
+  --green-neon:    #00ff66;   /* primary brand */
+  --green-bright:  #22ff88;
+  --green-matrix:  #00cc44;
+  --green-dim:     #0d8a3c;
+  --green-cyan:    #00ffaa;
+  --green-soft:    #86efac;
+  --green-text:    #b6f5cc;
+
+  /* Tier accents (still in green family) */
+  --tier-1: #00ff66;
+  --tier-2: #00ffaa;
+  --tier-3: #a3e635;
+
+  /* Verdicts (semantic - kept distinct) */
+  --red-alert:    #ff3344;
+  --orange-warn:  #ffa040;
+  --green-clear:  #00ff66;
+  --gray-mute:    #525252;
+  --purple-ai:    #c4b5fd;
+
+  /* Text */
+  --text-primary:   #d8ffe6;
+  --text-secondary: #6dba85;
+  --text-muted:     #355042;
+  --text-dim:       #1f3328;
+
+  /* Aliases (legacy compatibility) */
+  --yellow-tape: var(--green-neon);
+  --yellow-dark: var(--green-matrix);
+  --blue-evidence: var(--green-cyan);
+  --purple: var(--purple-ai);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  background:
+    radial-gradient(ellipse at top, rgba(0, 255, 102, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at bottom, rgba(0, 255, 170, 0.03) 0%, transparent 60%),
+    var(--bg-primary);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Desktop readability bump - client feedback said dark-mode text was too small. */
+@media (min-width: 1024px) {
+  body { font-size: 17px; }
+}
+
+/* Faint grid behind everything - circuit / blueprint feel */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 255, 102, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 102, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle CRT scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(0, 255, 102, 0.0) 0px,
+    rgba(0, 255, 102, 0.0) 2px,
+    rgba(0, 0, 0, 0.18) 3px,
+    rgba(0, 0, 0, 0.18) 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+}
+
+#root { position: relative; z-index: 2; }
+
+.mono   { font-family: 'JetBrains Mono', 'Share Tech Mono', monospace; }
+.oswald { font-family: 'Oswald', sans-serif; }
+.term   { font-family: 'Share Tech Mono', 'JetBrains Mono', monospace; letter-spacing: 1px; }
+
+/* Scrollbar */
+::-webkit-scrollbar          { width: 8px; height: 8px; }
+::-webkit-scrollbar-track    { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb    {
+  background: linear-gradient(180deg, var(--green-dim), var(--border-glow));
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--green-matrix); }
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 102, 0.3);
+  color: var(--green-bright);
+  text-shadow: 0 0 8px var(--green-neon);
+}
+
+a {
+  color: var(--green-neon);
+  text-decoration: none;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.35);
+  transition: color 0.18s, text-shadow 0.18s;
+}
+a:hover {
+  color: var(--green-bright);
+  text-shadow: 0 0 16px rgba(0, 255, 102, 0.7);
+}
+
+/* ──── Glow helpers ──────────────────────────────────────────── */
+.glow         { text-shadow: 0 0 12px rgba(0, 255, 102, 0.55), 0 0 4px rgba(0, 255, 102, 0.9); }
+.glow-strong  { text-shadow: 0 0 20px rgba(0, 255, 102, 0.85), 0 0 6px rgba(0, 255, 102, 1); }
+.glow-soft    { text-shadow: 0 0 10px rgba(0, 255, 170, 0.4); }
+
+/* ──── Scanline / tape divider ───────────────────────────────── */
+@keyframes scan-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.45; }
+}
+@keyframes scan-flow {
+  0%   { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+
+.tape-border {
+  height: 2px;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      var(--green-neon) 8%,
+      var(--green-bright) 50%,
+      var(--green-neon) 92%,
+      transparent 100%
+    );
+  box-shadow:
+    0 0 12px rgba(0, 255, 102, 0.7),
+    0 0 24px rgba(0, 255, 102, 0.35);
+  animation: scan-pulse 3s ease-in-out infinite;
+  position: relative;
+}
+
+.tape-border::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 6px,
+    rgba(0, 0, 0, 0.55) 6px,
+    rgba(0, 0, 0, 0.55) 8px
+  );
+  animation: scan-flow 2.5s linear infinite;
+}
+
+/* ──── Buttons ───────────────────────────────────────────────── */
+.btn {
+  font-family: 'Oswald', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 28px;
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 102, 0.15), transparent);
+  transition: left 0.5s;
+}
+.btn:hover::before { left: 100%; }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--green-neon) 0%, var(--green-matrix) 100%);
+  color: #001005;
+  box-shadow:
+    0 0 16px rgba(0, 255, 102, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--green-bright) 0%, var(--green-neon) 100%);
+  box-shadow:
+    0 0 24px rgba(0, 255, 102, 0.7),
+    0 0 48px rgba(0, 255, 102, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-secondary {
+  background: rgba(0, 255, 102, 0.04);
+  border: 1px solid var(--green-neon);
+  color: var(--green-neon);
+  box-shadow: 0 0 0 rgba(0, 255, 102, 0);
+}
+.btn-secondary:hover {
+  background: rgba(0, 255, 102, 0.12);
+  color: var(--green-bright);
+  box-shadow: 0 0 16px rgba(0, 255, 102, 0.4);
+  border-color: var(--green-bright);
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, var(--red-alert), #b30020);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 51, 68, 0.45);
+}
+.btn-danger:hover { box-shadow: 0 0 22px rgba(255, 51, 68, 0.7); transform: translateY(-1px); }
+
+/* ──── Cards ─────────────────────────────────────────────────── */
+.card {
+  background:
+    linear-gradient(180deg, rgba(0, 255, 102, 0.018) 0%, transparent 100%),
+    var(--bg-card);
+  border: 1px solid var(--border-dark);
+  border-radius: 3px;
+  padding: 24px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green-dim), transparent);
+  opacity: 0.5;
+}
+.card:hover { border-color: var(--border-glow); }
+
+/* Inputs */
+input.input,
+textarea.input,
+select.input {
+  background: #0a0f0c !important;
+  border: 2px solid #00ff66 !important;
+  color: #ffffff !important;
+  padding: 12px 16px;
+  border-radius: 2px;
+  font-size: 14px;
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+input.input:focus,
+textarea.input:focus,
+select.input:focus {
+  outline: none !important;
+  border-color: #00ff66 !important;
+  box-shadow: 0 0 0 2px #00ff66, 0 0 20px rgba(0, 255, 102, 0.4) !important;
+}
+input.input::placeholder { color: #6dba85; font-family: 'JetBrains Mono', monospace; }
+
+select.input { font-family: 'Source Sans Pro', sans-serif; }
+
+/* Browser autofill (Chrome, Edge, Safari) forces a yellow/white background and
+   black text on prefilled inputs. Repaint it to match the theme. The huge
+   transition delay is the standard hack so the override doesn't flash. */
+input.input:-webkit-autofill,
+input.input:-webkit-autofill:hover,
+input.input:-webkit-autofill:focus,
+input.input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0a0f0c inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #00ff66;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Badges (verdict pills) */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid currentColor;
+}
+.badge-forged              { background: rgba(255, 51, 68, 0.15); color: var(--red-alert); box-shadow: 0 0 10px rgba(255, 51, 68, 0.3); }
+.badge-suspicious          { background: rgba(255, 160, 64, 0.15); color: var(--orange-warn); box-shadow: 0 0 10px rgba(255, 160, 64, 0.25); }
+.badge-no_forgery_detected { background: rgba(0, 255, 102, 0.12); color: var(--green-clear); box-shadow: 0 0 10px rgba(0, 255, 102, 0.3); }
+.badge-not_a_document      { background: rgba(115, 115, 115, 0.2); color: #a3a3a3; }
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 16px; position: relative; }
+
+.nav-burger { display: none; }
+
+/* ──── Forensic accent components ───────────────────────────── */
+.classification-bar {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--green-neon);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.classification-bar::before,
+.classification-bar::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green-dim), transparent);
+}
+
+.terminal-prompt::before {
+  content: '> ';
+  color: var(--green-neon);
+  font-weight: 700;
+}
+
+@keyframes blink-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.caret::after {
+  content: '▊';
+  margin-left: 4px;
+  color: var(--green-neon);
+  animation: blink-caret 1.1s step-end infinite;
+}
+
+/* Hex/honeycomb badge clip - used for tier numbers on cards */
+.hex-badge {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+/* Hover lift used on cards / interactive items */
+.lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 255, 102, 0.18), 0 0 20px rgba(0, 255, 102, 0.08);
+}
+
+/* ──── Forensic flourishes ───────────────────────────────────── */
+
+/* Fingerprint sweep - horizontal scan line glides top→bottom over a
+   fingerprint motif (used inside <FingerprintScan />). */
+@keyframes fp-sweep {
+  0%   { transform: translateY(0);      opacity: 0;   }
+  10%  { opacity: 1;                                  }
+  90%  { opacity: 1;                                  }
+  100% { transform: translateY(100%);   opacity: 0;   }
+}
+.fingerprint-sweep {
+  animation: fp-sweep 2.4s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+
+/* Slow rotation used on the dashed scan ring inside the logo */
+@keyframes ring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.logo-ring-spin {
+  animation: ring-spin 18s linear infinite;
+}
+
+/* Faint full-page fingerprint watermark - used as a hero background.
+   Apply `.fp-bg` to a positioned container; the print fades in/out from
+   the right side, never covering the central column. */
+.fp-bg {
+  position: relative;
+  isolation: isolate;
+}
+.fp-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 88% 18%, rgba(0,255,102,0.05) 0%, transparent 40%),
+    radial-gradient(circle at 10% 78%, rgba(0,255,170,0.04) 0%, transparent 38%);
+  z-index: -1;
+}
+
+/* Magnifier cursor - applied to elements meant to feel "investigative" */
+.cursor-magnify {
+  cursor: zoom-in;
+}
+
+/* Eye flicker - subtle, used on the EyeMark hero accent */
+@keyframes eye-blink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  98%           { transform: scaleY(0.05); }
+}
+.eye-blink ellipse,
+.eye-blink circle:last-of-type {
+  transform-origin: center;
+  animation: eye-blink 5s ease-in-out infinite;
+}
+
+/* Evidence corner brackets - wraps any element with subtle "[ ]" frame */
+.evidence-frame {
+  position: relative;
+  padding: 14px;
+}
+.evidence-frame::before,
+.evidence-frame::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid var(--green-neon);
+  opacity: 0.6;
+}
+.evidence-frame::before {
+  top: 0; left: 0;
+  border-right: none; border-bottom: none;
+}
+.evidence-frame::after {
+  bottom: 0; right: 0;
+  border-left: none; border-top: none;
+}
+
+/* ──── Readability bump ────────────────────────────────────────
+   Inline `font-size` values smaller than 14px get nudged up so body
+   text remains legible. Tiny intentional badges (9–11px) stay where
+   they are - readers expect those to be compact stamps. */
+[style*="font-size: 12px"] { font-size: 13px !important; }
+[style*="font-size: 13px"] { font-size: 14px !important; }
+[style*="font-size: 14px"]:not(.btn):not(.input) { font-size: 15px !important; }
+
+/* Body paragraphs in cards get a touch more breathing room */
+.card p[style*="line-height"] { line-height: 1.7 !important; }
+
+/* Mobile-first responsive */
+@media (max-width: 900px) {
+  .nav-desktop { display: none !important; }
+  .nav-burger { display: inline-flex !important; }
+}
+
+@media (max-width: 768px) {
+  .container { padding: 0 12px; }
+  .card { padding: 16px; }
+  /* Touch targets: minimum 48px tappable height */
+  .btn { padding: 14px 22px; font-size: 14px; min-height: 48px; }
+  .input { padding: 14px 16px; font-size: 16px; min-height: 48px; } /* 16px prevents iOS auto-zoom */
+  select.input { font-size: 16px; }
+  body::before { background-size: 24px 24px; }
+  /* Slightly larger body text for legibility */
+  body { font-size: 15px; }
+  /* Hide desktop-only elements */
+  .hide-mobile { display: none !important; }
+  /* Disable hover lifts/glows on touch devices to avoid sticky :hover state */
+  .lift:hover { transform: none; }
+}
+
+/* Show only on mobile */
+.show-mobile { display: none; }
+@media (max-width: 768px) {
+  .show-mobile { display: revert; }
+}
+
+/* Preserve focus ring for accessibility on non-mouse */
+:focus-visible {
+  outline: 2px solid var(--green-neon);
+  outline-offset: 2px;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LIGHT MODE - opt-in via [data-theme="light"] on <html>
+   Dark mode is the default and stays unchanged. Light mode strips
+   all glow effects, replaces black surfaces with off-white, and uses
+   darker green text for readability.
+   ────────────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --bg-primary: #f5f7f4;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ebf2ed;
+  --bg-card: #ffffff;
+  --bg-elevated: #ffffff;
+
+  --border-dark: #c8d8cd;
+  --border-light: #a5c2af;
+  --border-glow: #6da884;
+
+  --green-neon: #00541f;
+  --green-bright: #007a36;
+  --green-matrix: #004a1c;
+  --green-dim: #003d17;
+  --green-cyan: #00553a;
+  --green-soft: #1a3a24;
+  --green-text: #061a0c;
+
+  --text-primary: #061a0c;
+  --text-secondary: #1a3a24;
+  --text-muted: #3a5040;
+  --text-dim: #5a7064;
+
+  --red-alert: #a4151f;
+  --orange-warn: #a45616;
+  --purple-ai: #4d3290;
+}
+
+[data-theme="light"] body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Hide the dark-theme background flourishes */
+[data-theme="light"] body::before,
+[data-theme="light"] body::after { display: none; }
+
+[data-theme="light"] .tape-border {
+  background: linear-gradient(90deg, transparent 0%, #00592a 50%, transparent 100%);
+  box-shadow: none;
+  animation: none;
+}
+[data-theme="light"] .tape-border::after { display: none; }
+
+/* Kill every glow */
+[data-theme="light"] *,
+[data-theme="light"] *::before,
+[data-theme="light"] *::after {
+  text-shadow: none !important;
+}
+[data-theme="light"] .glow,
+[data-theme="light"] .glow-strong,
+[data-theme="light"] .glow-soft {
+  text-shadow: none !important;
+}
+
+/* Card surfaces */
+[data-theme="light"] .card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-dark) !important;
+  box-shadow: 0 1px 2px rgba(0, 60, 30, 0.05) !important;
+}
+[data-theme="light"] .card::before { display: none; }
+[data-theme="light"] .card:hover { border-color: var(--border-light) !important; }
+
+/* Inputs */
+[data-theme="light"] input.input,
+[data-theme="light"] textarea.input,
+[data-theme="light"] select.input {
+  background: #ffffff !important;
+  border: 1px solid #86bf9a !important;
+  color: #0f1f15 !important;
+}
+[data-theme="light"] input.input:focus,
+[data-theme="light"] textarea.input:focus,
+[data-theme="light"] select.input:focus {
+  border-color: #007a36 !important;
+  box-shadow: 0 0 0 2px rgba(0, 122, 54, 0.25) !important;
+}
+[data-theme="light"] input.input::placeholder { color: #8aa590; }
+
+/* Autofill in light mode: keep the white surface but fix dark text color */
+[data-theme="light"] input.input:-webkit-autofill,
+[data-theme="light"] input.input:-webkit-autofill:hover,
+[data-theme="light"] input.input:-webkit-autofill:focus,
+[data-theme="light"] input.input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #0f1f15 !important;
+  caret-color: #007a36;
+}
+
+/* Buttons */
+[data-theme="light"] .btn-primary {
+  background: linear-gradient(180deg, #009944 0%, #007a36 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0,122,54,0.3) !important;
+}
+[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #00aa4d 0%, #008a3f 100%) !important;
+  box-shadow: 0 2px 6px rgba(0,122,54,0.45) !important;
+}
+[data-theme="light"] .btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid #007a36 !important;
+  color: #007a36 !important;
+}
+[data-theme="light"] .btn-secondary:hover {
+  background: #ebf7ef !important;
+  color: #006a2e !important;
+  box-shadow: 0 1px 4px rgba(0,122,54,0.2) !important;
+}
+[data-theme="light"] .btn::before { display: none; }
+[data-theme="light"] .btn-danger {
+  background: linear-gradient(180deg, #c81e2e, #9c1623) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Selection */
+[data-theme="light"] ::selection {
+  background: rgba(0, 122, 54, 0.18);
+  color: #0f1f15;
+  text-shadow: none;
+}
+
+/* Scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-track { background: #e0eae3; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #86bf9a; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #6da884; }
+
+/* Links */
+[data-theme="light"] a { color: #007a36; }
+[data-theme="light"] a:hover { color: #009944; }
+
+/* Badges */
+[data-theme="light"] .badge-no_forgery_detected {
+  background: rgba(0, 122, 54, 0.1);
+  color: #006a2e;
+  box-shadow: none;
+}
+[data-theme="light"] .badge-forged {
+  background: rgba(200, 30, 46, 0.1);
+  color: #b01a26;
+  box-shadow: none;
+}
+[data-theme="light"] .badge-suspicious {
+  background: rgba(200, 116, 31, 0.1);
+  color: #a05a14;
+  box-shadow: none;
+}
+
+/* Classification bar */
+[data-theme="light"] .classification-bar { color: #007a36; }
+[data-theme="light"] .classification-bar::before,
+[data-theme="light"] .classification-bar::after {
+  background: linear-gradient(90deg, transparent, #86bf9a, transparent);
+}
+
+/* ── Universal color remapping for inline styles ─────────────────
+   Browsers normalize React inline `style` values from hex to rgb()
+   form when set via element.style.*. We match the rgb() representations
+   so the selectors actually hit at runtime. */
+
+/* Greens - text */
+[data-theme="light"] [style*="rgb(0, 255, 102)"] { color: #00451c !important; }
+[data-theme="light"] [style*="rgb(0, 204, 68)"]  { color: #00451c !important; }
+[data-theme="light"] [style*="rgb(34, 255, 136)"] { color: #006a2e !important; }
+[data-theme="light"] [style*="rgb(0, 255, 170)"] { color: #005a3f !important; }
+[data-theme="light"] [style*="rgb(134, 239, 172)"] { color: #1a3a24 !important; }
+[data-theme="light"] [style*="rgb(109, 186, 133)"] { color: #102a18 !important; }
+[data-theme="light"] [style*="rgb(63, 110, 74)"]  { color: #3a5040 !important; }
+[data-theme="light"] [style*="rgb(53, 80, 66)"]   { color: #3a5040 !important; }
+[data-theme="light"] [style*="rgb(216, 255, 230)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(182, 245, 204)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(163, 230, 53)"]  { color: #3a5a14 !important; }
+[data-theme="light"] [style*="rgb(0, 255, 153)"]   { color: #006a2e !important; }
+[data-theme="light"] [style*="rgb(0, 204, 136)"]   { color: #00553a !important; }
+[data-theme="light"] [style*="rgb(0, 255, 153)"]   { color: #005c33 !important; }
+[data-theme="light"] [style*="rgb(95, 168, 115)"]  { color: #1a3a24 !important; }
+
+/* Greys / whites used as text */
+[data-theme="light"] [style*="rgb(115, 115, 115)"] { color: #4a4a4a !important; }
+[data-theme="light"] [style*="rgb(229, 229, 229)"] { color: #061a0c !important; }
+[data-theme="light"] [style*="rgb(255, 255, 255)"] { color: #061a0c !important; }
+
+/* Reds / oranges / purples */
+[data-theme="light"] [style*="rgb(196, 181, 253)"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="rgb(167, 139, 250)"] { color: #3d2b85 !important; }
+[data-theme="light"] [style*="rgb(255, 138, 153)"] { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 51, 68)"]   { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 117, 136)"] { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(255, 160, 64)"]  { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 165, 0)"]   { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 200, 136)"] { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 149, 0)"]   { color: #a45616 !important; }
+
+/* Dark borders */
+[data-theme="light"] [style*="rgb(29, 56, 37)"]   { border-color: #c8d8cd !important; color: #102a18 !important; }
+[data-theme="light"] [style*="rgb(17, 36, 24)"]   { border-color: #c8d8cd !important; }
+[data-theme="light"] [style*="rgb(26, 46, 31)"]   { border-color: #c8d8cd !important; }
+[data-theme="light"] [style*="rgb(42, 74, 48)"]   { color: #102a18 !important; }
+
+/* ── Dark backgrounds - flip them all to white ───────────────────
+   These cover every dark surface used inline across the app. */
+[data-theme="light"] [style*="rgb(0, 0, 0)"],
+[data-theme="light"] [style*="rgb(10, 18, 12)"],
+[data-theme="light"] [style*="rgb(10, 15, 12)"],
+[data-theme="light"] [style*="rgb(5, 10, 7)"],
+[data-theme="light"] [style*="rgb(2, 11, 5)"],
+[data-theme="light"] [style*="rgb(3, 14, 7)"],
+[data-theme="light"] [style*="rgb(10, 22, 5)"],
+[data-theme="light"] [style*="rgb(13, 24, 16)"],
+[data-theme="light"] [style*="rgb(6, 18, 10)"],
+[data-theme="light"] [style*="rgb(2, 8, 10)"],
+[data-theme="light"] [style*="rgb(8, 18, 12)"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+/* Override background on elements with rgba(0,0,0,*) tints - match the comma-space rgba form */
+[data-theme="light"] [style*="rgba(0, 0, 0,"] {
+  background-color: #ffffff !important;
+}
+
+/* Green-tinted backgrounds → soften */
+[data-theme="light"] [style*="rgba(0, 255, 102"] { background-color: rgba(0, 122, 54, 0.08) !important; }
+[data-theme="light"] [style*="rgba(0, 255, 170"] { background-color: rgba(0, 122, 54, 0.08) !important; }
+
+/* Structural fallback for <details>/<summary> (Account tutorial dropdown) */
+[data-theme="light"] details,
+[data-theme="light"] details > summary {
+  background-color: #ffffff !important;
+  color: #061a0c !important;
+  border-color: #c8d8cd !important;
+}
+
+/* Native <select> and <option> elements */
+[data-theme="light"] select,
+[data-theme="light"] option {
+  background-color: #ffffff !important;
+  color: #061a0c !important;
+}
+
+/* Strip text-shadow + heavy glows */
+[data-theme="light"] [style*="text-shadow"] { text-shadow: none !important; }
+[data-theme="light"] [style*="textShadow"] { text-shadow: none !important; }
+
+/* Header - light variant */
+[data-theme="light"] header {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
+  border-bottom: 1px solid #d4e2d8 !important;
+  box-shadow: 0 1px 0 rgba(0,122,54,0.08), 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+/* Drawer - light variant */
+[data-theme="light"] aside {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7f4 100%) !important;
+  border-right: 1px solid #d4e2d8 !important;
+}
+
+/* Evidence frame corners */
+[data-theme="light"] .evidence-frame::before,
+[data-theme="light"] .evidence-frame::after {
+  border-color: #007a36;
+}
+
+/* Disable bright glow box-shadows */
+[data-theme="light"] [style*="box-shadow"] {
+  /* Note: we can't fully strip inline box-shadow, but the universal text-shadow removal above handles glow text. */
+}
+
+/* Spotlight pulse - softer in light mode */
+@keyframes spotlight-pulse-light {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(0,122,54,0.4); }
+  50% { box-shadow: 0 0 0 2px rgba(0,122,54,0.2); }
+}
+
+[data-theme="light"] [style*="spotlight-pulse"] {
+  animation-name: spotlight-pulse-light !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LIGHT MODE - extended palette for category & group tints
+   The original overrides cover the green spectrum used as body text.
+   These cover the tinted accent colors used for badges/icons in the
+   ForensicsGuide and History cards, where the dark-mode pastels
+   become unreadable on a white background.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Categories.js bright-green spectrum - used for the per-category accent
+   color on history cards, scan results, etc. Map every bright-green tint
+   to a single readable dark green so contrast is consistent in light mode. */
+[data-theme="light"] [style*="rgb(61, 245, 138)"]  { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(86, 255, 138)"]  { color: #006a35 !important; }
+[data-theme="light"] [style*="rgb(124, 255, 175)"] { color: #006a3c !important; }
+[data-theme="light"] [style*="rgb(155, 255, 186)"] { color: #006a48 !important; }
+[data-theme="light"] [style*="rgb(94, 252, 142)"]  { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(112, 255, 156)"] { color: #006a30 !important; }
+[data-theme="light"] [style*="rgb(140, 255, 184)"] { color: #006a3c !important; }
+
+/* ForensicsGuide group accents - replace pastel tints with deep variants */
+[data-theme="light"] [style*="rgb(251, 191, 36)"]  { color: #8c5a00 !important; }  /* amber - alteration */
+[data-theme="light"] [style*="rgb(56, 189, 248)"]  { color: #0d4a72 !important; }  /* sky   - digital */
+[data-theme="light"] [style*="rgb(248, 113, 113)"] { color: #9b2030 !important; }  /* red   - obliteration */
+[data-theme="light"] [style*="rgb(52, 211, 153)"]  { color: #0a6a4a !important; }  /* mint  - sympathetic */
+[data-theme="light"] [style*="rgb(167, 139, 250)"] { color: #4a2a92 !important; }  /* violet */
+
+/* Tints used as backgrounds - strip the bright tint from background
+   while keeping the structural feel (light tinted card surface). */
+[data-theme="light"] [style*="rgba(196, 181, 253"] { background-color: rgba(74, 42, 146, 0.08) !important; }
+[data-theme="light"] [style*="rgba(251, 191, 36"]  { background-color: rgba(140, 90, 0, 0.08) !important; }
+[data-theme="light"] [style*="rgba(56, 189, 248"]  { background-color: rgba(13, 74, 114, 0.08) !important; }
+[data-theme="light"] [style*="rgba(248, 113, 113"] { background-color: rgba(155, 32, 48, 0.08) !important; }
+[data-theme="light"] [style*="rgba(52, 211, 153"]  { background-color: rgba(10, 106, 74, 0.08) !important; }
+[data-theme="light"] [style*="rgba(139, 92, 246"]  { background-color: rgba(74, 42, 146, 0.08) !important; }
+
+/* AI badge (purple) in History - soften background while text override
+   above pushes the foreground dark enough to read. */
+[data-theme="light"] [style*="rgba(139, 92, 246, 0.12)"] {
+  background-color: rgba(74, 42, 146, 0.1) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   LIGHT MODE - readability sweep
+   Bump weights and tighten contrasts on common body-text colors so
+   light mode reads cleanly without feeling washed-out.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Make secondary/muted greens darker than the original mappings -
+   the old #102a18 was OK, this pushes it to nearly-black for cleanest
+   contrast on the off-white background. */
+[data-theme="light"] [style*="rgb(109, 186, 133)"] { color: #0a1c11 !important; }
+[data-theme="light"] [style*="rgb(134, 239, 172)"] { color: #0a1c11 !important; }
+[data-theme="light"] [style*="rgb(63, 110, 74)"]   { color: #2a4030 !important; }
+
+/* Slight weight bump on paragraphs in light mode for crispness */
+[data-theme="light"] p,
+[data-theme="light"] .card p {
+  font-weight: 450;
+}
+
+/* Buttons inside cards keep enough contrast */
+[data-theme="light"] .btn-secondary {
+  font-weight: 600;
+}
+
+/* Section-divider lines (the "OR SIGN IN WITH" style) get a real color */
+[data-theme="light"] [style*="border-top: 1px solid rgb(17, 36, 24)"],
+[data-theme="light"] [style*="border-bottom: 1px solid rgb(17, 36, 24)"] {
+  border-color: #d0dcd4 !important;
+}
+
+/* The faint dashed example-image stubs in ForensicsGuide */
+[data-theme="light"] [style*="border: 1px dashed rgb(29, 56, 37)"] {
+  border-color: #b8cebe !important;
+  background-color: #f2f6f3 !important;
+}
+
+/* Hover lift in light mode - keep the lift but swap the green glow for a soft shadow */
+[data-theme="light"] .lift:hover {
+  box-shadow: 0 6px 24px rgba(0, 60, 30, 0.08), 0 2px 6px rgba(0, 60, 30, 0.06) !important;
+}
+

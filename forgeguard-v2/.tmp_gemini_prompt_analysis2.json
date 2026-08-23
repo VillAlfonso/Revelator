@@ -1,0 +1,135 @@
+[
+  {
+    "key": "traced_carbon",
+    "count": 1,
+    "start": 105,
+    "end": 106,
+    "excerpt": "  traced_carbon            - Carbon-paper transfer: forger places carbon paper under a genuine signature and traces with a stylus, transferring carbon \"blueprint\" which is then inked over. Look for: faint carbon residue or faint underlying lines visible along strokes, hesitation/tremor as forger follows carbon blueprint, uniform line weight, possible misalignment where ink deviates from underlying carbon transfer."
+  },
+  {
+    "key": "traced_indentation",
+    "count": 1,
+    "start": 106,
+    "end": 107,
+    "excerpt": "  traced_indentation       - Pressure indentation / canal light effect: look for a halo (colorless depression/groove) around ink strokes where the pen pressed into paper, often visible as a depression in paper fibers. Ink may not fill the entire indented path (poor alignment). Line quality may show hesitation or tremor rather than natural fluidity. Exact loop/oval matches to a reference guide, consistent pen pressure, and lack of normal micro-variation are strong canal-tracing evidence."
+  },
+  {
+    "key": "traced_projection",
+    "count": 15,
+    "start": 107,
+    "end": 122,
+    "excerpt": "  traced_projection        - Projection tracing: forger projects a genuine signature onto the target document using a light table, transparency projector, camera lucida, or digital projector, then inks over the projected lines. Exhibits uniform/monotonous pen pressure, micro-tremors from following a visual guide, frequent pen lifts causing ink blobs or overlapping strokes, no carbon residue, no physical indentation grooves. The signature may be a suspiciously perfect match to the original, with direct correspondence between reference sheet ovals and questioned signature loops.\n    ⚠ CRITICAL DISTINCTION from digital_cut_paste: traced_projection means someone PHYSICALLY DREW over a projected image - the ink strokes exist in real ink on paper, showing tremor and hesitation. digital_cut_paste means the signature was lifted digitally and composited - no physical ink was applied, and you will see a halo, pixelation, or edge artefact at the boundary. If you see a digital halo, fringe, or compression artefact around a signature, classify as digital_cut_paste, NOT traced_projection.\n    ⚠ CRITICAL DISTINCTION from digital_scanned: traced_projection means real ink physically drawn on paper - the signature interacts with paper fibers, bleeds slightly into them, and shows actual pen pressure marks. digital_scanned means the document was scanned first, then a signature was digitally composited onto the scan image - the signature sits ON TOP of scan grain/noise (it looks flat, clean, or u"
+  },
+  {
+    "key": "addition_insertion",
+    "count": 19,
+    "start": 122,
+    "end": 141,
+    "excerpt": "  addition_insertion       - One or more characters were added INSIDE an existing word or number on a genuine document to change its meaning or value. There are TWO subtypes - both are addition_insertion:\n\n    SUBTYPE A - NEW DIGIT INSERTED IN BLANK SPACE (e.g. \"9,000\" → \"49,000\"):\n    - CROWDING / TIGHT SPACING: the inserted character is squeezed uncomfortably close to adjacent characters or to a currency symbol (₱, $, etc.). Authentic writers leave consistent natural spacing; forgers must squeeze a new digit into whatever gap was left.\n    - INK DENSITY OR COLOR MISMATCH: the inserted character may appear slightly darker, lighter, thicker, or a different hue than surrounding original digits - forgers rarely match the exact pen used.\n    - STROKE RHYTHM INCONSISTENCY: compare the slant, speed-taper, and formation of the suspect character against adjacent characters. Inserted strokes often show more hesitation, a different slant angle, or different pressure taper than the original writing event.\n    - BASELINE MISALIGNMENT: the inserted character may sit slightly above or below the baseline of surrounding text.\n    - LOGICAL VALUE CONFLICT: on checks and official forms, the numerical amount field and the written-out amount (words) line must match. If they don't match, this is a high-confidence indicator of numeric alteration - always check both fields when analyzing checks.\n\n    SUBTYPE B - CHARACTER CONVERTED BY ADDING A STROKE (e.g. \"3\" → \"8\", \"1\" → \"4\", \"0\" → \"8\" or \"9\"):\n"
+  },
+  {
+    "key": "addition_interlineation",
+    "count": 1,
+    "start": 141,
+    "end": 142,
+    "excerpt": "  addition_interlineation  - New writing squeezed BETWEEN existing lines of text (not inside a word, but in the whitespace between lines). Look for: text that is smaller or at a different baseline than surrounding lines, ink that differs from surrounding lines, spacing that is unnaturally compressed around the inserted line."
+  },
+  {
+    "key": "erasure_chemical",
+    "count": 8,
+    "start": 142,
+    "end": 150,
+    "excerpt": "  erasure_chemical         - Original ink was removed using a chemical solvent (ink eradicator, bleach, acetone), often followed by new text written or printed in the cleaned area. This is a two-step substitution: remove original → replace with new. Key indicators:\n    - HALO / TIDE MARK: a faint circular or irregular discoloration where the solvent spread beyond the target area, leaving a chemical residue ring on the paper.\n    - INK GHOSTING: a faint shadow or \"ghost\" of the original character remains visible - solvents rarely remove 100% of the ink, especially from bond paper.\n    - PAPER FIBER DAMAGE: solvent weakens the paper surface, causing slight translucency or a matte patch that reflects light differently from the surrounding area.\n    - NEW TEXT ON DAMAGED BACKGROUND: the replacement text sits on a patch that looks clean but wrong - the paper's natural texture or aging is disrupted beneath the new characters.\n    - UNDER OBLIQUE LIGHT: the erased area shows a dull or shiny patch inconsistent with surrounding paper reflectance.\n    ⚠ DISTINCTION from addition_insertion: chemical erasure involves removing the original character FIRST (paper shows residue, ghost, or halo). addition_insertion leaves the original character intact and adds ink on top of it (paper surface is undamaged; the forgery is purely in the ink layer).\n"
+  },
+  {
+    "key": "erasure_mechanical",
+    "count": 12,
+    "start": 150,
+    "end": 162,
+    "excerpt": "  erasure_mechanical       - Original ink was physically scraped off using a razor blade, sandpaper, eraser, or knife, often followed by new text written or printed on the scraped area. This is a two-step substitution: abrade original → replace with new. Key indicators:\n    - ABRADED / SCUFFED PAPER FIBERS (\"FUZZY PATCH\"): the paper surface is visibly roughened - it looks \"fuzzy,\" \"pilled,\" or matted compared to the smooth surrounding paper. This is the strongest visible tell under normal lighting.\n    - SHADOW PATCH / SHEEN DIFFERENCE: the erased area reflects light differently from the rest of the document - it may appear darker, lighter, or matte where the surrounding paper is glossy (or vice versa). In a scan this often appears as a gray-level patch that doesn't match the blank paper around it.\n    - GHOST PARTICLES / RESIDUAL INK: mechanical scraping cannot remove 100% of the ink - tiny pigment particles become trapped deep in the disturbed fibers, leaving a dark smudge or shadow in the general shape of the original character. This ghost is NOT as sharp as a real character but has the right rough outline.\n    - PAPER THINNING: repeated scraping thins the paper - in transmitted light (backlit) the erased area appears brighter or more translucent than surrounding paper.\n    - JAGGED / UNEVEN VOID BOUNDARY: the damage zone has rough, irregular edges - unlike a clean erased area, the boundary between damaged and undamaged paper is jagged because the abrasive tool didn't scra"
+  },
+  {
+    "key": "digital_cut_paste",
+    "count": 9,
+    "start": 162,
+    "end": 171,
+    "excerpt": "  digital_cut_paste        - A genuine element (signature, stamp, photo, text block) was digitally lifted from one document and composited onto this one using Photoshop, GIMP, or a PDF editor. Key indicators:\n    - HALO / FRINGE: a thin bright or differently-coloured edge around the pasted element - caused by anti-aliasing or colour-mismatch during compositing. This is the single strongest DTP indicator.\n    - PIXELATION / ALIASING: jagged or blurry edges along the pasted element's boundary, especially visible on diagonal or curved strokes of a signature.\n    - BACKGROUND INCONSISTENCY: the paper texture, grain, or colour under the pasted element differs from the surrounding area - looks like a different piece of paper was inserted.\n    - COMPRESSION ARTEFACTS: JPEG blocking or noise concentrated around one specific element while the rest of the document is clean.\n    - DPI / RESOLUTION MISMATCH: pasted element is noticeably sharper or blurrier than surrounding printed text.\n    - SHADOW / LIGHTING: cast shadow direction, document reflections, or paper thickness inconsistent with the rest.\n    - LEVELLING: pasted signature or stamp is too perfectly level or centred relative to surrounding text - originates from software alignment tools.\n    ⚠ CRITICAL DISTINCTION from traced_projection: digital_cut_paste shows DIGITAL artefacts (halos, pixelation, compression noise, colour-boundary mismatch). Traced forgeries show PHYSICAL artefacts (tremor, hesitation, slow monotonous stroke"
+  },
+  {
+    "key": "digital_desktop",
+    "count": 9,
+    "start": 171,
+    "end": 180,
+    "excerpt": "  digital_desktop          - The ENTIRE document (or a large section) was fabricated from scratch using word-processing or design software (Microsoft Word, Google Docs, Canva, Photoshop) rather than physically typed or printed on authentic forms. Key indicators:\n    - PERFECT DIGITAL TYPOGRAPHY: computer-perfect font spacing, kerning, and alignment throughout with NO physical security features (no embossed seals, no repeating background patterns, no proper paper interaction, no authentic stamps or holograms).\n    - FONT CONSISTENCY ACROSS ENTIRE DOCUMENT with complete absence of expected genuine elements for that document type.\n    - FORMS & TEMPLATES: document layout exactly matches common templates BUT lacks the security features (seals, stamps, reference numbers, QR in correct positions) that real documents have.\n    - SIGNATURE QUALITY MISMATCH on an otherwise pristine digital background with no authentic paper texture.\n    - ZERO PHYSICAL REALISM: absence of all expected security features (watermarks, microtext, embossed/holographic seals, proper stamps like red \"NO DEROGATORY RECORD\" or \"Documentary Stamp Tax Paid\").\n    ⚠ CRITICAL: If the document shows the positive genuine security features listed in the GENUINE DOCUMENT VERIFICATION section (even if the image is a photo or scan), do NOT classify as digital_desktop. A photo/scan of a real printed document with authentic features is genuine.\n    ⚠ CRITICAL DISTINCTION from digital_cut_paste: digital_desktop means the E"
+  },
+  {
+    "key": "digital_scanned",
+    "count": 10,
+    "start": 180,
+    "end": 190,
+    "excerpt": "  digital_scanned          - A real physical document was scanned, then digital elements were composited onto the scan image (stamp, signature, name field, or date added in an image editor), and the result was re-saved or re-printed. ONLY use this when there is clear evidence of post-scan digital addition. Key indicators:\n    - NOISE INCONSISTENCY: Digitally added elements sit ON TOP of the uniform scan noise - they look artificially clean or sharp against a grainy background ONLY in specific areas (e.g. one signature), while the rest of the document shows consistent grain.\n    - STAMP / SIGNATURE FLATNESS: A genuine wet-ink stamp or signature pressed onto physical paper bleeds into paper fibers. A digitally overlaid one looks \"flat\" with no fiber absorption and has a visible halo or edge against the underlying paper grain.\n    - GLOBAL SCAN TILT vs. LOCAL ELEMENT ALIGNMENT: If the main document has slight skew but one element (stamp/signature) is perfectly level, that element was likely inserted after scanning.\n    - COMPRESSION LEVEL MISMATCH and RESOLUTION HALO localized to specific added elements.\n    - The rest of the document must show authentic physical features (correct seals, stamps, background patterns, paper interaction). If strong positive genuine indicators are present across the document, do NOT use this category.\n    ⚠ DISTINCTION from digital_cut_paste: digital_scanned uses a REAL SCANNED DOCUMENT as the base and adds elements on top of the scan. digital_cut_p"
+  },
+  {
+    "key": "obliteration_ink",
+    "count": 1,
+    "start": 190,
+    "end": 191,
+    "excerpt": "  obliteration_ink         - Original text scribbled out with ink. Look for dense overlapping black ink or dark ink applied in methodical strokes, multiple passes, and deliberate horizontal and diagonal coverage that obscures signatures or names. Visible-light inspection should note edge irregularities, stray extension lines, and uniform fresh ink appearance with no natural fading or bleed. Compare with prior specimens to confirm the same blackout shape, placement, and technique across the set."
+  },
+  {
+    "key": "obliteration_whiteout",
+    "count": 1,
+    "start": 191,
+    "end": 192,
+    "excerpt": "  obliteration_whiteout    - Correction fluid covering text."
+  },
+  {
+    "key": "obliteration_pigment",
+    "count": 5,
+    "start": 192,
+    "end": 197,
+    "excerpt": "  obliteration_pigment     - Opaque marker, paint, or pigment covering text.\n\n  NOTE: Traced obliterated writing may show deliberate edge patterns that follow the hidden text shape, different ink densities or sheen between sections, multiple targeted blackout zones, and repeated overlapped strokes used to conceal a name or signature. Cross-specimen consistency is a strong indicator of a systematic forgery method.\n\nSympathetic Ink:"
+  },
+  {
+    "key": "sympathetic_indented",
+    "count": 1,
+    "start": 197,
+    "end": 198,
+    "excerpt": "  sympathetic_indented     - Indented writing visible only via raking light. Pressure indentations on paper with no visible ink."
+  },
+  {
+    "key": "sympathetic_special",
+    "count": 17,
+    "start": 198,
+    "end": 215,
+    "excerpt": "  sympathetic_special      - Invisible/special ink revealed by an external stimulus (heat, chemical reagent, or UV light). When you detect this, you MUST identify the likely substance based on visible cues:\n    HEAT-ACTIVATED (browned/charred organic substance - most common):\n      - Lemon/citrus juice: brown strokes, slight crystalline residue\n      - Milk: brown strokes, possible greasy/translucent appearance\n      - Sugar water / honey: dark brown to black, glossy carbonized look\n      - Onion juice / vinegar: pale brown, sharp smell association\n      - Wax / crayon resist: waxy sheen, repels later ink/water\n    CHEMICALLY-ACTIVATED (color reaction from reagent):\n      - Phenolphthalein + ammonia → bright pink/magenta strokes\n      - Cobalt chloride + heat → blue→pink color shift\n      - Starch + iodine → dark blue/purple strokes\n    UV/FLUORESCENT (only visible under UV light):\n      - Security ink, quinine (tonic water), highlighter residue → glowing strokes under blacklight\n    Put the specific substance in the \"subtype\" field (e.g., \"lemon juice\", \"milk\", \"phenolphthalein\", \"UV ink\"). State the substance and method explicitly in the explanation. If genuinely unsure, say so but propose the most likely candidate based on color, texture, and any charring pattern.\n    ⚠ DISTINCTION from erasure_mechanical: Mechanical erasure leaves a GHOST of text that WAS THERE and was removed - the paper surface will be roughened/disturbed and the faint remnants are irregular. Sympatheti"
+  },
+  {
+    "key": "currency_analysis",
+    "count": 37,
+    "start": 215,
+    "end": 252,
+    "excerpt": "  currency_analysis        - Suspected counterfeit banknote. Use this when the image shows direct, observable evidence that a Philippine legal tender banknote is counterfeit, simulated, or poorly fabricated.\n    - Valid Philippine banknotes still accepted as legal tender include both the newer New Generation Currency (NGC) refresh (2024–2025 series) and the older New Design Series (NDS) notes.\n      * NGC series: ₱20, ₱50, ₱100, ₱200, ₱500, ₱1000.\n      * Older NDS series: ₱20, ₱50, ₱100, ₱200, ₱500, ₱1000.\n    - New vs old comparison for still-valid Philippine banknotes:\n      * ₱50: New NGC shows a Visayan Leopard Cat front theme and Taal Lake/fish reverse; older NDS shows a Sergio Osmeña front and earlier reverse design.\n      * ₱100: New NGC keeps Manuel A. Roxas front but updates the reverse to Mayon Volcano with whale shark, brighter colors, and improved security; older NDS uses the previous Roxas design and earlier security layout.\n      * ₱500: New NGC uses a deer front with brighter yellow tones and updated security; older NDS uses the previous design with the older portrait layout.\n      * ₱1000: New NGC uses the Philippine Eagle front and Tubbataha Reefs reverse; older NDS uses the earlier hero trio portrait set and previous reverse composition.\n    - Genuine Philippine banknotes should display the appropriate features for the series and denomination:\n      * NGC ₱50 front: Sergio Osmeña portrait, Leyte Landing scene, accurate “LIMAMPUNG PISO” label, Visayan Leopar"
+  },
+  {
+    "key": "no_forgery_detected",
+    "count": 9,
+    "start": 252,
+    "end": 261,
+    "excerpt": "  no_forgery_detected      - Document looks authentic. Use this when the document shows the expected genuine security and formatting features for its type (see GENUINE DOCUMENT VERIFICATION section), EVEN IF the image is a phone photo or scan. Strong positive signals include: correct official logos and headers (NBI, PSA, BIR, DepEd, LTFRB, university), properly executed repeating background patterns or embossed/holographic seals with paper interaction, correct serial/LRN/Special Order/reference/control numbers, authorized signatories with accurate titles (e.g. Director, National Statistician, Principal, Dean), verification mechanisms (QR codes, barcodes, \"Documentary Stamp Tax Paid\", \"NO DEROGATORY RECORD\"), and natural paper/ink interaction.\n    For Philippine banknotes, especially BSP New Generation Currency (NGC):\n      - correct portrait/vignette detail, serial formatting, and signature placement\n      - embedded clear windows or shadow thread windows with printed marks\n      - tactile dots, enhanced value panels, and color-shifting denomination numerals\n      - sharp microprinting, high-relief intaglio texture, and correct paper interaction\n      - UV-reactive map outlines, security fibers, and printed elements that glow in the expected pattern\n      - correct series-specific design details for ₱100, ₱200, ₱500, and ₱1000 notes\n    A clear photo, scan, or UV image of a genuine banknote with these features is authentic - do not confuse normal photo/scan/UV characteristics"
+  },
+  {
+    "key": "not_a_document",
+    "count": 1,
+    "start": 261,
+    "end": 262,
+    "excerpt": "  not_a_document           - Image is not a document at all (selfie, meme, screenshot)."
+  },
+  {
+    "key": "other",
+    "count": 447,
+    "start": 262,
+    "end": 709,
+    "excerpt": "  other                    - Real forgery that does NOT match any of the 16 specific types. Do NOT use this if the forgery matches a specific category - even partially. For example: if you identify traced_projection, use traced_projection, not other with subtype traced_projection.\n\n═══════════════════════════════════════════════════════════════════════════\nIGNORE these (they are NOT forgery indicators):\n  - Phone-camera blur, low resolution, poor lighting, shadows from the photographer, slight perspective skew or distortion (normal for phone photos of documents)\n  - Background surface (desk, hands, clutter behind the document)\n  - JPEG compression noise or uniform scan grain across the ENTIRE image (this is normal for photos/scans of real documents)\n  - Worn paper, creases, folds, age stains, coffee marks (these are wear, not forgery)\n  - Watermark patterns and security features that are SUPPOSED to be there\n  - Slight rotation, perspective skew, glare from flash\n  - Typical artifacts from photographing or scanning genuine physical documents\n═══════════════════════════════════════════════════════════════════════════\n\n═══════════════════════════════════════════════════════════════════════════\nGENUINE DOCUMENT VERIFICATION — POSITIVE INDICATORS (AUTHENTICITY FIRST)\nBefore classifying as any forgery, FIRST check whether the document exhibits the expected genuine features for its type.\n\n=== PHILIPPINE COMMUNITY TAX CERTIFICATE (CTC / Cedula — BIR Form 0016) ===\nExpected on genuin"
+  }
+]
