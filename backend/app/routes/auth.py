@@ -567,8 +567,6 @@ def set_api_key(
 ):
     """Legacy single-key endpoint - kept for backward compatibility."""
     api_key = body.api_key.strip() if body.api_key else None
-    if api_key and not api_key.startswith("AIza"):
-        raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
     current_user.gemini_api_key = api_key
     db.commit()
     return {"success": True, "message": "API key saved" if api_key else "API key removed"}
@@ -615,8 +613,8 @@ class UpdateKeyRequest(BaseModel):
 @router.post("/api-keys")
 def add_api_key(body: AddKeyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     api_key = body.api_key.strip()
-    if not (api_key.startswith("AIza") or api_key.startswith("AQ.")):
-        raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza' or 'AQ.'.")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required.")
 
     count = db.query(UserApiKey).filter(UserApiKey.user_id == current_user.id).count()
     if count >= 20:
@@ -672,8 +670,8 @@ def update_api_key(
 
     if body.api_key is not None:
         api_key = body.api_key.strip()
-        if not api_key.startswith("AIza"):
-            raise HTTPException(status_code=400, detail="Invalid API key format. Gemini API keys start with 'AIza'.")
+        if not api_key:
+            raise HTTPException(status_code=400, detail="API key is required.")
         key.api_key = api_key
 
     db.commit()
