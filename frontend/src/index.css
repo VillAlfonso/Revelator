@@ -334,7 +334,7 @@ input.input:-webkit-autofill:active {
 /* Layout */
 .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; position: relative; }
 
-.nav-burger { display: none; }
+.nav-burger { display: none !important; }
 
 /* ──── Forensic accent components ───────────────────────────── */
 .classification-bar {
@@ -721,6 +721,10 @@ input.input:-webkit-autofill:active {
 [data-theme="light"] [style*="rgb(255, 165, 0)"]   { color: #a45616 !important; }
 [data-theme="light"] [style*="rgb(255, 200, 136)"] { color: #a45616 !important; }
 [data-theme="light"] [style*="rgb(255, 149, 0)"]   { color: #a45616 !important; }
+[data-theme="light"] [style*="rgb(255, 170, 0)"]   { color: #8a5300 !important; }
+[data-theme="light"] [style*="rgb(255, 217, 150)"] { color: #7a4a10 !important; }
+[data-theme="light"] [style*="rgb(255, 102, 136)"] { color: #a4151f !important; }
+[data-theme="light"] [style*="rgb(91, 141, 239)"]  { color: #2f5fc0 !important; }
 
 /* Dark borders */
 [data-theme="light"] [style*="rgb(29, 56, 37)"]   { border-color: #c8d8cd !important; color: #102a18 !important; }
@@ -744,6 +748,27 @@ input.input:-webkit-autofill:active {
   background-color: #ffffff !important;
   background-image: none !important;
 }
+
+/* Nested dark panels (#091108) - used for cards sitting INSIDE an already-white
+   card (prompt-analytics inspector: category header, distinction and overlap
+   blocks). Tint instead of pure white so they still read as nested cards.
+   Without this they stay black while their text is remapped dark = invisible. */
+[data-theme="light"] [style*="rgb(9, 17, 8)"] {
+  background-color: #f1f6f2 !important;
+  background-image: none !important;
+}
+
+/* #112418 is remapped as a BORDER colour above, but it is also used as a
+   selected-row BACKGROUND. Match the shorthand form only, so bordered
+   elements are not given a stray fill. */
+[data-theme="light"] [style*="background: rgb(17, 36, 24)"] {
+  background-color: #dcebe1 !important;
+  background-image: none !important;
+}
+
+/* Muted chart-bar fills that wash out on a white track */
+[data-theme="light"] [style*="background: rgb(149, 165, 166)"] { background-color: #6f8384 !important; }
+[data-theme="light"] [style*="background: rgb(82, 82, 82)"]    { background-color: #6b6b6b !important; }
 
 /* Override background on elements with rgba(0,0,0,*) tints - match the comma-space rgba form */
 [data-theme="light"] [style*="rgba(0, 0, 0,"] {
