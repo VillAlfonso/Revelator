@@ -355,7 +355,7 @@ def view_audit_logs(
                 "actor": {"username": admin_user.username, "email": admin_user.email, "role": admin_user.role} if admin_user else None,
                 "action": log.action,
                 "target": {"username": target_user.username, "email": target_user.email} if target_user else None,
-                "details": {"action_recorded": True} if log.details else None,
+                "details": json.loads(log.details) if log.details else None,
                 "created_at": log.created_at.isoformat(),
             })
 
@@ -368,20 +368,42 @@ def view_audit_logs(
                 "actor": {"username": user.username, "email": user.email, "role": user.role} if user else None,
                 "action": "user_scan",
                 "target": None,
-                "scan_metadata": {
+                "scan": {
                     "scan_id": scan.scan_id,
+                    "filename": scan.filename,
                     "verdict": scan.verdict,
+                    "confidence_score": scan.confidence_score,
                     "detected_category": scan.detected_category,
+                    "detected_subtype": scan.detected_subtype,
                     "category_confidence": scan.category_confidence,
+                    "category_explanation": scan.category_explanation,
+                    "category_evidence": json.loads(scan.category_evidence) if scan.category_evidence else [],
+                    "reasoning_steps": json.loads(scan.reasoning_steps) if scan.reasoning_steps else [],
+                    "alternatives": json.loads(scan.alternatives) if scan.alternatives else [],
+                    "anomaly_location": scan.anomaly_location,
                     "certainty_level": scan.certainty_level,
+                    "tools_likely_used": scan.tools_likely_used,
                     "document_type": scan.document_type,
+                    "image_width": scan.image_width,
+                    "image_height": scan.image_height,
+                    "has_image": bool(scan.image_path),
+                    "llm_explanation": scan.llm_explanation,
+                    "user_context": {
+                        "suspicion_reason": scan.suspicion_reason,
+                        "area_of_concern": scan.area_of_concern,
+                        "image_source": scan.image_source,
+                        "shot_type": scan.shot_type,
+                        "lighting": scan.lighting,
+                        "physical_clues": scan.physical_clues,
+                        "is_forged_belief": scan.is_forged_belief,
+                    },
                 },
                 "created_at": scan.created_at.isoformat() if scan.created_at else "",
             })
 
     # Distinct values for the frontend filter dropdowns (computed pre-filter).
     available_actions = sorted({e["action"] for e in combined if e.get("action")})
-    available_verdicts = sorted({(e.get("scan_metadata") or {}).get("verdict") for e in combined if e.get("scan_metadata") and e["scan_metadata"].get("verdict")})
+    available_verdicts = sorted({(e.get("scan") or {}).get("verdict") for e in combined if e.get("scan") and e["scan"].get("verdict")})
 
     ql = q.lower().strip() if q else None
     actor_l = actor.lower().strip() if actor else None
@@ -391,7 +413,7 @@ def view_audit_logs(
             return False
         if role and (e.get("actor") or {}).get("role") != role:
             return False
-        if verdict and (e.get("scan_metadata") or {}).get("verdict") != verdict:
+        if verdict and (e.get("scan") or {}).get("verdict") != verdict:
             return False
         cd = (e.get("created_at") or "")[:10]
         if start_date and (not cd or cd < start_date):
@@ -405,7 +427,7 @@ def view_audit_logs(
         if ql:
             a = e.get("actor") or {}
             t = e.get("target") or {}
-            s = e.get("scan_metadata") or {}
+            s = e.get("scan") or {}
             hay = " ".join(str(x) for x in [
                 a.get("username"), a.get("email"), e.get("action"),
                 t.get("username"), t.get("email"),

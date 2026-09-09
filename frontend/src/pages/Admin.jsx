@@ -638,15 +638,15 @@ function LogRow({ log }) {
               <span style={{ color: '#d8ffe6', fontSize: 12 }}>@{log.target.username}</span>
             </>
           )}
-          {isScan && log.scan_metadata && (
+          {isScan && log.scan && (
             <>
               <span style={{ color: '#3f6e4a', fontSize: 12 }}>·</span>
               <span className="mono" style={{ fontSize: 11, color: accent, letterSpacing: 1 }}>
-                {log.scan_metadata.verdict?.toUpperCase()}
+                {log.scan.verdict?.toUpperCase()}
               </span>
               <span className="mono" style={{ fontSize: 11, color: '#6dba85' }}>
-                {log.scan_metadata.category_confidence != null
-                  ? `${(log.scan_metadata.category_confidence * 100).toFixed(0)}%`
+                {log.scan.confidence_score != null
+                  ? `${(log.scan.confidence_score * 100).toFixed(0)}%`
                   : 'metadata'}
               </span>
             </>
@@ -660,8 +660,8 @@ function LogRow({ log }) {
 
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #112418' }}>
-          {isScan && log.scan_metadata ? (
-            <ScanMetadataDetail metadata={log.scan_metadata} />
+          {isScan && log.scan ? (
+            <ScanJsonDetail scan={log.scan} />
           ) : (
             <pre style={{
               color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
@@ -677,19 +677,30 @@ function LogRow({ log }) {
   );
 }
 
-function ScanMetadataDetail({ metadata }) {
-  const verdictColors = { forged: '#ff3344', suspicious: '#ffa040', no_forgery_detected: '#00ff66', not_a_document: '#737373' };
-  const vc = verdictColors[metadata.verdict] || '#86efac';
-
+function ScanJsonDetail({ scan }) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-      <Pill label="Scan ID" value={metadata.scan_id} mono />
-      <Pill label="Verdict" value={metadata.verdict?.toUpperCase()} color={vc} />
-      {metadata.detected_category && <Pill label="Category" value={metadata.detected_category} />}
-      {metadata.category_confidence != null && <Pill label="Category confidence" value={`${(metadata.category_confidence * 100).toFixed(1)}%`} />}
-      {metadata.certainty_level && <Pill label="Certainty" value={metadata.certainty_level} />}
-      {metadata.document_type && <Pill label="Document type" value={metadata.document_type} />}
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <Pill label="Scan ID" value={scan.scan_id} mono />
+        <Pill label="Verdict" value={scan.verdict?.toUpperCase()} />
+        <Pill label="Confidence" value={scan.confidence_score != null ? `${(scan.confidence_score * 100).toFixed(1)}%` : '-'} />
+        {scan.detected_category && <Pill label="Category" value={scan.detected_category} />}
+        {scan.certainty_level && <Pill label="Certainty" value={scan.certainty_level} />}
+        {scan.document_type && <Pill label="Doc Type" value={scan.document_type} />}
       </div>
+      <details style={{ marginTop: 10 }}>
+        <summary style={{ cursor: 'pointer', color: '#86efac', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
+          ▸ Full JSON metadata
+        </summary>
+        <pre style={{
+          color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
+          background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418', marginTop: 8,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 480, overflow: 'auto',
+        }}>
+          {JSON.stringify(scan, null, 2)}
+        </pre>
+      </details>
+    </div>
   );
 }
 

@@ -355,7 +355,14 @@ function Layout({ children }) {
             </button>
           )}
 
-          <Link to="/scan" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+          <Link
+            to="/scan"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate('/scan');
+            }}
+            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}
+          >
             <Logo size={32} glow animated />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1, minWidth: 0 }}>
               <span className="oswald glow-strong" style={{
