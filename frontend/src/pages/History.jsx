@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Sparkles, ImageOff, StickyNote, Check, AlertTriangle, Pencil } from 'lucide-react';
+import { FileText, Sparkles, ImageOff, StickyNote, Check, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 import { CATEGORY_BY_KEY, MAIN_CATEGORY_CODE_BY_KEY } from '../categories';
 import { useTheme } from '../App';
@@ -51,7 +51,7 @@ export default function History() {
     api.getScanDetail(scanId).then(setDetail).catch(() => {});
   }
 
-  if (detail) return <ScanDetailView detail={detail} onBack={() => setDetail(null)} />;
+  if (detail) return <ScanDetailView detail={detail} onBack={() => setDetail(null)} onDeleted={() => { setDetail(null); loadScans(); }} />;
 
   const totalPages = Math.ceil(total / limit);
 
@@ -190,8 +190,10 @@ function HistoryCard({ scan, onClick }) {
   );
 }
 
-function ScanDetailView({ detail, onBack }) {
+function ScanDetailView({ detail, onBack, onDeleted }) {
   const canvasRef = useRef(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const cat = detail.detected_category;
   const color = geminiColor(cat);
   const label = geminiLabel(cat, detail.detected_category_label);
@@ -201,6 +203,19 @@ function ScanDetailView({ detail, onBack }) {
   const geminiForgery = geminiOk && cat !== 'no_forgery_detected' && cat !== 'not_a_document';
   const hasYolo = detail.annotations?.length > 0 && geminiForgery;
   const certColor = detail.certainty_level === 'HIGH' ? '#00ff66' : detail.certainty_level === 'MEDIUM' ? '#ffa040' : '#ff5555';
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete scan ${detail.scan_id} from your history? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await api.deleteScan(detail.scan_id);
+      onDeleted();
+    } catch (err) {
+      setDeleteError(err.message || 'Could not delete this scan');
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     if (!detail.has_image || !hasYolo) return;
@@ -247,15 +262,31 @@ function ScanDetailView({ detail, onBack }) {
         {/* header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${color}33` }}>
           <h2 className="oswald" style={{ fontSize: 14, letterSpacing: 2.5, textTransform: 'uppercase', margin: 0, color: '#d8ffe6' }}>◆ Forensic Report</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             {docTypeLabel(detail.document_type) && (
               <span className="mono" style={{ fontSize: 10, color: '#6dba85', letterSpacing: 1.5 }}>
                 📄 {docTypeLabel(detail.document_type).toUpperCase()}
               </span>
             )}
             <span className="mono" style={{ color: '#3f6e4a', fontSize: 11 }}>{detail.scan_id}</span>
+            <button
+              className="btn btn-danger"
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Delete this scan from history"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 11, minHeight: 'unset' }}
+            >
+              <Trash2 size={13} />
+              {deleting ? 'Deleting...' : 'Delete scan'}
+            </button>
           </div>
         </div>
+
+        {deleteError && (
+          <div className="mono" style={{ color: '#ff8a99', padding: '10px 20px', borderBottom: `1px solid ${color}33` }}>
+            ⚠ {deleteError}
+          </div>
+        )}
 
         {/* category banner */}
         <div style={{ textAlign: 'center', padding: '28px 20px 24px', background: '#000', borderBottom: `1px solid ${color}33`, boxShadow: `inset 0 0 32px ${color}18` }}>

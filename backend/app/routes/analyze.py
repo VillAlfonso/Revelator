@@ -19,7 +19,7 @@ from PIL import Image
 
 from ..auth import get_current_user, get_user_from_token
 from ..database import get_db
-from ..models import User, Scan, UserApiKey
+from ..models import User, Scan, UserApiKey, AdminAuditLog
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
     UNLIMITED, LLM_PLANS, UPLOAD_DIR,
@@ -318,7 +318,7 @@ def analyze_document(
         # and fall through to the full prompt below, which carries the genuine-vs-counterfeit
         # discriminators (BSP security features, "features present but simulated" test). Only
         # currency images pay for the full prompt; every other category keeps the token saving.
-        if hint:
+        if hint and hint.get("confidence", 0.0) >= LOCAL_CLASSIFIER_THRESHOLD:
             hint_is_currency = (
                 hint.get("category") == "currency_analysis"
                 or "currency_analysis" in hint.get("candidates", [])
@@ -330,6 +330,8 @@ def analyze_document(
                 hinted = explain_with_hint(preprocessed, hint["label"], hint["candidates"], api_key=api_key)
                 if not hinted.get("_unavailable"):
                     gemini = hinted
+        elif hint:
+            print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} below threshold {LOCAL_CLASSIFIER_THRESHOLD:.2f} -> using FULL classify")
 
     # STAGE 1b: Full classification (fallback, or when the classifier is unsure/absent).
     if gemini is None:
@@ -568,6 +570,40 @@ def update_scan_notes(
     scan.notes = notes or None
     db.commit()
     return {"success": True, "notes": scan.notes or ""}
+
+
+@router.delete("/history/{scan_id}")
+def delete_scan_from_history(
+    scan_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete one scan owned by the signed-in user and record the action."""
+    scan = db.query(Scan).filter(Scan.scan_id == scan_id, Scan.user_id == current_user.id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    image_path = scan.image_path
+    db.add(AdminAuditLog(
+        admin_id=current_user.id,
+        action="delete_scan",
+        target_user_id=current_user.id,
+        details=json.dumps({
+            "scan_id": scan.scan_id,
+            "filename": scan.filename,
+            "deleted_by_user": True,
+        }),
+    ))
+    db.delete(scan)
+    db.commit()
+
+    if image_path:
+        file_path = (UPLOAD_DIR / image_path).resolve()
+        upload_root = UPLOAD_DIR.resolve()
+        if str(file_path).startswith(str(upload_root)) and file_path.is_file():
+            file_path.unlink()
+
+    return {"success": True, "scan_id": scan_id}
 
 
 @router.get("/history/{scan_id}/image")

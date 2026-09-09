@@ -234,6 +234,10 @@ export const api = {
     });
   },
 
+  deleteScan(scanId) {
+    return request(`/history/${encodeURIComponent(scanId)}`, { method: 'DELETE' });
+  },
+
   getScanImageUrl(scanId) {
     const token = getToken();
     return `${API_BASE}/history/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
