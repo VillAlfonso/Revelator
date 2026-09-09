@@ -1,8 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Plus, RefreshCw, Copy, Check, Trash2, ChevronDown, ChevronRight,
-  GraduationCap, Users, Pencil, AlertTriangle,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../App';
 import PromptDashboard from '../components/PromptDashboard';
@@ -14,12 +11,11 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 export default function Admin() {
   const { user: me } = useAuth();
   const isSuperAdmin = me?.role === "superadmin";
-  const [tab, setTab] = useState('users'); // 'users', 'sections', 'roles', 'logs', 'prompt'
+  const [tab, setTab] = useState('users'); // 'users', 'logs', 'prompt'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
   const [q, setQ] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
@@ -32,15 +28,13 @@ export default function Admin() {
   const [logFilters, setLogFilters] = useState({ action: '', role: '', verdict: '', start_date: '', end_date: '', q: '' });
   const [logMeta, setLogMeta] = useState({ available_actions: [], available_verdicts: [] });
   const [banningUserId, setBanningUserId] = useState(null);
-  const [roles, setRoles] = useState([]);
-  const [permissionsCatalog, setPermissionsCatalog] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const [list, s] = await Promise.all([
-        api.adminListUsers({ q, role: roleFilter }),
+        api.adminListUsers({ q }),
         api.adminStats(),
       ]);
       setUsers(list.users);
@@ -51,19 +45,7 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [q, roleFilter]);
-
-  const loadRoles = useCallback(async () => {
-    try {
-      const data = await api.listRoles();
-      setRoles(data.roles || []);
-      setPermissionsCatalog(data.permissions || []);
-    } catch (err) {
-      setError(err.message);
-    }
-  }, []);
-
-  useEffect(() => { loadRoles(); }, [loadRoles]);
+  }, [q]);
 
 
   const loadLogs = useCallback(async () => {
@@ -101,7 +83,6 @@ export default function Admin() {
         full_name: editing.full_name,
         username: editing.username,
         email: editing.email,
-        role: editing.role,
       };
       if (editing._password) patch.password = editing._password;
       await api.adminUpdateUser(editing.id, patch);
@@ -225,35 +206,6 @@ export default function Admin() {
         </button>
         <button
           className="mono"
-          onClick={() => setTab('sections')}
-          style={{
-            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === 'sections' ? '#00ff66' : '#86efac',
-            textTransform: 'uppercase', letterSpacing: 1,
-            borderBottom: tab === 'sections' ? '2px solid #00ff66' : 'none',
-            marginBottom: '-12px',
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-          }}
-        >
-          Sections
-        </button>
-        {isSuperAdmin && (
-          <button
-            className="mono"
-            onClick={() => setTab('roles')}
-            style={{
-              padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-              color: tab === 'roles' ? '#00ff66' : '#86efac',
-              textTransform: 'uppercase', letterSpacing: 1,
-              borderBottom: tab === 'roles' ? '2px solid #00ff66' : 'none',
-              marginBottom: '-12px',
-            }}
-          >
-            Roles
-          </button>
-        )}
-        <button
-          className="mono"
           onClick={() => setTab('logs')}
           style={{
             padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
@@ -287,15 +239,6 @@ export default function Admin() {
           <label style={labelStyle}>Search</label>
           <input className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="email, username, name" />
         </div>
-        <div style={{ flex: '0 1 200px', minWidth: 160 }}>
-          <label style={labelStyle}>Filter by role</label>
-          <select className="input" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
-            <option value="">All roles</option>
-            {roles.map(r => (
-              <option key={r.id} value={r.name}>{r.name}</option>
-            ))}
-          </select>
-        </div>
         <button className="btn btn-primary" onClick={load} disabled={loading}>
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -325,7 +268,6 @@ export default function Admin() {
             onPromote={() => promoteUser(u.id)}
             onDemote={() => demoteUser(u.id)}
             isBanning={banningUserId === u.id}
-            roles={roles}
           />
         ))}
         {!loading && users.length === 0 && (
@@ -341,14 +283,6 @@ export default function Admin() {
             <Field label="Full name"><input className="input" value={editing.full_name || ''} onChange={e => setEditing({ ...editing, full_name: e.target.value })} /></Field>
             <Field label="Reset password (optional, min 6 chars)">
               <input className="input" type="password" value={editing._password} onChange={e => setEditing({ ...editing, _password: e.target.value })} placeholder="Leave blank to keep current" />
-            </Field>
-            <Field label="Role">
-              <select className="input" value={editing.role || 'user'} onChange={e => setEditing({ ...editing, role: e.target.value })} disabled={editing.id === me?.id}>
-                {roles.map(r => (
-                  <option key={r.id} value={r.name}>{r.name}{r.description ? ` ${r.description}` : ''}</option>
-                ))}
-              </select>
-              {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11, marginTop: 4, display: 'block' }}>(cannot change own role)</span>}
             </Field>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
               <input type="checkbox" checked={editing.is_active} onChange={e => setEditing({ ...editing, is_active: e.target.checked })} disabled={editing.id === me?.id} />
@@ -401,18 +335,6 @@ export default function Admin() {
       </div>
       )}
 
-      {tab === 'sections' && (
-        <RoomsManager onError={setError} />
-      )}
-
-      {tab === 'roles' && isSuperAdmin && (
-        <RolesManager
-          roles={roles}
-          permissions={permissionsCatalog}
-          onReload={loadRoles}
-          onError={setError}
-        />
-      )}
 
       {tab === 'logs' && (
         <LogsView
@@ -697,9 +619,6 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
             {opt.label}
           </button>
         ))}
-        <button className="btn" onClick={onRefresh} disabled={loading} style={{ marginLeft: 'auto', fontSize: 11 }}>
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>

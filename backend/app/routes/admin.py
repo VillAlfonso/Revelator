@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, hash_password
 from ..config import UPLOAD_DIR
 from ..database import get_db
-from ..models import User, Scan, AdminAuditLog, Role
+from ..models import User, Scan, AdminAuditLog
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -20,7 +20,6 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 class UserUpdate(BaseModel):
-    role: Optional[str] = None  # user | admin | superadmin
     is_active: Optional[bool] = None
     full_name: Optional[str] = None
     username: Optional[str] = None
@@ -28,28 +27,14 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 
-_role_color_cache: dict = {}
-
-
-def _get_role_color(role_name: str, db: Session) -> str:
-    if role_name in _role_color_cache:
-        return _role_color_cache[role_name]
-    role = db.query(Role).filter(Role.name == role_name).first()
-    color = role.color if role else "#6dba85"
-    _role_color_cache[role_name] = color
-    return color
-
-
 def _user_row(u: User, db: Session = None) -> dict:
     role_name = u.role or "user"
-    color = _get_role_color(role_name, db) if db is not None else "#6dba85"
     return {
         "id": u.id,
         "email": u.email,
         "username": u.username,
         "full_name": u.full_name or "",
         "role": role_name,
-        "role_color": color,
         "is_active": bool(u.is_active),
         "is_verified": bool(u.is_verified),
         "scans_this_month": u.scans_this_month,
@@ -102,7 +87,6 @@ def list_users(
 
     total = query.count()
     rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
-    _role_color_cache.clear()  # refresh in case colors were edited
     return {"users": [_user_row(u, db) for u in rows], "total": total}
 
 
@@ -130,19 +114,6 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     changes = {}
-
-    if body.role is not None:
-        # Verify role exists in the roles table (supports dynamic custom roles)
-        role_obj = db.query(Role).filter(Role.name == body.role).first()
-        if not role_obj:
-            raise HTTPException(status_code=400, detail=f"Role '{body.role}' does not exist")
-        if user.id == admin.id and body.role != "superadmin":
-            superadmin_count = db.query(User).filter(User.role == "superadmin").count()
-            if superadmin_count <= 1 and user.role == "superadmin":
-                raise HTTPException(status_code=400, detail="Cannot remove the last super admin")
-        if user.role != body.role:
-            changes["role"] = {"from": user.role, "to": body.role}
-        user.role = body.role
 
     if body.is_active is not None:
         if user.id == admin.id and body.is_active is False:

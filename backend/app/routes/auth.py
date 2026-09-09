@@ -86,13 +86,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 def user_to_dict(user: User, db: Session = None) -> dict:
-    from ..models import Role
     role_name = user.role or "user"
-    color = "#6dba85"
-    if db is not None:
-        role_obj = db.query(Role).filter(Role.name == role_name).first()
-        if role_obj:
-            color = role_obj.color
     return {
         "id": user.id,
         "email": user.email,
@@ -100,7 +94,6 @@ def user_to_dict(user: User, db: Session = None) -> dict:
         "full_name": user.full_name or "",
         "scans_this_month": user.scans_this_month,
         "role": role_name,
-        "role_color": color,
         "is_active": bool(user.is_active),
         "two_factor_enabled": bool(user.two_factor_enabled) if user.two_factor_enabled is not None else True,
         "created_at": user.created_at.isoformat() if user.created_at else "",

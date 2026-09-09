@@ -42,22 +42,6 @@ class User(Base):
     api_keys = relationship("UserApiKey", back_populates="user", cascade="all, delete-orphan")
 
 
-class Role(Base):
-    """Dynamic role definitions - managed by superadmin. User.role string references Role.name."""
-    __tablename__ = "roles"
-
-    id = Column(String, primary_key=True, default=gen_uuid)
-    name = Column(String, unique=True, nullable=False, index=True)
-    color = Column(String, nullable=False, default="#6dba85")  # hex color for UI badges
-    permissions = Column(Text, nullable=False, default="[]")  # JSON array of permission strings
-    description = Column(String, default="")
-    is_system = Column(Boolean, default=False)  # protected built-in roles
-    is_self_assignable = Column(Boolean, default=False)  # user can self-assign via Account page
-    sort_order = Column(Integer, default=100)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class UserApiKey(Base):
     __tablename__ = "user_api_keys"
 
@@ -148,41 +132,6 @@ class Scan(Base):
 
     # Relationships
     user = relationship("User", back_populates="scans")
-
-
-class Room(Base):
-    """A teacher-managed group of students, joined via a short alphanumeric code.
-
-    Inspired by Google Room - admins/superadmins create a room, share
-    its join code with students, and the students self-enroll. Members of a
-    room appear in its class list.
-    """
-    __tablename__ = "rooms"
-
-    id = Column(String, primary_key=True, default=gen_uuid)
-    name = Column(String, nullable=False)
-    description = Column(Text, default="")
-    join_code = Column(String, unique=True, nullable=False, index=True)
-    owner_id = Column(String, ForeignKey("users.id"), nullable=False)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    owner = relationship("User", foreign_keys=[owner_id])
-    members = relationship("RoomMember", back_populates="room", cascade="all, delete-orphan")
-
-
-class RoomMember(Base):
-    """Many-to-many join between users (students) and rooms."""
-    __tablename__ = "room_members"
-
-    id = Column(String, primary_key=True, default=gen_uuid)
-    room_id = Column(String, ForeignKey("rooms.id"), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
-    joined_at = Column(DateTime, default=datetime.utcnow)
-
-    room = relationship("Room", back_populates="members")
-    user = relationship("User", foreign_keys=[user_id])
 
 
 class AdminAuditLog(Base):

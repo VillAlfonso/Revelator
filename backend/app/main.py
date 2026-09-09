@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 
 from .config import APP_NAME, APP_VERSION, FRONTEND_URL, UPLOAD_DIR
 from .database import init_db
-from .routes import auth, analyze, payments, admin, roles, rooms, prompt_analytics
+from .routes import auth, analyze, payments, admin, prompt_analytics
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
 
@@ -29,8 +29,6 @@ app.include_router(auth.router)
 app.include_router(analyze.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
-app.include_router(roles.router)
-app.include_router(rooms.router)
 app.include_router(prompt_analytics.router)
 
 
@@ -71,11 +69,51 @@ def download_apk():
     )
 
 
+# Where `npm run build` puts the frontend. Used by the PWA routes just below
+# and by the single-origin SPA hosting further down.
+_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+
+# ── PWA: service worker + manifest ────────────────────────────────────────
+# Both live in frontend/public and so land in frontend/dist, where the SPA
+# catch-all below would already serve them. They get explicit routes anyway for
+# two reasons:
+#   1. sw.js MUST NOT be cached. Cloudflare caches .js by default, and a stale
+#      worker pins users to an old build until its cache expires.
+#   2. The worker's scope is capped by its own path, so it has to be served
+#      from the site root to control the whole app.
+# Registered before the catch-all so these exact paths win.
+_PWA_FILES = {
+    "sw.js": "application/javascript",
+    "manifest.json": "application/manifest+json",
+}
+
+
+def _pwa_file(name: str):
+    path = _DIST / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(
+        str(path),
+        media_type=_PWA_FILES[name],
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/sw.js")
+def service_worker():
+    return _pwa_file("sw.js")
+
+
+@app.get("/manifest.json")
+def web_manifest():
+    return _pwa_file("manifest.json")
+
+
 # ── Single-origin hosting: serve the built frontend ───────────────────────
 # After `npm run build`, frontend/dist exists and the backend serves the whole
 # app, so ONE Cloudflare Tunnel exposes everything at a single URL. In dev
 # (no dist) this block is skipped and you use the Vite dev server as before.
-_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if _DIST.is_dir():
     _assets = _DIST / "assets"
     if _assets.is_dir():

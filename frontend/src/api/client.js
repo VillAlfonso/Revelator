@@ -269,35 +269,6 @@ export const api = {
     return request('/payments/cancel', { method: 'POST' });
   },
 
-  // Rooms
-  listRooms() {
-    return request('/rooms');
-  },
-  myRooms() {
-    return request('/rooms/mine/list');
-  },
-  createRoom(name, description = '') {
-    return request('/rooms', { method: 'POST', body: JSON.stringify({ name, description }) });
-  },
-  getRoom(id) {
-    return request(`/rooms/${encodeURIComponent(id)}`);
-  },
-  updateRoom(id, patch) {
-    return request(`/rooms/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(patch) });
-  },
-  deleteRoom(id) {
-    return request(`/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  },
-  regenerateRoomCode(id) {
-    return request(`/rooms/${encodeURIComponent(id)}/regenerate-code`, { method: 'POST' });
-  },
-  removeRoomMember(roomId, userId) {
-    return request(`/rooms/${encodeURIComponent(roomId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' });
-  },
-  joinRoom(code) {
-    return request('/rooms/join', { method: 'POST', body: JSON.stringify({ code }) });
-  },
-
   // Admin
   adminListUsers({ q = '', plan = '', role = '', limit = 50, offset = 0 } = {}) {
     const params = new URLSearchParams();
@@ -307,23 +278,6 @@ export const api = {
     params.set('limit', limit);
     params.set('offset', offset);
     return request(`/admin/users?${params.toString()}`);
-  },
-
-  // Roles
-  listRoles() {
-    return request('/roles');
-  },
-  createRole(payload) {
-    return request('/roles', { method: 'POST', body: JSON.stringify(payload) });
-  },
-  updateRole(roleId, patch) {
-    return request(`/roles/${roleId}`, { method: 'PUT', body: JSON.stringify(patch) });
-  },
-  deleteRole(roleId) {
-    return request(`/roles/${roleId}`, { method: 'DELETE' });
-  },
-  assignUserRole(userId, role) {
-    return request(`/roles/users/${userId}/role`, { method: 'PUT', body: JSON.stringify({ role }) });
   },
 
   adminGetUser(userId) {

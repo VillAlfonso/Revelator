@@ -144,16 +144,12 @@ async def get_current_user(
 
 
 def get_role_permissions(role_name: str, db: Session) -> list:
-    """Look up the permissions JSON array for a given role name."""
-    import json
-    from .models import Role
-    role = db.query(Role).filter(Role.name == role_name).first()
-    if not role:
-        return []
-    try:
-        return json.loads(role.permissions or "[]")
-    except (ValueError, TypeError):
-        return []
+    """Return fixed permissions for the built-in access levels."""
+    if role_name == "superadmin":
+        return ["is_superadmin", "view_users"]
+    if role_name == "admin":
+        return ["view_users"]
+    return []
 
 
 def user_has_permission(user: User, perm: str, db: Session) -> bool:
