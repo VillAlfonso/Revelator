@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Fingerprint, FileEdit, Layers, EyeOff, FlaskConical, Banknote,
-  ChevronDown, ChevronRight, Image as ImageIcon, CornerDownRight,
+  ChevronDown, ChevronRight, CornerDownRight,
 } from 'lucide-react';
 import { useTheme } from '../App';
 import { themed, tintedBg } from '../themeColors';
@@ -153,26 +153,47 @@ const GROUPS = [
   },
 ];
 
-function ImageStub() {
+const SPECIMEN_EXTENSIONS = {
+  traced_carbon: 'jpeg',
+  traced_indentation: 'jpeg',
+  traced_projection: 'jpg',
+  addition_insertion: 'jpg',
+  addition_interlineation: 'jpg',
+  erasure_chemical: 'jpg',
+  erasure_mechanical: 'jpg',
+  digital_cut_paste: 'jpg',
+  digital_desktop: 'jpg',
+  digital_scanned: 'jpg',
+  obliteration_ink: 'jpeg',
+  obliteration_whiteout: 'jpeg',
+  sympathetic_indented: 'jpg',
+  sympathetic_special: 'jpg',
+  currency_analysis: 'jpg',
+};
+
+function ImageStub({ category }) {
+  const extension = SPECIMEN_EXTENSIONS[category.id] || 'jpg';
+  const src = `/guide-specimens/${category.id}.${extension}`;
+
   return (
     <div style={{
-      border: '1px dashed #1d3825',
+      border: '1px solid #1d3825',
       borderRadius: 6,
       background: '#020b05',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 140,
-      gap: 8,
-      padding: 12,
+      minHeight: 180,
+      overflow: 'hidden',
     }}>
-      <ImageIcon size={32} strokeWidth={1.4} style={{ opacity: 0.25, color: '#00ff66' }} />
-      <div className="mono" style={{ fontSize: 10, letterSpacing: 2, color: '#2a4d32', textTransform: 'uppercase', textAlign: 'center' }}>
-        Example Image
-      </div>
-      <div className="mono" style={{ fontSize: 9, color: '#1d3825', textAlign: 'center', letterSpacing: 1 }}>
-        Coming Soon
+      <img
+        src={src}
+        alt={`Representative ${category.label} specimen`}
+        style={{ width: '100%', height: 180, objectFit: 'contain', display: 'block' }}
+      />
+      <div className="mono" style={{ width: '100%', padding: '6px 8px', fontSize: 9, letterSpacing: 1.2, color: '#6dba85', background: 'rgba(0,0,0,0.72)', textTransform: 'uppercase', textAlign: 'center' }}>
+        Representative specimen
       </div>
     </div>
   );
@@ -225,7 +246,7 @@ function CategoryCard({ cat, groupColor }) {
             gap: 18,
             alignItems: 'start',
           }}>
-            <ImageStub />
+            <ImageStub category={cat} />
             <div>
               <p style={{
                 color: theme === 'light' ? '#1a3024' : '#cfe9d8',
@@ -351,7 +372,7 @@ export default function ForensicsGuide() {
           color: theme === 'light' ? '#1a3024' : '#cfe9d8',
           fontSize: 15, lineHeight: 1.75, margin: '12px 0 0',
         }}>
-          Revelator detects 16 categories of document forgery across 6 groups. Each category uses a tailored
+          Revelator detects 15 categories of document forgery across 6 groups. Each category uses a tailored
           analysis pipeline tuned to its specific physical or digital indicators. Click any category to expand
           its description, indicators, and example image.
         </p>
