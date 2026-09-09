@@ -7,6 +7,8 @@ console instead so the flow can still be tested locally without a mail server.
 
 import smtplib
 import logging
+from html import escape
+from urllib.parse import quote
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -41,6 +43,7 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
 
 
 def _verification_html(link: str) -> str:
+    safe_link = escape(link, quote=True)
     return f"""\
 <!DOCTYPE html>
 <html>
@@ -60,7 +63,7 @@ def _verification_html(link: str) -> str:
             address by clicking the button below. This link expires in 24 hours.
           </td></tr>
           <tr><td align="center" style="padding-bottom:28px;">
-            <a href="{link}"
+            <a href="{safe_link}"
                style="display:inline-block;background:#00ff66;color:#04140a;
                       text-decoration:none;font-weight:bold;font-size:14px;
                       padding:14px 32px;border-radius:4px;letter-spacing:1px;">
@@ -69,7 +72,7 @@ def _verification_html(link: str) -> str:
           </td></tr>
           <tr><td style="color:#5f8a6e;font-size:12px;line-height:1.6;border-top:1px solid #173a25;padding-top:18px;">
             If the button doesn't work, paste this link into your browser:<br>
-            <span style="color:#86efac;word-break:break-all;">{link}</span>
+            <span style="color:#86efac;word-break:break-all;">{safe_link}</span>
           </td></tr>
           <tr><td style="color:#3f6e4a;font-size:11px;padding-top:20px;">
             If you didn't create a {APP_NAME} account, you can safely ignore this email.
@@ -83,7 +86,7 @@ def _verification_html(link: str) -> str:
 
 def send_verification_email(to_email: str, token: str) -> None:
     """Send (or print, if SMTP unconfigured) the email verification link."""
-    link = f"{API_URL}/api/auth/verify-email?token={token}"
+    link = f"{API_URL}/api/auth/verify-email?token={quote(token, safe='')}"
     subject = f"Confirm your {APP_NAME} account"
     try:
         sent = send_email(to_email, subject, _verification_html(link))
@@ -97,6 +100,7 @@ def send_verification_email(to_email: str, token: str) -> None:
 
 
 def _reset_html(link: str) -> str:
+    safe_link = escape(link, quote=True)
     return f"""\
 <!DOCTYPE html>
 <html>
@@ -116,7 +120,7 @@ def _reset_html(link: str) -> str:
             choose a new one. This link expires in 1 hour.
           </td></tr>
           <tr><td align="center" style="padding-bottom:28px;">
-            <a href="{link}"
+            <a href="{safe_link}"
                style="display:inline-block;background:#00ff66;color:#04140a;
                       text-decoration:none;font-weight:bold;font-size:14px;
                       padding:14px 32px;border-radius:4px;letter-spacing:1px;">
@@ -125,7 +129,7 @@ def _reset_html(link: str) -> str:
           </td></tr>
           <tr><td style="color:#5f8a6e;font-size:12px;line-height:1.6;border-top:1px solid #173a25;padding-top:18px;">
             If the button doesn't work, paste this link into your browser:<br>
-            <span style="color:#86efac;word-break:break-all;">{link}</span>
+            <span style="color:#86efac;word-break:break-all;">{safe_link}</span>
           </td></tr>
           <tr><td style="color:#3f6e4a;font-size:11px;padding-top:20px;">
             If you didn't request a password reset, you can safely ignore this email -
@@ -140,7 +144,7 @@ def _reset_html(link: str) -> str:
 
 def send_reset_email(to_email: str, token: str) -> None:
     """Send (or print, if SMTP unconfigured) the password reset link."""
-    link = f"{FRONTEND_URL}/reset-password?token={token}"
+    link = f"{FRONTEND_URL}/reset-password?token={quote(token, safe='')}"
     subject = f"Reset your {APP_NAME} password"
     try:
         sent = send_email(to_email, subject, _reset_html(link))

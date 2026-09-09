@@ -147,8 +147,11 @@ def _ensure_columns():
             conn.execute(text("DROP TABLE promo_codes"))
 
         # Remove feature tables from existing databases as well as from the model metadata.
-        for feature_table in ("room_members", "rooms", "roles"):
-            if feature_table in table_names:
-                conn.execute(text(f"DROP TABLE {feature_table}"))
+        if "room_members" in table_names:
+            conn.execute(text("DROP TABLE room_members"))
+        if "rooms" in table_names:
+            conn.execute(text("DROP TABLE rooms"))
+        if "roles" in table_names:
+            conn.execute(text("DROP TABLE roles"))
         if "users" in table_names:
             conn.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin', 'superadmin')"))

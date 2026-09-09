@@ -79,11 +79,11 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 
-# Local specimen classifier (backend/train_classifier.py). When it is present and
-# confident (>= threshold), the analyze route hands Gemini a locked category + a
-# short explain-only prompt -> far fewer tokens, category-correct on the specimen set.
-# Set USE_LOCAL_CLASSIFIER=false to always use the full Gemini prompt.
-USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "true").lower() == "true"
+# Local specimen classifier (backend/train_classifier.py). This model is trained on
+# the specimen set and can be overconfident on new uploads, so it is opt-in. When
+# enabled and confident (>= threshold), the analyze route uses the short hint prompt.
+# Set USE_LOCAL_CLASSIFIER=true only when evaluating the specimen set.
+USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "false").lower() == "true"
 LOCAL_CLASSIFIER_THRESHOLD = float(os.getenv("LOCAL_CLASSIFIER_THRESHOLD", "0.85"))
 
 # ============================================
@@ -108,6 +108,17 @@ ROBOFLOW_CUT_PASTE_MODEL = os.getenv("ROBOFLOW_CUT_PASTE_MODEL", "find-cut-and-p
 APP_NAME = "Revelator"
 APP_VERSION = "2.0.0"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+_configured_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
+    if origin.strip()
+]
+ALLOWED_ORIGINS = list(dict.fromkeys(_configured_origins + [
+    "http://localhost",
+    "capacitor://localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]))
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # Uploaded scan images are stored here (created on startup if missing).
