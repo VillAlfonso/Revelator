@@ -18,8 +18,6 @@ export default function Admin() {
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsStats, setLogsStats] = useState({ admin_actions_total: 0, scans_total: 0, total: 0 });
@@ -73,27 +71,6 @@ export default function Admin() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (tab === 'logs') loadLogs(); }, [tab, loadLogs]);
-
-  async function saveEdit() {
-    setSaving(true);
-    setError('');
-    try {
-      const patch = {
-        is_active: editing.is_active,
-        full_name: editing.full_name,
-        username: editing.username,
-        email: editing.email,
-      };
-      if (editing._password) patch.password = editing._password;
-      await api.adminUpdateUser(editing.id, patch);
-      setEditing(null);
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function confirmDelete() {
     if (!deleteId) return;
@@ -261,7 +238,6 @@ export default function Admin() {
             user={u}
             isMe={u.id === me?.id}
             isSuperAdmin={isSuperAdmin}
-            onEdit={() => setEditing({ ...u, _password: '' })}
             onDelete={() => setDeleteId(u.id)}
             onBan={() => banUser(u.id)}
             onUnban={() => unbanUser(u.id)}
@@ -274,32 +250,6 @@ export default function Admin() {
           <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No users found.</div>
         )}
       </div>
-
-      {editing && (
-        <Modal onClose={() => setEditing(null)} title={`Edit user ${editing.email}`}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <Field label="Email"><input className="input" value={editing.email} onChange={e => setEditing({ ...editing, email: e.target.value })} /></Field>
-            <Field label="Username"><input className="input" value={editing.username} onChange={e => setEditing({ ...editing, username: e.target.value })} /></Field>
-            <Field label="Full name"><input className="input" value={editing.full_name || ''} onChange={e => setEditing({ ...editing, full_name: e.target.value })} /></Field>
-            <Field label="Reset password (optional, min 6 chars)">
-              <input className="input" type="password" value={editing._password} onChange={e => setEditing({ ...editing, _password: e.target.value })} placeholder="Leave blank to keep current" />
-            </Field>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#e5e5e5' }}>
-              <input type="checkbox" checked={editing.is_active} onChange={e => setEditing({ ...editing, is_active: e.target.checked })} disabled={editing.id === me?.id} />
-              Active {editing.id === me?.id && <span style={{ color: '#86efac', fontSize: 11 }}>(cannot deactivate own)</span>}
-            </label>
-            <div style={{ borderTop: '1px solid #112418', paddingTop: 12, fontSize: 12, color: '#86efac' }}>
-              <div>ID: <span style={{ color: '#d8ffe6', fontFamily: 'monospace' }}>{editing.id}</span></div>
-              <div>Scans this month: <span style={{ color: '#d8ffe6' }}>{editing.scans_this_month}</span></div>
-              <div>Created: <span style={{ color: '#d8ffe6' }}>{editing.created_at}</span></div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn" onClick={() => setEditing(null)} disabled={saving}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveEdit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {deleteId && (() => {
         const target = users.find(u => u.id === deleteId);
@@ -394,13 +344,11 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, onPromote, onDemote, isBanning, roles = [] }) {
+function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   const targetIsSuperAdmin = user.role === 'superadmin';
   const canMutate = isSuperAdmin && !targetIsSuperAdmin;
-  // Resolve role color from user.role_color (backend) or roles list, fallback to default green
-  const roleObj = roles.find(r => r.name === user.role);
-  const roleColor = user.role_color || roleObj?.color || '#6dba85';
+  const roleColor = user.role === 'superadmin' ? '#a3e635' : user.role === 'admin' ? '#00ff66' : '#6dba85';
   // Card background tinted with role color for at-a-glance grouping
   const tintHex = roleColor + '14';  // ~8% alpha
   return (
@@ -428,21 +376,6 @@ function UserRow({ user, isMe, isSuperAdmin, onEdit, onDelete, onBan, onUnban, o
       </div>
       {canMutate && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button
-            className="btn"
-            onClick={onEdit}
-            disabled={isMe}
-            style={isMe ? {
-              background: 'transparent', borderColor: '#1d3825', color: '#3f6e4a',
-            } : {
-              background: 'rgba(124, 184, 255, 0.06)',
-              borderColor: '#2a4a6e',
-              color: '#7cb8ff',
-            }}
-            title={isMe ? 'You cannot edit your own account here' : 'Edit user'}
-          >
-            Edit
-          </button>
           {user.role === 'user' && (
             <button
               className="btn"
@@ -705,14 +638,16 @@ function LogRow({ log }) {
               <span style={{ color: '#d8ffe6', fontSize: 12 }}>@{log.target.username}</span>
             </>
           )}
-          {isScan && log.scan && (
+          {isScan && log.scan_metadata && (
             <>
               <span style={{ color: '#3f6e4a', fontSize: 12 }}>·</span>
               <span className="mono" style={{ fontSize: 11, color: accent, letterSpacing: 1 }}>
-                {log.scan.verdict?.toUpperCase()}
+                {log.scan_metadata.verdict?.toUpperCase()}
               </span>
               <span className="mono" style={{ fontSize: 11, color: '#6dba85' }}>
-                {(log.scan.confidence_score * 100).toFixed(0)}%
+                {log.scan_metadata.category_confidence != null
+                  ? `${(log.scan_metadata.category_confidence * 100).toFixed(0)}%`
+                  : 'metadata'}
               </span>
             </>
           )}
@@ -725,8 +660,8 @@ function LogRow({ log }) {
 
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #112418' }}>
-          {isScan && log.scan ? (
-            <ScanLogDetail scan={log.scan} />
+          {isScan && log.scan_metadata ? (
+            <ScanMetadataDetail metadata={log.scan_metadata} />
           ) : (
             <pre style={{
               color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
@@ -742,84 +677,19 @@ function LogRow({ log }) {
   );
 }
 
-function ScanLogDetail({ scan }) {
-  const imageUrl = scan.has_image ? api.adminScanImageUrl(scan.scan_id) : null;
+function ScanMetadataDetail({ metadata }) {
   const verdictColors = { forged: '#ff3344', suspicious: '#ffa040', no_forgery_detected: '#00ff66', not_a_document: '#737373' };
-  const vc = verdictColors[scan.verdict] || '#86efac';
+  const vc = verdictColors[metadata.verdict] || '#86efac';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: imageUrl ? '220px 1fr' : '1fr', gap: 16 }}>
-      {imageUrl && (
-        <div>
-          <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 6px', textTransform: 'uppercase' }}>
-            Scan Image
-          </p>
-          <img
-            src={imageUrl}
-            alt={scan.filename}
-            style={{ width: '100%', border: '1px solid #1d3825', borderRadius: 2 }}
-          />
-          <p className="mono" style={{ fontSize: 10, color: '#6dba85', margin: '6px 0 0', wordBreak: 'break-all' }}>
-            {scan.filename}
-          </p>
-          <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', margin: '2px 0 0' }}>
-            {scan.image_width} × {scan.image_height}
-          </p>
-        </div>
-      )}
-      <div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
-          <Pill label="Scan ID" value={scan.scan_id} mono />
-          <Pill label="Verdict" value={scan.verdict?.toUpperCase()} color={vc} />
-          <Pill label="Confidence" value={`${(scan.confidence_score * 100).toFixed(1)}%`} />
-          {scan.detected_category && <Pill label="Category" value={scan.detected_category} />}
-          {scan.certainty_level && <Pill label="Certainty" value={scan.certainty_level} />}
-          {scan.document_type && <Pill label="Doc Type" value={scan.document_type} />}
-        </div>
-
-        {scan.category_explanation && (
-          <div style={{ marginBottom: 10 }}>
-            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
-              Gemini Explanation
-            </p>
-            <p style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{scan.category_explanation}</p>
-          </div>
-        )}
-
-        {scan.category_evidence?.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
-              Evidence
-            </p>
-            <ul style={{ margin: 0, paddingLeft: 18, color: '#86efac', fontSize: 12, lineHeight: 1.6 }}>
-              {scan.category_evidence.map((e, i) => <li key={i}>{e}</li>)}
-            </ul>
-          </div>
-        )}
-
-        {scan.llm_explanation && (
-          <div style={{ marginBottom: 10 }}>
-            <p className="mono" style={{ fontSize: 9, letterSpacing: 2, color: '#3f6e4a', margin: '0 0 4px', textTransform: 'uppercase' }}>
-              LLM Explanation
-            </p>
-            <p style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{scan.llm_explanation}</p>
-          </div>
-        )}
-
-        <details style={{ marginTop: 10 }}>
-          <summary style={{ cursor: 'pointer', color: '#86efac', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
-            ▸ Full JSON
-          </summary>
-          <pre style={{
-            color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
-            background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418', marginTop: 8,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 360, overflow: 'auto',
-          }}>
-            {JSON.stringify(scan, null, 2)}
-          </pre>
-        </details>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <Pill label="Scan ID" value={metadata.scan_id} mono />
+      <Pill label="Verdict" value={metadata.verdict?.toUpperCase()} color={vc} />
+      {metadata.detected_category && <Pill label="Category" value={metadata.detected_category} />}
+      {metadata.category_confidence != null && <Pill label="Category confidence" value={`${(metadata.category_confidence * 100).toFixed(1)}%`} />}
+      {metadata.certainty_level && <Pill label="Certainty" value={metadata.certainty_level} />}
+      {metadata.document_type && <Pill label="Document type" value={metadata.document_type} />}
       </div>
-    </div>
   );
 }
 

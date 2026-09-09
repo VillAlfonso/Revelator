@@ -4,27 +4,17 @@ Admin CRUD routes - all endpoints require is_admin=True.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, hash_password
-from ..config import UPLOAD_DIR
+from ..auth import get_current_admin, get_current_super_admin
 from ..database import get_db
 from ..models import User, Scan, AdminAuditLog
 from datetime import datetime, timedelta, timezone
 import json
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
-
-
-class UserUpdate(BaseModel):
-    is_active: Optional[bool] = None
-    full_name: Optional[str] = None
-    username: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
 
 
 def _user_row(u: User, db: Session = None) -> dict:
@@ -99,59 +89,6 @@ def get_user(user_id: str, _: User = Depends(get_current_admin), db: Session = D
     data = _user_row(user, db)
     data["total_scans"] = scan_count
     return data
-
-
-@router.put("/users/{user_id}")
-def update_user(
-    user_id: str,
-    body: UserUpdate,
-    admin: User = Depends(get_current_super_admin),
-    db: Session = Depends(get_db),
-):
-    """Update a user. Super admin only."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    changes = {}
-
-    if body.is_active is not None:
-        if user.id == admin.id and body.is_active is False:
-            raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
-        if user.is_active != body.is_active:
-            changes["is_active"] = {"from": user.is_active, "to": body.is_active}
-        user.is_active = body.is_active
-
-    if body.full_name is not None and body.full_name != user.full_name:
-        changes["full_name"] = {"from": user.full_name, "to": body.full_name}
-        user.full_name = body.full_name
-
-    if body.username is not None and body.username != user.username:
-        if db.query(User).filter(User.username == body.username, User.id != user.id).first():
-            raise HTTPException(status_code=400, detail="Username already taken")
-        changes["username"] = {"from": user.username, "to": body.username}
-        user.username = body.username
-
-    if body.email is not None and body.email != user.email:
-        if db.query(User).filter(User.email == body.email, User.id != user.id).first():
-            raise HTTPException(status_code=400, detail="Email already registered")
-        changes["email"] = {"from": user.email, "to": body.email}
-        user.email = body.email
-
-    if body.password is not None:
-        if len(body.password) < 6:
-            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-        user.hashed_password = hash_password(body.password)
-        changes["password"] = "changed"
-
-    db.commit()
-    db.refresh(user)
-
-    if changes:
-        _log_admin_action(db, admin.id, "update_user", user_id,
-                          {"username": user.username, "email": user.email, "changes": changes})
-
-    return _user_row(user, db)
 
 
 @router.delete("/users/{user_id}")
@@ -418,7 +355,7 @@ def view_audit_logs(
                 "actor": {"username": admin_user.username, "email": admin_user.email, "role": admin_user.role} if admin_user else None,
                 "action": log.action,
                 "target": {"username": target_user.username, "email": target_user.email} if target_user else None,
-                "details": json.loads(log.details) if log.details else None,
+                "details": {"action_recorded": True} if log.details else None,
                 "created_at": log.created_at.isoformat(),
             })
 
@@ -431,42 +368,20 @@ def view_audit_logs(
                 "actor": {"username": user.username, "email": user.email, "role": user.role} if user else None,
                 "action": "user_scan",
                 "target": None,
-                "scan": {
+                "scan_metadata": {
                     "scan_id": scan.scan_id,
-                    "filename": scan.filename,
                     "verdict": scan.verdict,
-                    "confidence_score": scan.confidence_score,
                     "detected_category": scan.detected_category,
-                    "detected_subtype": scan.detected_subtype,
                     "category_confidence": scan.category_confidence,
-                    "category_explanation": scan.category_explanation,
-                    "category_evidence": json.loads(scan.category_evidence) if scan.category_evidence else [],
-                    "reasoning_steps": json.loads(scan.reasoning_steps) if scan.reasoning_steps else [],
-                    "alternatives": json.loads(scan.alternatives) if scan.alternatives else [],
-                    "anomaly_location": scan.anomaly_location,
                     "certainty_level": scan.certainty_level,
-                    "tools_likely_used": scan.tools_likely_used,
                     "document_type": scan.document_type,
-                    "image_width": scan.image_width,
-                    "image_height": scan.image_height,
-                    "has_image": bool(scan.image_path),
-                    "llm_explanation": scan.llm_explanation,
-                    "user_context": {
-                        "suspicion_reason": scan.suspicion_reason,
-                        "area_of_concern": scan.area_of_concern,
-                        "image_source": scan.image_source,
-                        "shot_type": scan.shot_type,
-                        "lighting": scan.lighting,
-                        "physical_clues": scan.physical_clues,
-                        "is_forged_belief": scan.is_forged_belief,
-                    },
                 },
                 "created_at": scan.created_at.isoformat() if scan.created_at else "",
             })
 
     # Distinct values for the frontend filter dropdowns (computed pre-filter).
     available_actions = sorted({e["action"] for e in combined if e.get("action")})
-    available_verdicts = sorted({(e.get("scan") or {}).get("verdict") for e in combined if e.get("scan") and e["scan"].get("verdict")})
+    available_verdicts = sorted({(e.get("scan_metadata") or {}).get("verdict") for e in combined if e.get("scan_metadata") and e["scan_metadata"].get("verdict")})
 
     ql = q.lower().strip() if q else None
     actor_l = actor.lower().strip() if actor else None
@@ -476,7 +391,7 @@ def view_audit_logs(
             return False
         if role and (e.get("actor") or {}).get("role") != role:
             return False
-        if verdict and (e.get("scan") or {}).get("verdict") != verdict:
+        if verdict and (e.get("scan_metadata") or {}).get("verdict") != verdict:
             return False
         cd = (e.get("created_at") or "")[:10]
         if start_date and (not cd or cd < start_date):
@@ -490,7 +405,7 @@ def view_audit_logs(
         if ql:
             a = e.get("actor") or {}
             t = e.get("target") or {}
-            s = e.get("scan") or {}
+            s = e.get("scan_metadata") or {}
             hay = " ".join(str(x) for x in [
                 a.get("username"), a.get("email"), e.get("action"),
                 t.get("username"), t.get("email"),
@@ -516,23 +431,3 @@ def view_audit_logs(
     }
 
 
-@router.get("/scans/{scan_id}/image")
-def admin_scan_image(
-    scan_id: str,
-    token: str = Query(..., description="Access token (query param so <img src> works)"),
-    db: Session = Depends(get_db),
-):
-    """Fetch any user's scan image. Admin or super admin only."""
-    user = get_user_from_token(token, db)
-    if user.role not in ("admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    scan = db.query(Scan).filter(Scan.scan_id == scan_id).first()
-    if not scan or not scan.image_path:
-        raise HTTPException(status_code=404, detail="Image not found")
-
-    file_path = (UPLOAD_DIR / scan.image_path).resolve()
-    if not str(file_path).startswith(str(UPLOAD_DIR.resolve())) or not file_path.exists():
-        raise HTTPException(status_code=404, detail="Image not found")
-
-    return FileResponse(file_path, media_type="image/jpeg")

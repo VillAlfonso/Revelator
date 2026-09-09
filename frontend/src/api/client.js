@@ -284,10 +284,6 @@ export const api = {
     return request(`/admin/users/${userId}`);
   },
 
-  adminUpdateUser(userId, patch) {
-    return request(`/admin/users/${userId}`, { method: 'PUT', body: JSON.stringify(patch) });
-  },
-
   adminDeleteUser(userId) {
     return request(`/admin/users/${userId}`, { method: 'DELETE' });
   },
@@ -324,11 +320,6 @@ export const api = {
       if (v) params.set(k, v);
     }
     return request(`/admin/super/logs?${params.toString()}`);
-  },
-
-  adminScanImageUrl(scanId) {
-    const token = getToken();
-    return `${API_BASE}/admin/scans/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
   },
 
   adminGeminiStatus() {
