@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { StickyNote, Check, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth, useScan } from '../App';
 import { MagnifierIcon } from '../components/ForensicMotifs';
 import { CATEGORY_BY_KEY, MAIN_CATEGORY_CODE_BY_KEY } from '../categories';
+import { requestApiKeyTutorial } from '../apiKeyTutorial';
 
 export default function Scan() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { status: scanStatus, result, error: scanError, previewUrl: ctxPreview, startScan, stopScan, clearScan } = useScan();
 
@@ -44,8 +46,15 @@ export default function Scan() {
       setQuotaExhausted(true);
       localStorage.setItem('fg_highlight_key_input', 'true');
       localStorage.setItem('fg_no_api_key', scanError === 'no_api_key' ? 'true' : 'false');
+      requestApiKeyTutorial();
+      navigate('/account');
     }
-  }, [scanError]);
+  }, [navigate, scanError]);
+
+  function openApiKeyTutorial() {
+    requestApiKeyTutorial();
+    navigate('/account');
+  }
 
   // Draw annotations when result arrives
   useEffect(() => {
@@ -489,6 +498,15 @@ export default function Scan() {
             </button>
           )}
         </div>
+
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={openApiKeyTutorial}
+          style={{ width: '100%', padding: '12px', fontSize: 12, letterSpacing: 1.5 }}
+        >
+          How to Get API Key
+        </button>
 
         <div style={{
           border: '1px solid #1d3825', borderRadius: 3, padding: '10px 14px',

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '../App';
 import { api } from '../api/client';
+import { consumeApiKeyTutorialRequest } from '../apiKeyTutorial';
 
 const darkInput = {
   background: '#0a0f0c',
@@ -28,6 +29,8 @@ export default function Account() {
   const [revealedKeys, setRevealedKeys] = useState({});
 
   const [twoFABusy, setTwoFABusy] = useState(false);
+  const [tutorialFocus, setTutorialFocus] = useState(false);
+  const tutorialRef = useRef(null);
 
   useEffect(() => {
     if (user) setForm({ full_name: user.full_name || '', username: user.username || '' });
@@ -49,6 +52,20 @@ export default function Account() {
   }, []);
 
   useEffect(() => { loadKeys(); }, [loadKeys]);
+
+  useEffect(() => {
+    if (!consumeApiKeyTutorialRequest()) return undefined;
+
+    const openTimer = setTimeout(() => {
+      if (!tutorialRef.current) return;
+      tutorialRef.current.open = true;
+      const tutorialTop = tutorialRef.current.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, tutorialTop - window.innerHeight * 0.30), behavior: 'smooth' });
+      setTimeout(() => setTutorialFocus(true), 500);
+    }, 500);
+
+    return () => clearTimeout(openTimer);
+  }, []);
 
   async function saveProfile() {
     setError('');
@@ -248,11 +265,24 @@ export default function Account() {
       
 
         {/* How to get a key collapsible tutorial */}
-        <details style={{
+        {tutorialFocus && (
+          <div
+            onClick={() => setTutorialFocus(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.82)' }}
+          />
+        )}
+        <details
+          ref={tutorialRef}
+          onClick={event => event.stopPropagation()}
+          style={{
+          position: tutorialFocus ? 'relative' : 'static',
+          zIndex: tutorialFocus ? 101 : 'auto',
           background: 'rgba(0,255,102,0.04)', border: '1px solid rgba(0,255,102,0.15)',
           borderRadius: 3, padding: 12, marginBottom: 16,
-          boxShadow: highlightKeyInput ? '0 0 12px rgba(0,255,102,0.6), inset 0 0 8px rgba(0,255,102,0.2)' : 'none',
-          transition: 'box-shadow 0.3s',
+          boxShadow: tutorialFocus || highlightKeyInput
+            ? '0 0 28px rgba(0,255,102,0.9), inset 0 0 16px rgba(0,255,102,0.3)'
+            : 'none',
+          transition: 'box-shadow 0.5s ease',
         }}>
           <summary style={{
             fontSize: 11, color: '#6dba85', textTransform: 'uppercase', letterSpacing: 1,
