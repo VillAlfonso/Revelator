@@ -163,7 +163,8 @@ export default function Scan() {
         </h2>
       </div>
 
-      <div className="card" style={{ display: 'grid', gap: 20, maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, maxWidth: 800, margin: '0 auto' }}>
+        <div className="card">
           <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
 
           {!activePreview ? (
@@ -241,7 +242,9 @@ export default function Scan() {
               </div>
             </>
           )}
+
         {/* Optional context - collapsed by default */}
+        <div style={{ border: '1px solid #112418', borderRadius: 3, background: 'rgba(0,255,102,0.02)' }}>
           <button
             type="button"
             onClick={() => setShowExtras(!showExtras)}
@@ -464,6 +467,8 @@ export default function Scan() {
               </div>
             </div>
           )}
+        </div>
+        </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary" onClick={handleAnalyze} disabled={!file || loading} style={{ fontSize: 16, padding: '18px 0', flex: 1 }}>
