@@ -247,20 +247,6 @@ export default function Account() {
         </h2>
       
 
-        <a
-          href="https://aistudio.google.com/api-keys"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block', padding: '10px 16px', marginBottom: 20,
-            background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66', borderRadius: 3,
-            color: '#00ff66', textDecoration: 'none', fontSize: 12,
-            fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
-          }}
-        >
-          → Open Google AI Studio
-        </a>
-
         {/* How to get a key collapsible tutorial */}
         <details style={{
           background: 'rgba(0,255,102,0.04)', border: '1px solid rgba(0,255,102,0.15)',
@@ -277,20 +263,35 @@ export default function Account() {
           </summary>
           <div style={{ display: 'grid', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
             {[
-              { step: 1, text: 'Click "Open Google AI Studio" button below', img: null },
+              { step: 1, text: 'Go to', link: 'Google AI Studio', img: null },
               { step: 2, text: 'Accept the terms and conditions', img: '/tutorial-1.jpg' },
               { step: 3, text: 'Click the "Create API Key" button', img: '/tutorial-2.jpg' },
               { step: 4, text: 'Click "Create Key"', img: '/tutorial-3.jpg' },
               { step: 5, text: 'Copy your API key (click the copy icon)', img: '/tutorial-4.jpg' },
-              { step: 6, text: 'Come back here and paste it in the "API Key" field below, then click "Add Key"', img: null },
-              { step: 7, text: '(Optional but recommended) Sign in to a different Google account and get more API keys, quota resets every 12 hours', img: null },
+              { step: 6, text: 'Come back here and paste it in the "API Key" field below, add a key name, then click "Add Key"', img: null },
+              { step: 7, text: 'Optional but recommended, Sign in to a different Google account and get more API keys, quota resets every 12 hours', img: null },
             ].map((item, idx) => (
               <div key={idx} style={{ display: 'grid', gap: 8 }}>
                 <div style={{ fontSize: 12, color: '#d8ffe6', lineHeight: 1.6 }}>
                   <span style={{ color: item.step === 7 ? '#6dba85' : '#00ff66', fontWeight: 600, marginRight: 8 }}>
                     Step {item.step}{item.step === 7 ? ' (optional)' : ''}:
                   </span>
-                  {item.text}
+                  {item.text}{item.link && (
+                    <a
+                      href="https://aistudio.google.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-block', marginLeft: 8, padding: '5px 10px',
+                        background: 'rgba(0,255,102,0.1)', border: '1px solid #00ff66',
+                        borderRadius: 3, color: '#00ff66', textDecoration: 'none',
+                        fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                        letterSpacing: 1, fontSize: 11,
+                      }}
+                    >
+                      {item.link}
+                    </a>
+                  )}
                 </div>
                 {item.img && (
                   <img
