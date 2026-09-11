@@ -150,9 +150,6 @@ export default function Account() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <p className="classification-bar" style={{ marginBottom: 12 }}>
-        OPERATOR · ACCOUNT · CONTROLS
-      </p>
       <h1 className="oswald glow" style={{
         fontSize: 28, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 24, color: '#00ff66',
       }}>

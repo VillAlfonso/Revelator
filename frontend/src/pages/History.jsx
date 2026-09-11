@@ -57,7 +57,6 @@ export default function History() {
 
   return (
     <div>
-      <p className="classification-bar" style={{ marginBottom: 12 }}>OPERATOR · SCAN · LOG</p>
       <h1 className="oswald glow" style={{ fontSize: 28, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 24, color: '#00ff66' }}>
         Scan History
       </h1>

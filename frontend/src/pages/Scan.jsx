@@ -158,7 +158,6 @@ export default function Scan() {
   return (
     <div>
       <div style={{ marginBottom: 24, textAlign: 'center' }}>
-        <p className="classification-bar" style={{ marginBottom: 6 }}>FORENSIC · SCAN · PIPELINE</p>
         <h2 className="oswald glow" style={{ fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0 }}>
           Scan Forgery
         </h2>

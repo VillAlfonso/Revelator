@@ -149,9 +149,6 @@ export default function Admin() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <p className="classification-bar" style={{ marginBottom: 6 }}>
-          CONTROL · ADMIN · CONSOLE
-        </p>
         <h1 className="oswald glow" style={{
           fontSize: 26, color: '#00ff66', letterSpacing: 4, textTransform: 'uppercase', margin: 0,
         }}>
