@@ -152,6 +152,40 @@ a:hover {
   0%   { background-position: 0 0; }
   100% { background-position: 40px 0; }
 }
+@keyframes scan-spinner {
+  to { transform: rotate(360deg); }
+}
+@keyframes scan-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(320%); }
+}
+
+.scan-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 255, 102, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: scan-spinner 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.scan-progress {
+  width: 88px;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(0, 255, 102, 0.14);
+  border-radius: 2px;
+}
+
+.scan-progress span {
+  display: block;
+  width: 32%;
+  height: 100%;
+  background: var(--green-neon);
+  box-shadow: 0 0 8px rgba(0, 255, 102, 0.8);
+  animation: scan-progress 1.2s ease-in-out infinite;
+}
 
 .tape-border {
   height: 2px;

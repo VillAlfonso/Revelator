@@ -481,21 +481,31 @@ export default function Scan() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary" onClick={handleAnalyze} disabled={!file || loading} style={{ fontSize: 16, padding: '18px 0', flex: 1 }}>
-            {loading ? '◌ Running detection…' : '▶ Scan Forgery'}
+            {loading ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                <span className="scan-spinner" aria-hidden="true" />
+                Running detection...
+              </span>
+            ) : '▶ Scan Forgery'}
           </button>
           {loading && (
-            <button
-              onClick={stopScan}
-              title="Stop scan"
-              style={{
-                background: 'rgba(255,51,68,0.08)', border: '1px solid rgba(255,51,68,0.5)',
-                color: '#ff8a99', borderRadius: 3, padding: '0 16px',
-                cursor: 'pointer', fontSize: 13, flexShrink: 0,
-                fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
-              }}
-            >
-              ✕ Stop
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+              <div className="scan-progress" role="progressbar" aria-label="Scan in progress">
+                <span />
+              </div>
+              <button
+                onClick={stopScan}
+                title="Stop scan"
+                style={{
+                  flex: 1, background: 'rgba(255,51,68,0.08)', border: '1px solid rgba(255,51,68,0.5)',
+                  color: '#ff8a99', borderRadius: 3, padding: '0 16px',
+                  cursor: 'pointer', fontSize: 13,
+                  fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase', letterSpacing: 1,
+                }}
+              >
+                ✕ Stop
+              </button>
+            </div>
           )}
         </div>
 
@@ -818,6 +828,7 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
                 }
                 captureTips.push('Use even, diffuse lighting. Avoid harsh shadows or glare- tilt the document slightly if a flash is washing out surface texture.');
                 captureTips.push('Lay the document flat on a plain surface. Creases and perspective distortion make edge artifacts harder to detect.');
+                captureTips.push('Keep the original full-resolution image. Take the photo directly in Revelator when possible. If transferring an image from another device, use Gmail or Google Drive instead of Messenger or apps that compress and pixelate images.');
                 captureTips.push('If examining a signature or stamp, zoom in on just that area for a second scan - localized detail is more useful than the whole page at low resolution.');
                 if (!hasContext) {
                   captureTips.push('Fill in the Additional Context section before scanning - document type and your suspicion reason significantly narrow the analysis.');
