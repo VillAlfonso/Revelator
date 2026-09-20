@@ -25,10 +25,9 @@ from ..config import (
     UNLIMITED, LLM_PLANS, UPLOAD_DIR,
 )
 from ..forgery.document_gate import check_is_document
-from ..config import USE_LOCAL_CLASSIFIER, LOCAL_CLASSIFIER_THRESHOLD
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
-    preprocess_image, confidence_gated_analyze, explain_with_hint,
+    preprocess_image, confidence_gated_analyze,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 
@@ -299,54 +298,19 @@ def analyze_document(
     ).first()
     api_key = active_key_row.api_key if active_key_row else (current_user.gemini_api_key or None)
 
-    # STAGE 1a: Local classifier -> short explain-only Gemini call (fewer tokens) when confident.
-    gemini = None
-    if USE_LOCAL_CLASSIFIER:
-        try:
-            from ..forgery import local_classifier
-            hint = local_classifier.predict(preprocessed)
-        except Exception as exc:
-            print(f"[DEBUG] local classifier unavailable: {exc}")
-            hint = None
-        # Every scan goes through the trained classifier first; Gemini then double-checks
-        # its prediction (the explain-only pass can confirm, refine, or override it).
-        #
-        # EXCEPTION - currency: the specimen classifier routes ANY banknote to the
-        # "counterfeit" class at ~1.0 confidence, and the terse explain-only prompt cannot
-        # tell a genuine note from a fake (verified live: it missed real counterfeits AND
-        # would over-trust genuine notes). So when the hint is currency, skip the shortcut
-        # and fall through to the full prompt below, which carries the genuine-vs-counterfeit
-        # discriminators (BSP security features, "features present but simulated" test). Only
-        # currency images pay for the full prompt; every other category keeps the token saving.
-        if hint and hint.get("confidence", 0.0) >= LOCAL_CLASSIFIER_THRESHOLD:
-            hint_is_currency = (
-                hint.get("category") == "currency_analysis"
-                or "currency_analysis" in hint.get("candidates", [])
-            )
-            if hint_is_currency:
-                print(f"[DEBUG] classifier hinted currency ({hint['class']} {hint['confidence']:.2f}) -> routing to FULL classify for genuine-vs-counterfeit discrimination")
-            else:
-                print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} -> Gemini double-checks {hint['category']} ({hint['candidates']})")
-                hinted = explain_with_hint(preprocessed, hint["label"], hint["candidates"], api_key=api_key)
-                if not hinted.get("_unavailable"):
-                    gemini = hinted
-        elif hint:
-            print(f"[DEBUG] classifier: {hint['class']} {hint['confidence']:.2f} below threshold {LOCAL_CLASSIFIER_THRESHOLD:.2f} -> using FULL classify")
-
-    # STAGE 1b: Full classification (fallback, or when the classifier is unsure/absent).
-    if gemini is None:
-        gemini = gemini_classify(
-            preprocessed,
-            document_type=document_type,
-            suspicion_reason=suspicion_reason,
-            area_of_concern=area_of_concern,
-            image_source=image_source,
-            is_forged_belief=is_forged_belief,
-            shot_type=shot_type,
-            lighting=lighting,
-            physical_clues=physical_clues,
-            api_key=api_key,
-        )
+    # Use the full Gemini taxonomy for every scan. There is no local classifier.
+    gemini = gemini_classify(
+        preprocessed,
+        document_type=document_type,
+        suspicion_reason=suspicion_reason,
+        area_of_concern=area_of_concern,
+        image_source=image_source,
+        is_forged_belief=is_forged_belief,
+        shot_type=shot_type,
+        lighting=lighting,
+        physical_clues=physical_clues,
+        api_key=api_key,
+    )
 
     if gemini.get("_unavailable"):
         # If using a user key, mark it as quota exhausted so the frontend can show a reset timer
@@ -485,6 +449,7 @@ def get_history(
                 "verdict": s.verdict,
                 "confidence_score": s.confidence_score,
                 "created_at": s.created_at.isoformat() if s.created_at else "",
+                "scanned_at": s.created_at.isoformat() if s.created_at else "",
                 "has_image": bool(s.image_path),
                 "has_llm_explanation": bool(s.llm_explanation),
                 "detected_category": s.detected_category,
@@ -545,6 +510,7 @@ def get_scan_detail(
         "is_forged_belief": scan.is_forged_belief,
         "notes": scan.notes or "",
         "created_at": scan.created_at.isoformat() if scan.created_at else "",
+        "scanned_at": scan.created_at.isoformat() if scan.created_at else "",
     }
 
 

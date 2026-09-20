@@ -44,12 +44,13 @@ export default function Scan() {
   useEffect(() => {
     if (scanError === 'quota_exhausted' || scanError === 'no_api_key') {
       setQuotaExhausted(true);
+      clearScan();
       localStorage.setItem('fg_highlight_key_input', 'true');
       localStorage.setItem('fg_no_api_key', scanError === 'no_api_key' ? 'true' : 'false');
       requestApiKeyTutorial();
       navigate('/account');
     }
-  }, [navigate, scanError]);
+  }, [clearScan, navigate, scanError]);
 
   function openApiKeyTutorial() {
     requestApiKeyTutorial();
@@ -211,7 +212,7 @@ export default function Scan() {
             </>
           ) : (
             <>
-              {/* Preview with retake control */}
+              {/* Preview */}
               <div style={{
                 border: '1px solid #1d3825', borderRadius: 3, padding: 12,
                 background: '#000', textAlign: 'center', marginBottom: 12,
@@ -221,36 +222,9 @@ export default function Scan() {
                   display: 'block', margin: '0 auto',
                 }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={handleTakePhoto}
-                  style={{
-                    padding: '12px', minHeight: 44,
-                    background: 'transparent', border: '1px solid #1d3825',
-                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
-                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-                    letterSpacing: 1.5, fontSize: 12,
-                  }}
-                >
-                  ↻ Retake
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current.click()}
-                  style={{
-                    padding: '12px', minHeight: 44,
-                    background: 'transparent', border: '1px solid #1d3825',
-                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
-                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
-                    letterSpacing: 1.5, fontSize: 12,
-                  }}
-                >
-                  ⎙ Upload
-                </button>
-              </div>
             </>
           )}
+        </div>
 
         {/* Optional context - collapsed by default */}
         <div style={{ border: '1px solid #112418', borderRadius: 3, background: 'rgba(0,255,102,0.02)' }}>
@@ -476,7 +450,6 @@ export default function Scan() {
               </div>
             </div>
           )}
-        </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>

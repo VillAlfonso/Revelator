@@ -79,13 +79,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 
-# Local specimen classifier (backend/train_classifier.py). This model is trained on
-# the specimen set and can be overconfident on new uploads, so it is opt-in. When
-# enabled and confident (>= threshold), the analyze route uses the short hint prompt.
-# Set USE_LOCAL_CLASSIFIER=true only when evaluating the specimen set.
-USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "false").lower() == "true"
-LOCAL_CLASSIFIER_THRESHOLD = float(os.getenv("LOCAL_CLASSIFIER_THRESHOLD", "0.85"))
-
 # ============================================
 # YOLO
 # ============================================

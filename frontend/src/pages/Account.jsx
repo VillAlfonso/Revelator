@@ -267,8 +267,8 @@ export default function Account() {
         {/* How to get a key collapsible tutorial */}
         {tutorialFocus && (
           <div
-            onClick={() => setTutorialFocus(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.82)' }}
+            aria-hidden="true"
+            style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.82)', pointerEvents: 'none' }}
           />
         )}
         <details
@@ -291,6 +291,26 @@ export default function Account() {
           }}>
             <span>▸ How to get a key (step-by-step tutorial)</span>
           </summary>
+          {tutorialFocus && (
+            <button
+              type="button"
+              aria-label="Exit tutorial"
+              onClick={() => {
+                setTutorialFocus(false);
+                if (tutorialRef.current) tutorialRef.current.open = false;
+              }}
+              style={{
+                marginTop: 10, display: 'block', width: 'fit-content',
+                background: '#dc2626', border: '1px solid #ff7b7b',
+                color: '#ffffff', padding: '8px 14px', cursor: 'pointer',
+                fontFamily: "'Oswald', sans-serif", fontSize: 11,
+                textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700,
+                borderRadius: 3, boxShadow: '0 2px 10px rgba(220,38,38,0.45)',
+              }}
+            >
+              Exit tutorial
+            </button>
+          )}
           <div style={{ display: 'grid', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,255,102,0.15)' }}>
             {[
               { step: 1, text: 'Go to', link: 'Google AI Studio', img: null },
