@@ -79,6 +79,11 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 
+# Local specimen classifier. When its confidence is high, Gemini verifies a
+# narrowed category instead of choosing from the entire taxonomy.
+USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "true").lower() == "true"
+LOCAL_CLASSIFIER_THRESHOLD = float(os.getenv("LOCAL_CLASSIFIER_THRESHOLD", "0.85"))
+
 # ============================================
 # YOLO
 # ============================================

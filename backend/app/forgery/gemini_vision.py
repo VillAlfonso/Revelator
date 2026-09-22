@@ -669,6 +669,60 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier narrowed this image to: {label}.
+
+The classifier can be wrong. Judge the image yourself, but verify the specific category from this allowed list: {candidates}.
+
+An authentic document is not a forgery. If you cannot point to a specific visible tampering or counterfeit sign, use no_forgery_detected. If this is not a document, use not_a_document.
+
+For currency, use currency_analysis only when a concrete counterfeit sign is visible, such as simulated security features, missing or printed-on watermark/thread, no expected raised intaglio, broken microprint, non-shifting colour ink, or wrong/mismatched serial numbers.
+
+Return ONLY valid JSON:
+{{
+  "category": "<one allowed category code>",
+  "subtype": "<specific kind or null>",
+  "confidence": <float 0.0-1.0>,
+  "anomaly_location": "<where the evidence is, or null>",
+  "explanation": "<start with the category name, then visible evidence>",
+  "evidence": ["<short visible cue>", "<another>"]
+}}"""
+
+
+def explain_with_hint(
+    image: Image.Image,
+    label: str,
+    candidates: list[str],
+    api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Verify a high-confidence local prediction with a short Gemini prompt."""
+    client = _client(api_key=api_key)
+    if client is None:
+        return _fallback("API key not configured or google-genai not installed")
+
+    buf = io.BytesIO()
+    (image if image.mode == "RGB" else image.convert("RGB")).save(buf, format="JPEG", quality=88)
+    allowed = list(dict.fromkeys([*candidates, "no_forgery_detected", "not_a_document"]))
+    prompt = EXPLAIN_PROMPT_TEMPLATE.format(label=label, candidates=", ".join(allowed))
+    from google.genai import types as genai_types
+
+    try:
+        response = client.models.generate_content(
+            model=_model_chain()[0],
+            contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
+            config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+        )
+        parsed = json.loads(_strip_json_fence(response.text or ""))
+    except Exception as exc:
+        return _fallback(f"Explain-only API call failed: {exc}", "gemini_unavailable")
+
+    if not isinstance(parsed, dict):
+        return _fallback("Explain-only response was not a JSON object", "gemini_unavailable")
+    result = _coerce(parsed)
+    result["model_used"] = _model_chain()[0]
+    result["_hinted"] = True
+    return result
+
+
 def _fallback(reason: str, failure_code: str = "gemini_unavailable") -> Dict[str, Any]:
     return {
         "category": "other",

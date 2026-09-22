@@ -17,6 +17,8 @@ google-auth>=2.30
 
 # Image Processing
 Pillow>=11.0
+torch>=2.14.0
+torchvision>=0.29.0
 
 # AI / Vision
 groq>=0.11

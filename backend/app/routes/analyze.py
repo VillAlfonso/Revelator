@@ -22,12 +22,13 @@ from ..database import get_db
 from ..models import User, Scan, UserApiKey, AdminAuditLog
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
-    UNLIMITED, LLM_PLANS, UPLOAD_DIR,
+    UNLIMITED, LLM_PLANS, UPLOAD_DIR, USE_LOCAL_CLASSIFIER,
+    LOCAL_CLASSIFIER_THRESHOLD,
 )
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
-    preprocess_image, confidence_gated_analyze,
+    preprocess_image, confidence_gated_analyze, explain_with_hint,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 
@@ -302,22 +303,47 @@ def analyze_document(
     if not key_attempts:
         key_attempts.append((None, None))
 
+    local_hint = None
+    if USE_LOCAL_CLASSIFIER:
+        try:
+            from ..forgery import local_classifier
+            predicted = local_classifier.predict(preprocessed)
+            if predicted and predicted.get("confidence", 0.0) >= LOCAL_CLASSIFIER_THRESHOLD:
+                local_hint = predicted
+                print(f"[DEBUG] local classifier: {predicted['class']} {predicted['confidence']:.2f}")
+        except Exception as exc:
+            print(f"[DEBUG] local classifier unavailable: {exc}")
+
     gemini = None
     active_key_row = None
     last_failure = None
     for api_key, key_row in key_attempts:
-        candidate = gemini_classify(
-            preprocessed,
-            document_type=document_type,
-            suspicion_reason=suspicion_reason,
-            area_of_concern=area_of_concern,
-            image_source=image_source,
-            is_forged_belief=is_forged_belief,
-            shot_type=shot_type,
-            lighting=lighting,
-            physical_clues=physical_clues,
-            api_key=api_key,
+        hint_is_currency = local_hint and (
+            local_hint.get("category") == "currency_analysis"
+            or "currency_analysis" in local_hint.get("candidates", [])
         )
+        if local_hint and not hint_is_currency:
+            print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
+            candidate = explain_with_hint(
+                preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
+            )
+            # If the narrowed call fails, retry this same key with the full prompt.
+            if candidate.get("_unavailable"):
+                candidate = gemini_classify(
+                    preprocessed, document_type=document_type,
+                    suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                    image_source=image_source, is_forged_belief=is_forged_belief,
+                    shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                    api_key=api_key,
+                )
+        else:
+            candidate = gemini_classify(
+                preprocessed, document_type=document_type,
+                suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                image_source=image_source, is_forged_belief=is_forged_belief,
+                shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                api_key=api_key,
+            )
         if not candidate.get("_unavailable"):
             gemini = candidate
             active_key_row = key_row
