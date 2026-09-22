@@ -317,7 +317,7 @@ export default function Account() {
               { step: 2, text: 'Accept the terms and conditions', img: '/tutorial-1.jpg' },
               { step: 3, text: 'Click the "Create API Key" button', img: '/tutorial-2.jpg' },
               { step: 4, text: 'Click "Create Key"', img: '/tutorial-3.jpg' },
-              { step: 5, text: 'Copy your API key (click the copy icon)', img: '/tutorial-4.jpg' },
+              { step: 5, text: 'Copy your API key (click the copy icon)', img: '/tutorial-4.jpg?v=2' },
               { step: 6, text: 'Come back here and paste it in the "API Key" field below, add a key name, then click "Add Key"', img: null },
               { step: 7, text: 'Optional but recommended, Sign in to a different Google account and get more API keys, quota resets every 12 hours', img: null },
             ].map((item, idx) => (
