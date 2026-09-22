@@ -323,7 +323,7 @@ def analyze_document(
             or "currency_analysis" in local_hint.get("candidates", [])
         )
         if local_hint and not hint_is_currency:
-            print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
+            print(f"[DEBUG] classifier hint (not locked): {local_hint['category']} {local_hint['candidates']}")
             candidate = explain_with_hint(
                 preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
             )

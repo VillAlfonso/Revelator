@@ -679,11 +679,15 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier narrowed this image to: {label}.
+EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A local image classifier suggested: {label}.
 
-The classifier can be wrong. Judge the image yourself, but verify the specific category from this allowed list: {candidates}.
+The classifier can be wrong, especially when a signature box, paper texture, or camera angle resembles a training class. Judge the image yourself. The suggestion is only a lead, not a restriction. Choose the best category from this complete list: {candidates}.
 
 An authentic document is not a forgery. If you cannot point to a specific visible tampering or counterfeit sign, use no_forgery_detected. If this is not a document, use not_a_document.
+
+For checks and receipts, compare every numeric amount and written amount. If a digit or stroke appears added inside an existing amount, squeezed against a currency symbol, or changes the value, classify addition_insertion even when the rest of the form is genuine.
+
+For signatures and stamps, distinguish physical ink from digital compositing. A signature or stamp with a rectangular boundary, halo, pixelation, mismatched sharpness/noise, or no interaction with the paper is digital_cut_paste. A printed form box or border alone is not enough; the artifact must belong to the signature or stamp itself. Do not call it sympathetic_indented unless there is pressure-only writing with no visible ink.
 
 For currency, use currency_analysis only when a concrete counterfeit sign is visible, such as simulated security features, missing or printed-on watermark/thread, no expected raised intaglio, broken microprint, non-shifting colour ink, or wrong/mismatched serial numbers.
 
@@ -711,24 +715,46 @@ def explain_with_hint(
 
     buf = io.BytesIO()
     (image if image.mode == "RGB" else image.convert("RGB")).save(buf, format="JPEG", quality=88)
-    allowed = list(dict.fromkeys([*candidates, "no_forgery_detected", "not_a_document"]))
+    allowed = list(dict.fromkeys([
+        *candidates,
+        "addition_insertion", "digital_cut_paste", "digital_scanned",
+        "digital_desktop", "erasure_chemical", "erasure_mechanical",
+        "obliteration_ink", "obliteration_whiteout", "no_forgery_detected", "not_a_document",
+    ]))
     prompt = EXPLAIN_PROMPT_TEMPLATE.format(label=label, candidates=", ".join(allowed))
     from google.genai import types as genai_types
 
-    try:
-        response = client.models.generate_content(
-            model=_model_chain()[0],
-            contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
-            config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+    last_exc = None
+    model_used = None
+    all_rate_limited = True
+    for model in _model_chain():
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
+                config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+            )
+            parsed = json.loads(_strip_json_fence(response.text or ""))
+            model_used = model
+            break
+        except json.JSONDecodeError:
+            return _fallback("Explain-only response was not valid JSON", "gemini_unavailable")
+        except Exception as exc:
+            last_exc = exc
+            if _is_rate_limited(exc) or _is_transient_provider_error(exc):
+                continue
+            all_rate_limited = False
+            return _fallback(f"Explain-only API call failed: {exc}", "gemini_unavailable")
+    else:
+        return _fallback(
+            f"Explain-only models unavailable: {last_exc}",
+            "quota_exhausted" if all_rate_limited else "gemini_unavailable",
         )
-        parsed = json.loads(_strip_json_fence(response.text or ""))
-    except Exception as exc:
-        return _fallback(f"Explain-only API call failed: {exc}", "gemini_unavailable")
 
     if not isinstance(parsed, dict):
         return _fallback("Explain-only response was not a JSON object", "gemini_unavailable")
     result = _coerce(parsed)
-    result["model_used"] = _model_chain()[0]
+    result["model_used"] = model_used
     result["_hinted"] = True
     return result
 
