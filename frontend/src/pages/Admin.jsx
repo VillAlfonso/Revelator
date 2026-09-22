@@ -23,8 +23,8 @@ export default function Admin() {
   const [logsStats, setLogsStats] = useState({ admin_actions_total: 0, scans_total: 0, total: 0 });
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan'
-  const [logFilters, setLogFilters] = useState({ action: '', role: '', verdict: '', start_date: '', end_date: '', q: '' });
-  const [logMeta, setLogMeta] = useState({ available_actions: [], available_verdicts: [] });
+  const [logFilters, setLogFilters] = useState({ action: '', role: '', verdict: '', category: '', start_date: '', end_date: '', q: '' });
+  const [logMeta, setLogMeta] = useState({ available_actions: [], available_verdicts: [], available_categories: [] });
   const [banningUserId, setBanningUserId] = useState(null);
 
   const load = useCallback(async () => {
@@ -61,6 +61,7 @@ export default function Admin() {
       setLogMeta({
         available_actions: data.available_actions || [],
         available_verdicts: data.available_verdicts || [],
+        available_categories: data.available_categories || [],
       });
     } catch (err) {
       setError(err.message);
@@ -516,8 +517,8 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
   const [qDraft, setQDraft] = useState(logFilters.q || '');
   useEffect(() => { setQDraft(logFilters.q || ''); }, [logFilters.q]);
   const setF = (k, v) => setLogFilters(f => ({ ...f, [k]: v }));
-  const clearFilters = () => setLogFilters({ action: '', role: '', verdict: '', start_date: '', end_date: '', q: '' });
-  const hasAdvanced = Boolean(logFilters.action || logFilters.role || logFilters.verdict || logFilters.start_date || logFilters.end_date || logFilters.q);
+  const clearFilters = () => setLogFilters({ action: '', role: '', verdict: '', category: '', start_date: '', end_date: '', q: '' });
+  const hasAdvanced = Boolean(logFilters.action || logFilters.role || logFilters.verdict || logFilters.category || logFilters.start_date || logFilters.end_date || logFilters.q);
   const inp = { padding: '6px 8px', fontSize: 11, background: '#0a120c', border: '1px solid #1d3825', color: '#d8ffe6', borderRadius: 2, fontFamily: "'JetBrains Mono', monospace" };
   return (
     <div>
@@ -560,6 +561,10 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
         <select value={logFilters.verdict} onChange={e => setF('verdict', e.target.value)} style={inp} title="Verdict">
           <option value="">Any verdict</option>
           {(logMeta.available_verdicts || []).map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select value={logFilters.category} onChange={e => setF('category', e.target.value)} style={inp} title="Forgery category">
+          <option value="">Any category</option>
+          {(logMeta.available_categories || []).map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
         </select>
         <select value={logFilters.role} onChange={e => setF('role', e.target.value)} style={inp} title="Actor role">
           <option value="">Any role</option>

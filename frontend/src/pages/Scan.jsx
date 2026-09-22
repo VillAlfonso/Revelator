@@ -212,7 +212,7 @@ export default function Scan() {
             </>
           ) : (
             <>
-              {/* Preview */}
+              {/* Preview with retake control */}
               <div style={{
                 border: '1px solid #1d3825', borderRadius: 3, padding: 12,
                 background: '#000', textAlign: 'center', marginBottom: 12,
@@ -221,6 +221,34 @@ export default function Scan() {
                   maxWidth: '100%', maxHeight: 360, borderRadius: 2,
                   display: 'block', margin: '0 auto',
                 }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleTakePhoto}
+                  style={{
+                    padding: '12px', minHeight: 44,
+                    background: 'transparent', border: '1px solid #1d3825',
+                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
+                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                    letterSpacing: 1.5, fontSize: 12,
+                  }}
+                >
+                  ↻ Retake
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current.click()}
+                  style={{
+                    padding: '12px', minHeight: 44,
+                    background: 'transparent', border: '1px solid #1d3825',
+                    color: '#86efac', cursor: 'pointer', borderRadius: 3,
+                    fontFamily: "'Oswald', sans-serif", textTransform: 'uppercase',
+                    letterSpacing: 1.5, fontSize: 12,
+                  }}
+                >
+                  ⎙ Upload New
+                </button>
               </div>
             </>
           )}

@@ -226,6 +226,56 @@ Bigger re-approach options (only if the single-call approach plateaus):
 
 ## Change log
 
+### 2026-07-27 - Light-mode fixes (prompt analytics) + installable PWA
+- Light mode: the theme works by remapping React inline-style colors via
+  `[data-theme="light"] [style*="rgb(...)"]` attribute selectors in `index.css`. Several
+  colors used by `PromptDashboard.jsx` were never added to that list, so in light mode
+  their panels stayed dark WHILE their text was remapped to near-black, i.e. invisible.
+  Added the missing mappings:
+  - `#091108` (rgb(9,17,8)) -> `#f1f6f2`. This was the actual bug: the inspector's
+    category header, the distinction cards and the inspector overlap cards. Tinted rather
+    than white so nested cards still read as cards inside the already-white container.
+  - `background: rgb(17, 36, 24)` -> `#dcebe1`. `#112418` was mapped as a BORDER color
+    only, but it is also the selected-bar-row background. Matched with the `background:`
+    prefix so the many `border: 1px solid #112418` elements do not get a stray fill.
+  - Text: `#ffaa00` -> `#8a5300` (used 8x in the dashboard and previously unmapped; note
+    `#ffa500` was mapped but is a different color), `#ffd996` -> `#7a4a10`,
+    `#ff6688` -> `#a4151f`, `#5b8def` -> `#2f5fc0`.
+  - Bar fills `#95a5a6` / `#525252` darkened (the Currency bar was invisible on a white track).
+  - Known remaining nit: bar TRACKS use `#0a120c`, which the pre-existing rule flips to
+    white, so the track disappears on light. Left alone because `#0a120c` is shared with
+    card surfaces that should be white; fixing it needs `BarRow`/`Meter` to be theme-aware.
+- PWA: the site is now installable to a phone home screen (no store, no APK). Note the
+  pre-existing `@ionic/pwa-elements` dependency is NOT a PWA, it is Capacitor's web
+  camera fallback; there was no manifest and no service worker before this.
+  - `frontend/public/manifest.json`: standalone display, black theme/background, start_url
+    `/`, 192 + 512 icons plus a maskable 512, and Scan/History shortcuts.
+  - `frontend/public/sw.js`: minimal by design. Never touches `/api/*` or `/download/*`
+    (every scan is a live Gemini call, so there is no offline scanning). Navigations are
+    network-first with the cached shell as an offline fallback, so a new build lands
+    immediately; `/assets/*` is cache-first because Vite content-hashes it; everything
+    else is stale-while-revalidate. Bump `CACHE_VERSION` when editing it.
+  - `frontend/src/pwa.js`: registration + `beforeinstallprompt` capture. Guarded to
+    production builds only (a SW in front of the Vite dev server breaks HMR) and to web
+    only (`Capacitor.isNativePlatform()`, since the Android shell serves from a local
+    scheme). Reloads on a worker UPDATE only, not on first install.
+  - `frontend/src/components/InstallButton.jsx`: renders nothing unless the browser really
+    offers an install path. Chrome/Edge get the native dialog; iOS Safari has no prompt
+    API so it shows the Share -> Add to Home Screen hint; hidden once installed. Placed on
+    Login next to the existing APK link.
+  - `backend/app/main.py`: explicit `/sw.js` and `/manifest.json` routes registered before
+    the SPA catch-all. The catch-all would already serve them, but sw.js MUST send
+    `Cache-Control: no-cache` (Cloudflare caches .js by default and a stale worker would
+    pin users to an old build). `_DIST` was hoisted above these routes.
+  - `frontend/scripts/make_icons.py`: regenerates the PNG icons from the favicon design
+    with Pillow (Android installability needs a >=192px PNG, and a maskable variant so the
+    launcher's circle crop does not clip the ring). Run `python frontend/scripts/make_icons.py`.
+  - Verified with TestClient: 19/19 checks (routes, MIME types, cache headers, manifest
+    contents, icons, and the api/SPA/APK routes still working).
+  - Requires a backend restart for the two new routes. HTTPS is required for a service
+    worker, which revelator.site already has via Cloudflare. The APK was NOT rebuilt: the
+    PWA is web-only and the native shell skips registration.
+
 ### 2026-07-10 - Currency false-positive fix, prompt-analytics sync, desktop burger removal, downloadable APK
 - Root problem reported: genuine banknotes were being flagged as forged via
   `currency_analysis`. Cause was two-fold: (1) the `currency_analysis` prompt block was

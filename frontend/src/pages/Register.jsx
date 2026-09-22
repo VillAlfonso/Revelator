@@ -7,6 +7,7 @@ import { useAuth } from '../App';
 import { api } from '../api/client';
 import Logo from '../components/Logo';
 import { FingerprintWatermark } from '../components/ForensicMotifs';
+import PasswordStrength, { passwordPolicyError } from '../components/PasswordStrength';
 
 function FieldError({ msg }) {
   if (!msg) return null;
@@ -24,10 +25,11 @@ export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     first_name: '', middle_initial: '', last_name: '',
-    email: '', username: '', password: '',
+    email: '', username: '', password: '', confirm_password: '',
   });
   const [fieldErrors, setFieldErrors] = useState({});
   const [agreed, setAgreed] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,6 +41,10 @@ export default function Register() {
       const v = transform ? transform(e.target.value) : e.target.value;
       setForm(f => ({ ...f, [field]: v }));
       if (fieldErrors[field]) setFieldErrors(fe => ({ ...fe, [field]: '' }));
+      // Editing the password invalidates a stale "do not match" on the confirm field.
+      if (field === 'password' && fieldErrors.confirm_password) {
+        setFieldErrors(fe => ({ ...fe, confirm_password: '' }));
+      }
     };
   }
 
@@ -80,11 +86,11 @@ export default function Register() {
     else if (form.email.length > 254) errs.email = 'Email is too long';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email address';
 
-    if (!form.password) errs.password = 'Password is required';
-    else if (form.password.length < 8) errs.password = 'Minimum 8 characters';
-    else if (!/[A-Za-z]/.test(form.password) || !/\d/.test(form.password)) {
-      errs.password = 'Include at least one letter and one number';
-    }
+    const pwErr = passwordPolicyError(form.password);
+    if (pwErr) errs.password = pwErr;
+
+    if (!form.confirm_password) errs.confirm_password = 'Please re-enter your password';
+    else if (form.confirm_password !== form.password) errs.confirm_password = 'Passwords do not match';
 
     return errs;
   }
@@ -286,11 +292,11 @@ export default function Register() {
             />
             <FieldError msg={fieldErrors.email} />
           </div>
-          <div style={{ marginBottom: 18 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Password</label>
             <input
               className="input"
-              type="password"
+              type={showPw ? 'text' : 'password'}
               value={form.password}
               onChange={update('password')}
               placeholder="At least 8 chars, letters + numbers"
@@ -300,8 +306,41 @@ export default function Register() {
               required
               minLength={8}
             />
+            <PasswordStrength password={form.password} />
             <FieldError msg={fieldErrors.password} />
           </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={labelStyle}>Confirm Password</label>
+            <input
+              className="input"
+              type={showPw ? 'text' : 'password'}
+              value={form.confirm_password}
+              onChange={update('confirm_password')}
+              placeholder="Re-enter your password"
+              maxLength={128}
+              autoComplete="new-password"
+              aria-invalid={!!fieldErrors.confirm_password}
+              required
+            />
+            {form.confirm_password && form.confirm_password === form.password && (
+              <div className="mono" style={{ fontSize: 11, color: '#00ff66', marginTop: 5, letterSpacing: 0.5 }}>
+                ✓ Passwords match
+              </div>
+            )}
+            <FieldError msg={fieldErrors.confirm_password} />
+          </div>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18,
+            fontSize: 12, color: '#6dba85', cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={showPw}
+              onChange={e => setShowPw(e.target.checked)}
+              style={{ width: 15, height: 15, accentColor: '#00ff66', flexShrink: 0 }}
+            />
+            Show passwords
+          </label>
           <label style={{
             display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 22,
             fontSize: 12, color: '#86efac', lineHeight: 1.5, cursor: 'pointer',

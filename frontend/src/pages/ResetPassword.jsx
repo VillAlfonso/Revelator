@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import Logo from '../components/Logo';
 import { FingerprintWatermark } from '../components/ForensicMotifs';
+import PasswordStrength, { passwordPolicyError, PASSWORD_MIN } from '../components/PasswordStrength';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -10,12 +11,15 @@ export default function ResetPassword() {
   const token = searchParams.get('token') || '';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const pwErr = passwordPolicyError(password);
+    if (pwErr) { setError(pwErr + '.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setError('');
     setLoading(true);
@@ -91,12 +95,53 @@ export default function ResetPassword() {
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>New Password</label>
-                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6} />
+                <input
+                  className="input"
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={`At least ${PASSWORD_MIN} chars, letters + numbers`}
+                  maxLength={128}
+                  autoComplete="new-password"
+                  required
+                  minLength={PASSWORD_MIN}
+                />
+                <PasswordStrength password={password} />
               </div>
-              <div style={{ marginBottom: 24 }}>
+              <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Confirm Password</label>
-                <input className="input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Re-enter password" required minLength={6} />
+                <input
+                  className="input"
+                  type={showPw ? 'text' : 'password'}
+                  value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder="Re-enter password"
+                  maxLength={128}
+                  autoComplete="new-password"
+                  required
+                  minLength={PASSWORD_MIN}
+                />
+                {confirm && (
+                  <div className="mono" style={{
+                    fontSize: 11, marginTop: 5, letterSpacing: 0.5,
+                    color: confirm === password ? '#00ff66' : '#ff8a99',
+                  }}>
+                    {confirm === password ? '✓ Passwords match' : 'Passwords do not match'}
+                  </div>
+                )}
               </div>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22,
+                fontSize: 12, color: '#6dba85', cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={showPw}
+                  onChange={e => setShowPw(e.target.checked)}
+                  style={{ width: 15, height: 15, accentColor: '#00ff66', flexShrink: 0 }}
+                />
+                Show passwords
+              </label>
               <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
                 {loading ? '◌ Updating…' : '▶ Update Password'}
               </button>

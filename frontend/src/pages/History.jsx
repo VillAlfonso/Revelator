@@ -180,7 +180,7 @@ function HistoryCard({ scan, onClick }) {
               </span>
             )}
             <span className="mono" style={{ fontSize: 10, color: mutedColor }}>
-              {new Date(scan.created_at).toLocaleDateString()}
+              Scanned {new Date(scan.scanned_at || scan.created_at).toLocaleDateString()}
             </span>
           </div>
         </div>
@@ -267,6 +267,9 @@ function ScanDetailView({ detail, onBack, onDeleted }) {
                 📄 {docTypeLabel(detail.document_type).toUpperCase()}
               </span>
             )}
+            <span className="mono" style={{ color: '#86efac', fontSize: 10 }}>
+              Scanned {new Date(detail.scanned_at || detail.created_at).toLocaleString()}
+            </span>
             <span className="mono" style={{ color: '#3f6e4a', fontSize: 11 }}>{detail.scan_id}</span>
             <button
               className="btn btn-danger"

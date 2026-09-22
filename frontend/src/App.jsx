@@ -210,7 +210,7 @@ function Layout({ children }) {
   const onScanPage = location.pathname === '/scan';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerOffset, setDrawerOffset] = useState(0); // for swipe-drag visual feedback
-  const [quotaExhausted, setQuotaExhausted] = useState(() => localStorage.getItem('fg_quota_exhausted') === 'true');
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
   const touchStartX = React.useRef(null);
   const touchStartY = React.useRef(null);
   const isDragging = React.useRef(false);
@@ -451,7 +451,6 @@ function Layout({ children }) {
       {/* API key tutorial overlay - dims everything below the header */}
       {user && quotaExhausted && !drawerOpen && (
         <div
-          onClick={() => { navigate('/account'); }}
           style={{
             position: 'fixed', inset: 0, zIndex: 48,
             background: 'rgba(0,0,0,0.82)',
@@ -460,8 +459,26 @@ function Layout({ children }) {
             paddingBottom: 40,
           }}
         >
+          <button
+            type="button"
+            aria-label="Close API key guidance"
+            onClick={() => {
+              setQuotaExhausted(false);
+              localStorage.removeItem('fg_quota_exhausted');
+              localStorage.removeItem('fg_no_api_key');
+            }}
+            style={{
+              position: 'absolute', top: 18, right: 18, zIndex: 1,
+              background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(0,255,102,0.6)',
+              color: '#00ff66', width: 34, height: 34, borderRadius: 3,
+              cursor: 'pointer', fontSize: 20, lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
           {/* Mobile floating hint */}
           <div
+            onClick={() => { navigate('/account'); }}
             className="nav-burger"
             style={{
               background: 'rgba(0,0,0,0.92)', border: '1px solid rgba(0,255,102,0.5)',
