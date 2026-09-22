@@ -689,6 +689,8 @@ For checks and receipts, compare every numeric amount and written amount. If a d
 
 For signatures and stamps, distinguish physical ink from digital compositing. A signature or stamp with a rectangular boundary, halo, pixelation, mismatched sharpness/noise, or no interaction with the paper is digital_cut_paste. A printed form box or border alone is not enough; the artifact must belong to the signature or stamp itself. Do not call it sympathetic_indented unless there is pressure-only writing with no visible ink.
 
+When the local suggestion is digital_scanned, use digital_scanned when the image is a scanned or re-captured document whose text, signatures, stamps, or filled fields are digitally layered into the overall page. Use digital_cut_paste only when one isolated element is visibly lifted and pasted onto an otherwise consistent document, with a boundary or halo directly around that element. Do not override a strong digital_scanned suggestion merely because the entire page is a clean scan or because a signature is visible.
+
 For currency, use currency_analysis only when a concrete counterfeit sign is visible, such as simulated security features, missing or printed-on watermark/thread, no expected raised intaglio, broken microprint, non-shifting colour ink, or wrong/mismatched serial numbers.
 
 Return ONLY valid JSON:
