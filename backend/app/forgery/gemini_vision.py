@@ -101,6 +101,7 @@ AUTHENTICITY-FIRST RULE FOR REAL DOCUMENT PHOTOS:
     First look for positive genuine-document signals: consistent paper or laminate texture, continuous printing and security patterns, coherent seals/logos, natural ink or signature interaction, consistent perspective across the document, and a complete layout appropriate to the document type. When these genuine signals are present and no specific tampering sign is visible, prefer no_forgery_detected.
     Do NOT call a real document digital_scanned or digital_desktop merely because it was photographed, has JPEG noise, has a realistic background, or has ordinary phone-camera perspective. A background can support that this is a real-world capture, but it can never prove authenticity by itself. Only a document-specific anomaly can support a forgery category.
     Only override this genuine bias when there is clear, localized evidence such as a pasted boundary, inconsistent text/ink, missing or simulated security feature, erased/replaced content, or a physically altered surface.
+    For official IDs and certificates, printed color strips, patterned backgrounds, black/red bands, logos, seals, photo boxes, and rectangular text fields are expected design elements. Do not call them digital_cut_paste unless an artifact is localized to one inserted element and cannot be explained by the document's printed layout.
 
 CATEGORIES (use the code on the left in your JSON):
 
@@ -697,6 +698,8 @@ EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A local image
 The classifier can be wrong, especially when a signature box, paper texture, or camera angle resembles a training class. Judge the image yourself. The suggestion is only a lead, not a restriction. Choose the best category from this complete list: {candidates}.
 
 An authentic document is not a forgery. If you cannot point to a specific visible tampering or counterfeit sign, use no_forgery_detected. If this is not a document, use not_a_document.
+
+For official IDs, school certificates, licenses, and permits, treat printed color bands, black/red header or footer strips, patterned backgrounds, logos, seals, printed names, signatures, photo boxes, and rectangular form fields as normal document design. These features are not cut-and-paste evidence by themselves. If the whole layout is coherent and there is no localized halo, pixel mismatch, missing feature, or inconsistent field, prefer no_forgery_detected. Do not use currency_analysis for an ID or certificate merely because the local classifier suggested "counterfeit".
 
 For checks and receipts, compare every numeric amount and written amount. If a digit or stroke appears added inside an existing amount, squeezed against a currency symbol, or changes the value, classify addition_insertion even when the rest of the form is genuine.
 
