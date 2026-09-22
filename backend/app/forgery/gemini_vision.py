@@ -26,18 +26,26 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 # Fallback chain: best quality first, lite last.
 # If GEMINI_VISION_MODEL is set in .env, only that model is used (no fallback).
 # Otherwise, cascade through this chain on rate limit errors.
-_FALLBACK_CHAIN = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+_FALLBACK_CHAIN = ["gemini-2.5-flash-lite"]
 
 def _model_chain() -> list[str]:
-    """Return ordered list of models to try. If a model is explicitly set, use only that."""
+    """Return the configured model followed by safe capacity fallbacks."""
     if GEMINI_VISION_MODEL:
-        return [GEMINI_VISION_MODEL]  # Use explicitly configured model, no fallback
-    return list(_FALLBACK_CHAIN)  # Otherwise, cascade through the default chain
+        return list(dict.fromkeys([GEMINI_VISION_MODEL, *_FALLBACK_CHAIN]))
+    return list(_FALLBACK_CHAIN)
 
 
 def _is_rate_limited(exc: Exception) -> bool:
     msg = str(exc).lower()
     return any(k in msg for k in ("429", "quota", "rate_limit", "rateerror", "resource_exhausted", "exhausted"))
+
+
+def _is_transient_provider_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        "503", "service unavailable", "temporarily unavailable", "high demand",
+        "404", "not found", "no longer available", "model unavailable",
+    ))
 
 
 # ── Category taxonomy ──────────────────────────────────────────────────────
@@ -728,6 +736,7 @@ def classify(
     text = ""
     last_exc: Optional[Exception] = None
     model_used = None
+    all_rate_limited = True
     for model in _model_chain():
         try:
             contents = [
@@ -751,9 +760,16 @@ def classify(
                 print(f"[WARN] {model} rate-limited, trying next model. ({exc})")
                 last_exc = exc
                 continue
+            if _is_transient_provider_error(exc):
+                print(f"[WARN] {model} temporarily unavailable, trying next model. ({exc})")
+                last_exc = exc
+                all_rate_limited = False
+                continue
+            all_rate_limited = False
             return _fallback(f"API call failed: {exc}", "gemini_unavailable")
     else:
-        return _fallback(f"All models rate-limited: {last_exc}", "quota_exhausted")
+        failure_code = "quota_exhausted" if all_rate_limited else "gemini_unavailable"
+        return _fallback(f"All Gemini models unavailable: {last_exc}", failure_code)
 
     text = _strip_json_fence(text)
     try:

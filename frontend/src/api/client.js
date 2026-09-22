@@ -66,8 +66,15 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Request failed');
+    const responseText = await res.text().catch(() => '');
+    let detail = '';
+    try {
+      const parsed = JSON.parse(responseText);
+      detail = parsed.detail || parsed.message || '';
+    } catch {
+      detail = responseText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    throw new Error(detail || `Request failed (HTTP ${res.status})`);
   }
 
   return res.json();
