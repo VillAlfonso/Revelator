@@ -661,7 +661,7 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _fallback(reason: str) -> Dict[str, Any]:
+def _fallback(reason: str, failure_code: str = "gemini_unavailable") -> Dict[str, Any]:
     return {
         "category": "other",
         "category_label": CATEGORY_LABELS["other"],
@@ -673,6 +673,8 @@ def _fallback(reason: str) -> Dict[str, Any]:
         "anomaly_location": None,
         "tools_likely_used": None,
         "_unavailable": True,
+        "_failure_code": failure_code,
+        "_failure_reason": reason,
     }
 
 
@@ -702,7 +704,9 @@ def classify(
     """
     client = _client(api_key=api_key)
     if client is None:
-        return _fallback("API key not configured or google-genai not installed")
+        if not (api_key or GEMINI_API_KEY):
+            return _fallback("API key not configured", "no_api_key")
+        return _fallback("google-genai is not installed", "gemini_unavailable")
 
     buf = io.BytesIO()
     img_to_send = image if image.mode == "RGB" else image.convert("RGB")
@@ -747,9 +751,9 @@ def classify(
                 print(f"[WARN] {model} rate-limited, trying next model. ({exc})")
                 last_exc = exc
                 continue
-            return _fallback(f"API call failed: {exc}")
+            return _fallback(f"API call failed: {exc}", "gemini_unavailable")
     else:
-        return _fallback(f"All models rate-limited: {last_exc}")
+        return _fallback(f"All models rate-limited: {last_exc}", "quota_exhausted")
 
     text = _strip_json_fence(text)
     try:
@@ -757,14 +761,14 @@ def classify(
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if not match:
-            return _fallback("response was not valid JSON")
+            return _fallback("response was not valid JSON", "gemini_unavailable")
         try:
             parsed = json.loads(match.group(0))
         except json.JSONDecodeError:
-            return _fallback("response was not valid JSON")
+            return _fallback("response was not valid JSON", "gemini_unavailable")
 
     if not isinstance(parsed, dict):
-        return _fallback("response was not a JSON object")
+        return _fallback("response was not a JSON object", "gemini_unavailable")
 
     result = _coerce(parsed)
     result["model_used"] = model_used

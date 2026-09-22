@@ -313,15 +313,19 @@ def analyze_document(
     )
 
     if gemini.get("_unavailable"):
-        # If using a user key, mark it as quota exhausted so the frontend can show a reset timer
-        if active_key_row:
+        failure_code = gemini.get("_failure_code", "gemini_unavailable")
+        # Only a confirmed quota response should mark a key exhausted. Other
+        # provider failures must not falsely send users through key setup.
+        if active_key_row and failure_code == "quota_exhausted":
             active_key_row.quota_exhausted_at = datetime.utcnow()
             db.commit()
             raise HTTPException(
                 status_code=429,
                 detail="quota_exhausted",
             )
-        raise HTTPException(status_code=503, detail="no_api_key")
+        if failure_code == "no_api_key":
+            raise HTTPException(status_code=503, detail="no_api_key")
+        raise HTTPException(status_code=502, detail="gemini_unavailable")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
 
     # STAGE 2: Confidence-gated self-critique (only fires when model is uncertain)
