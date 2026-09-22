@@ -28,8 +28,9 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 # Otherwise, cascade through this chain on rate limit errors.
 _FALLBACK_CHAIN = [
     "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
 ]
 
 def _model_chain() -> list[str]:
