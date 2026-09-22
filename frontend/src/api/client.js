@@ -333,6 +333,11 @@ export const api = {
     return request(`/admin/super/logs?${params.toString()}`);
   },
 
+  adminScanImageUrl(scanId) {
+    const token = getToken();
+    return `${API_BASE}/admin/scans/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
+  },
+
   adminGeminiStatus() {
     return request('/admin/gemini-status');
   },

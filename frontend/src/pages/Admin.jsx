@@ -680,8 +680,29 @@ function LogRow({ log }) {
 }
 
 function ScanJsonDetail({ scan }) {
+  const imageUrl = scan.has_image ? api.adminScanImageUrl(scan.scan_id) : null;
+
   return (
     <div>
+      {imageUrl && (
+        <div style={{ marginBottom: 14 }}>
+          <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+            Scan Image
+          </div>
+          <img
+            src={imageUrl}
+            alt={`Uploaded scan ${scan.scan_id}`}
+            style={{
+              display: 'block', width: '100%', maxWidth: 720, maxHeight: 420,
+              objectFit: 'contain', objectPosition: 'left center',
+              background: '#000', border: '1px solid #1d3825', borderRadius: 3,
+            }}
+          />
+          <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, marginTop: 5 }}>
+            {scan.image_width || '?'} × {scan.image_height || '?'} px
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         <Pill label="Scan ID" value={scan.scan_id} mono />
         <Pill label="Verdict" value={scan.verdict?.toUpperCase()} />
