@@ -26,7 +26,11 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 # Fallback chain: best quality first, lite last.
 # If GEMINI_VISION_MODEL is set in .env, only that model is used (no fallback).
 # Otherwise, cascade through this chain on rate limit errors.
-_FALLBACK_CHAIN = ["gemini-2.5-flash-lite"]
+_FALLBACK_CHAIN = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+]
 
 def _model_chain() -> list[str]:
     """Return the configured model followed by safe capacity fallbacks."""
