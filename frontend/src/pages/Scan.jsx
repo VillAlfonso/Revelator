@@ -90,13 +90,32 @@ export default function Scan() {
     try {
       const photo = await Camera.getPhoto({
         quality: 90, allowEditing: false,
-        resultType: CameraResultType.Uri, source: CameraSource.Camera,
+        resultType: CameraResultType.Base64, source: CameraSource.Camera,
       });
-      const res = await fetch(photo.webPath);
-      const blob = await res.blob();
-      const f = new File([blob], `scan-${Date.now()}.${photo.format || 'jpg'}`, { type: blob.type });
+
+      const format = (photo.format || 'jpeg').toLowerCase();
+      const mimeType = `image/${format === 'jpg' ? 'jpeg' : format}`;
+      let blob;
+      let previewUrl;
+
+      if (photo.base64String) {
+        const binary = atob(photo.base64String);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        blob = new Blob([bytes], { type: mimeType });
+        previewUrl = `data:${mimeType};base64,${photo.base64String}`;
+      } else if (photo.webPath || photo.path) {
+        const res = await fetch(photo.webPath || photo.path);
+        if (!res.ok) throw new Error(`Camera image could not be read (${res.status})`);
+        blob = await res.blob();
+        previewUrl = URL.createObjectURL(blob);
+      } else {
+        throw new Error('Camera returned no image data');
+      }
+
+      const f = new File([blob], `scan-${Date.now()}.${format}`, { type: blob.type || mimeType });
       setFile(f);
-      setPreview(photo.webPath);
+      setPreview(previewUrl);
     } catch (err) {
       // ignore - camera cancel or transient error; user can retry
       if (err?.message && !/cancel/i.test(err.message)) console.error('Camera error:', err);
