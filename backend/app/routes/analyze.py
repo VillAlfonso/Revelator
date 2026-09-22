@@ -369,16 +369,18 @@ def analyze_document(
             )
         if failure_code == "no_api_key":
             raise HTTPException(status_code=503, detail="no_api_key")
+        if failure_code == "invalid_api_key":
+            raise HTTPException(
+                status_code=422,
+                detail="invalid_api_key: Gemini rejected this API key or its project is restricted",
+            )
         failure_reason = re.sub(
             r"AIza[0-9A-Za-z_-]+",
             "[redacted]",
             str(gemini.get("_failure_reason") or "Provider request failed"),
         )[:300]
         print(f"[WARN] Gemini unavailable for user {current_user.id}: {failure_reason}")
-        raise HTTPException(
-            status_code=502,
-            detail=f"gemini_unavailable: {failure_reason}",
-        )
+        raise HTTPException(status_code=503, detail=f"gemini_unavailable: {failure_reason}")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
 
     # STAGE 2: Confidence-gated self-critique (only fires when model is uncertain)

@@ -48,6 +48,14 @@ def _is_transient_provider_error(exc: Exception) -> bool:
     ))
 
 
+def _is_rejected_api_key(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        "401", "403", "permission denied", "api key not valid",
+        "invalid api key", "consumer_suspended", "api_key_service_blocked",
+    ))
+
+
 # ── Category taxonomy ──────────────────────────────────────────────────────
 CATEGORIES = [
     # Traced
@@ -746,7 +754,8 @@ def explain_with_hint(
             if _is_rate_limited(exc) or _is_transient_provider_error(exc):
                 continue
             all_rate_limited = False
-            return _fallback(f"Explain-only API call failed: {exc}", "gemini_unavailable")
+            code = "invalid_api_key" if _is_rejected_api_key(exc) else "gemini_unavailable"
+            return _fallback(f"Explain-only API call failed: {exc}", code)
     else:
         return _fallback(
             f"Explain-only models unavailable: {last_exc}",
@@ -857,6 +866,9 @@ def classify(
                 last_exc = exc
                 all_rate_limited = False
                 continue
+            if _is_rejected_api_key(exc):
+                all_rate_limited = False
+                return _fallback(f"API key rejected by Gemini: {exc}", "invalid_api_key")
             all_rate_limited = False
             return _fallback(f"API call failed: {exc}", "gemini_unavailable")
     else:
