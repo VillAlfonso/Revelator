@@ -291,34 +291,52 @@ def analyze_document(
     preprocessed = preprocess_image(image)
     print(f"[DEBUG] Image preprocessed: {image.size} -> {preprocessed.size}")
 
-    # Get active API key from multi-key table, fall back to legacy single key
-    active_key_row = db.query(UserApiKey).filter(
+    # Try the selected key first, then the user's other saved keys. A single
+    # suspended or misconfigured key must not block the rest of the account.
+    key_rows = db.query(UserApiKey).filter(
         UserApiKey.user_id == current_user.id,
-        UserApiKey.is_active == True,
-    ).first()
-    api_key = active_key_row.api_key if active_key_row else (current_user.gemini_api_key or None)
+    ).order_by(UserApiKey.is_active.desc(), UserApiKey.created_at.asc()).all()
+    key_attempts = [(row.api_key, row) for row in key_rows]
+    if current_user.gemini_api_key and not key_rows:
+        key_attempts.append((current_user.gemini_api_key, None))
+    if not key_attempts:
+        key_attempts.append((None, None))
 
-    # Use the full Gemini taxonomy for every scan. There is no local classifier.
-    gemini = gemini_classify(
-        preprocessed,
-        document_type=document_type,
-        suspicion_reason=suspicion_reason,
-        area_of_concern=area_of_concern,
-        image_source=image_source,
-        is_forged_belief=is_forged_belief,
-        shot_type=shot_type,
-        lighting=lighting,
-        physical_clues=physical_clues,
-        api_key=api_key,
-    )
+    gemini = None
+    active_key_row = None
+    last_failure = None
+    for api_key, key_row in key_attempts:
+        candidate = gemini_classify(
+            preprocessed,
+            document_type=document_type,
+            suspicion_reason=suspicion_reason,
+            area_of_concern=area_of_concern,
+            image_source=image_source,
+            is_forged_belief=is_forged_belief,
+            shot_type=shot_type,
+            lighting=lighting,
+            physical_clues=physical_clues,
+            api_key=api_key,
+        )
+        if not candidate.get("_unavailable"):
+            gemini = candidate
+            active_key_row = key_row
+            break
+
+        last_failure = candidate
+        failure_code = candidate.get("_failure_code", "gemini_unavailable")
+        if key_row and failure_code == "quota_exhausted":
+            key_row.quota_exhausted_at = datetime.utcnow()
+            db.commit()
+
+    if gemini is None:
+        gemini = last_failure or {"_failure_code": "gemini_unavailable"}
 
     if gemini.get("_unavailable"):
         failure_code = gemini.get("_failure_code", "gemini_unavailable")
         # Only a confirmed quota response should mark a key exhausted. Other
         # provider failures must not falsely send users through key setup.
-        if active_key_row and failure_code == "quota_exhausted":
-            active_key_row.quota_exhausted_at = datetime.utcnow()
-            db.commit()
+        if failure_code == "quota_exhausted":
             raise HTTPException(
                 status_code=429,
                 detail="quota_exhausted",
