@@ -351,10 +351,6 @@ def analyze_document(
 
         last_failure = candidate
         failure_code = candidate.get("_failure_code", "gemini_unavailable")
-        if key_row and failure_code == "quota_exhausted":
-            key_row.quota_exhausted_at = datetime.utcnow()
-            db.commit()
-
     if gemini is None:
         gemini = last_failure or {"_failure_code": "gemini_unavailable"}
 
