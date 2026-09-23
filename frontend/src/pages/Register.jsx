@@ -369,7 +369,7 @@ export default function Register() {
             {Capacitor.isNativePlatform() ? (
               <button
                 onClick={handleNativeGoogleSignUp}
-                disabled={loading}
+                disabled={loading || !agreed}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                   background: '#fff', color: '#3c4043', border: 'none', borderRadius: 4,
@@ -381,26 +381,32 @@ export default function Register() {
                 Sign up with Google
               </button>
             ) : (
-              <GoogleLogin
-                onSuccess={async (credentialResponse) => {
-                  setError('');
-                  setLoading(true);
-                  try {
-                    const data = await api.googleLogin(credentialResponse.credential);
-                    loginUser(data);
-                    navigate('/scan');
-                  } catch (err) {
-                    setError(err.message);
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                onError={() => setError('Google sign-up failed')}
-                theme="filled_black"
-                shape="rectangular"
-                text="signup_with"
-                size="large"
-              />
+              <div style={{ opacity: agreed ? 1 : 0.5, pointerEvents: agreed ? 'auto' : 'none' }}>
+                <GoogleLogin
+                  onSuccess={async (credentialResponse) => {
+                    if (!agreed) {
+                      setError('Please agree to the Terms of Service first.');
+                      return;
+                    }
+                    setError('');
+                    setLoading(true);
+                    try {
+                      const data = await api.googleLogin(credentialResponse.credential);
+                      loginUser(data);
+                      navigate('/scan');
+                    } catch (err) {
+                      setError(err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  onError={() => setError('Google sign-up failed')}
+                  theme="filled_black"
+                  shape="rectangular"
+                  text="signup_with"
+                  size="large"
+                />
+              </div>
             )}
           </div>
         </div>

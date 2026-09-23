@@ -763,6 +763,15 @@ function Layout({ children }) {
           {children}
         </div>
       </main>
+      <footer style={{ borderTop: '1px solid #112418', padding: '16px 20px 24px', textAlign: 'center' }}>
+        <Link to="/guide" style={{ color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', textDecoration: 'none' }}>
+          Forensic System Guide
+        </Link>
+        <span style={{ color: '#1d3825', margin: '0 12px' }}>·</span>
+        <Link to="/terms" style={{ color: '#3f6e4a', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', textDecoration: 'none' }}>
+          Terms of Service &amp; Privacy Policy
+        </Link>
+      </footer>
     </div>
   );
 }

@@ -22,6 +22,7 @@ export default function Login() {
   const [stage, setStage] = useState('login');   // 'login' | 'code'
   const [code, setCode] = useState('');
   const [rememberDevice, setRememberDevice] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   if (user) { navigate('/scan', { replace: true }); return null; }
 
@@ -34,6 +35,7 @@ export default function Login() {
   }
 
   async function handleNativeGoogleSignIn() {
+    if (!agreed) { setError('Please agree to the Terms of Service first.'); return; }
     setError('');
     setLoading(true);
     try {
@@ -50,6 +52,7 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!agreed) { setError('Please agree to the Terms of Service first.'); return; }
     setError('');
     setInfo('');
     setLoading(true);
@@ -230,7 +233,22 @@ export default function Login() {
               <div style={{ textAlign: 'right', marginBottom: 24 }}>
                 <Link to="/forgot-password" style={{ fontSize: 12, color: '#6dba85' }}>Forgot password?</Link>
               </div>
-              <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
+              <label style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 22,
+                fontSize: 12, color: '#86efac', lineHeight: 1.5, cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={e => setAgreed(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, accentColor: '#00ff66', flexShrink: 0 }}
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <Link to="/terms" target="_blank" style={{ color: '#00ff66' }}>Terms of Service &amp; Privacy Policy</Link>.
+                </span>
+              </label>
+              <button className="btn btn-primary" type="submit" disabled={loading || !agreed} style={{ width: '100%', opacity: agreed ? 1 : 0.55 }}>
                 {loading ? '◌ Authenticating…' : '▶ Sign In'}
               </button>
             </form>
@@ -243,7 +261,7 @@ export default function Login() {
                 {Capacitor.isNativePlatform() ? (
                   <button
                     onClick={handleNativeGoogleSignIn}
-                    disabled={loading}
+                    disabled={loading || !agreed}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                       background: '#fff', color: '#3c4043', border: 'none', borderRadius: 4,
@@ -255,8 +273,13 @@ export default function Login() {
                     Sign in with Google
                   </button>
                 ) : (
-                  <GoogleLogin
-                    onSuccess={async (credentialResponse) => {
+                  <div style={{ opacity: agreed ? 1 : 0.5, pointerEvents: agreed ? 'auto' : 'none' }}>
+                    <GoogleLogin
+                      onSuccess={async (credentialResponse) => {
+                        if (!agreed) {
+                          setError('Please agree to the Terms of Service first.');
+                          return;
+                        }
                       setError('');
                       setLoading(true);
                       try {
@@ -269,12 +292,13 @@ export default function Login() {
                         setLoading(false);
                       }
                     }}
-                    onError={() => setError('Google sign-in failed')}
-                    theme="filled_black"
-                    shape="rectangular"
-                    text="signin_with_google"
-                    size="large"
-                  />
+                      onError={() => setError('Google sign-in failed')}
+                      theme="filled_black"
+                      shape="rectangular"
+                      text="signin_with_google"
+                      size="large"
+                    />
+                  </div>
                 )}
               </div>
             </div>
