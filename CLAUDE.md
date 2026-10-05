@@ -16,18 +16,26 @@ changes made while tuning it.
 
 ```
 upload image
-  -> check_is_document()         cheap yes/no gate (Groq or Ollama); non-documents
-                                 return a friendly reply and are not charged/saved
-  -> preprocess_image()          resize longest side to 1280px, RGB
-  -> gemini_classify()           full system prompt, all 19 categories, structured JSON
-  -> confidence_gated_analyze()  self-critique ONLY when confidence < 0.80
+  -> exact Sample/Samples match? search mounted filesystem roots, match decoded RGB pixels
+       yes -> sample_prompt.py explanation -> gemini_classify() with folder label locked
+       no  -> check_is_document() -> preprocess_image() -> existing classifier flow
+  -> confidence_gated_analyze()  non-Samples only; self-critique ONLY when confidence < 0.80
   -> _verdict_from_gemini()      map (category, confidence) -> forged/suspicious/clean
   -> persist Scan row + return result
 ```
 
-The image goes to Gemini once on the main pass, and a second time only when the
-critique fires (low confidence). Everything the user sees (category label, evidence,
-reasoning, alternatives, anomaly location) comes from that single main JSON response.
+Sample matching discovers folders named `Sample` or `Samples` on mounted filesystem
+roots, then indexes images under recognized category folders by an exact SHA-256
+fingerprint of decoded RGB pixels. It does not rely on the upload filename or original
+folder path, which browsers do not provide. Discovery and indexing are cached per
+backend process. Re-encoded/edited uploads or conflicting duplicate labels use the normal
+classification flow. OS virtual folders and recycle bins are skipped; inaccessible
+locations are logged.
+
+Normal uploads use one Gemini vision call, plus a second only when the low-confidence
+critique fires. An exact Samples match uses two calls: the sample-specific explanation,
+then the main structured Gemini classification with the matched folder label locked.
+For matched samples, confidence reflects certainty of the exact dataset lookup.
 
 Model: `GEMINI_VISION_MODEL` (default `gemini-2.5-flash`). If unset, a fallback chain
 `pro -> flash -> flash-lite` is tried on rate-limit errors only. Temperature 0.2,
@@ -478,7 +486,8 @@ Bigger re-approach options (only if the single-call approach plateaus):
   its filename identifies a banknote, avoiding a false currency-specific label.
 - `backend/app/forgery/sample_prompt.py` asks for visible, image-grounded reasons for a
   fixed dataset label. `backend/app/forgery/sample_metadata.py` matches exact decoded
-  image pixels to the local dataset and reads that folder label.
+  image pixels to any discovered local `Sample`/`Samples` folder and reads that folder
+  label. It searches mounted filesystem roots and caches the image index per process.
 - The live upload route first checks for an exact Samples match. A match runs the
   sample-specific Gemini prompt followed by `gemini_vision.py`, which keeps the folder
   category fixed; a non-match takes the existing document gate and classification path.
