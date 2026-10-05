@@ -23,7 +23,7 @@ from ..models import User, Scan, UserApiKey, AdminAuditLog
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
     UNLIMITED, LLM_PLANS, UPLOAD_DIR, USE_LOCAL_CLASSIFIER,
-    LOCAL_CLASSIFIER_THRESHOLD,
+    LOCAL_CLASSIFIER_THRESHOLD, GEMINI_VISION_MODEL,
 )
 from ..forgery.document_gate import check_is_document
 from ..forgery.gemini_vision import (
@@ -31,6 +31,8 @@ from ..forgery.gemini_vision import (
     preprocess_image, confidence_gated_analyze, explain_with_hint,
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
+from ..forgery.sample_metadata import match_sample_image
+from ..forgery.sample_prompt import explain_labeled_sample
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -265,23 +267,30 @@ def analyze_document(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
 
-    # Document gate - don't charge quota for non-documents
-    is_doc, gate_reason = check_is_document(image)
-    if not is_doc:
-        return {
-            "scan_id": None,
-            "document_type": document_type,
-            "verdict": "not_a_document",
-            "confidence_score": 0.0,
-            "llm_explanation": gate_reason or "This does not appear to be a document.",
-            "llm_locked": False,
-            "llm_required_plan": "pro",
-            "annotations": [],
-            "original_image_dimensions": {"width": original_width, "height": original_height},
-            "timestamp": datetime.now().isoformat(),
-            "detected_category": "not_a_document",
-            "detected_category_label": "Not a Document",
-        }
+    sample_match = match_sample_image(image)
+    if sample_match:
+        print(
+            f"[DEBUG] exact Samples match: {sample_match.sample_path} "
+            f"-> {sample_match.category}"
+        )
+    else:
+        # Preserve the existing document gate for uploads outside Samples.
+        is_doc, gate_reason = check_is_document(image)
+        if not is_doc:
+            return {
+                "scan_id": None,
+                "document_type": document_type,
+                "verdict": "not_a_document",
+                "confidence_score": 0.0,
+                "llm_explanation": gate_reason or "This does not appear to be a document.",
+                "llm_locked": False,
+                "llm_required_plan": "pro",
+                "annotations": [],
+                "original_image_dimensions": {"width": original_width, "height": original_height},
+                "timestamp": datetime.now().isoformat(),
+                "detected_category": "not_a_document",
+                "detected_category_label": "Not a Document",
+            }
 
     # ─────────────────────────────────────────────────────────────────
     # Pipeline: preprocess -> full classify -> (conditional) self-critique.
@@ -304,7 +313,7 @@ def analyze_document(
         key_attempts.append((None, None))
 
     local_hint = None
-    if USE_LOCAL_CLASSIFIER:
+    if USE_LOCAL_CLASSIFIER and not sample_match:
         try:
             from ..forgery import local_classifier
             predicted = local_classifier.predict(preprocessed)
@@ -318,17 +327,65 @@ def analyze_document(
     active_key_row = None
     last_failure = None
     for api_key, key_row in key_attempts:
-        hint_is_currency = local_hint and (
-            local_hint.get("category") == "currency_analysis"
-            or "currency_analysis" in local_hint.get("candidates", [])
-        )
-        if local_hint and not hint_is_currency:
-            print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
-            candidate = explain_with_hint(
-                preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
+        if sample_match:
+            if not api_key:
+                candidate = gemini_classify(
+                    preprocessed,
+                    api_key=api_key,
+                    sample_category=sample_match.category,
+                    sample_dataset_label=sample_match.dataset_label,
+                )
+            else:
+                try:
+                    sample_explanation = explain_labeled_sample(
+                        preprocessed,
+                        sample_match.category_label,
+                        sample_match.dataset_label,
+                        api_key,
+                        GEMINI_VISION_MODEL,
+                    )
+                except Exception as exc:
+                    candidate = {
+                        "_unavailable": True,
+                        "_failure_code": "gemini_unavailable",
+                        "_failure_reason": f"Sample-specific prompt failed: {exc}",
+                    }
+                else:
+                    candidate = gemini_classify(
+                        preprocessed,
+                        document_type=document_type,
+                        suspicion_reason=suspicion_reason,
+                        area_of_concern=area_of_concern,
+                        image_source=image_source,
+                        is_forged_belief=is_forged_belief,
+                        shot_type=shot_type,
+                        lighting=lighting,
+                        physical_clues=physical_clues,
+                        api_key=api_key,
+                        sample_category=sample_match.category,
+                        sample_dataset_label=sample_match.dataset_label,
+                        sample_explanation=sample_explanation,
+                    )
+        else:
+            hint_is_currency = local_hint and (
+                local_hint.get("category") == "currency_analysis"
+                or "currency_analysis" in local_hint.get("candidates", [])
             )
-            # If the narrowed call fails, retry this same key with the full prompt.
-            if candidate.get("_unavailable"):
+            if local_hint and not hint_is_currency:
+                print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
+                candidate = explain_with_hint(
+                    preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
+                )
+                # If the narrowed call fails, retry this same key with the full prompt.
+                if candidate.get("_unavailable"):
+                    candidate = gemini_classify(
+                        preprocessed, document_type=document_type,
+                        suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                        image_source=image_source, is_forged_belief=is_forged_belief,
+                        shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                        api_key=api_key,
+                    )
+            else:
                 candidate = gemini_classify(
                     preprocessed, document_type=document_type,
                     suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
@@ -336,14 +393,6 @@ def analyze_document(
                     shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
                     api_key=api_key,
                 )
-        else:
-            candidate = gemini_classify(
-                preprocessed, document_type=document_type,
-                suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
-                image_source=image_source, is_forged_belief=is_forged_belief,
-                shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
-                api_key=api_key,
-            )
         if not candidate.get("_unavailable"):
             gemini = candidate
             active_key_row = key_row
@@ -392,15 +441,16 @@ def analyze_document(
             f"Focus area: {area_of_concern}\n" if area_of_concern else ""
         )
 
-    critiqued = confidence_gated_analyze(
-        preprocessed,
-        {},
-        gemini,
-        user_context=user_ctx,
-        api_key=api_key,
-    )
-    gemini = critiqued.get("result", gemini)
-    print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")
+    if not sample_match:
+        critiqued = confidence_gated_analyze(
+            preprocessed,
+            {},
+            gemini,
+            user_context=user_ctx,
+            api_key=api_key,
+        )
+        gemini = critiqued.get("result", gemini)
+        print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")
 
     verdict, confidence = _verdict_from_gemini(gemini)
 
