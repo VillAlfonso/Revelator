@@ -470,3 +470,18 @@ Bigger re-approach options (only if the single-call approach plateaus):
   Water-Soaked, Paper-Fold, Embossing, Typewriting-ID, Contact-Writing); reverted at
   the maintainer's request. Taxonomy stays at the original 16 forgery methods + 3
   fallbacks. The harness treats those 6 folders as `other`.
+
+### 2026-10-05 - Samples-only fixed labels and Gemini explanations
+- Added `backend/classify_samples.py` for deterministic labels sourced from the `Samples/`
+  category folders. Images under `Genuine/` are labeled genuine; images under method
+  folders are labeled forged. The broad `Counterfeit/` folder maps to `other` unless
+  its filename identifies a banknote, avoiding a false currency-specific label.
+- `backend/app/forgery/sample_prompt.py` asks for visible, image-grounded reasons for a
+  fixed dataset label. `backend/app/forgery/sample_metadata.py` matches exact decoded
+  image pixels to the local dataset and reads that folder label.
+- The live upload route first checks for an exact Samples match. A match runs the
+  sample-specific Gemini prompt followed by `gemini_vision.py`, which keeps the folder
+  category fixed; a non-match takes the existing document gate and classification path.
+- From the repository root, `python backend/classify_samples.py` prints folder-derived
+  labels without making API calls. Add `--explain --limit 2` for a small Gemini sample;
+  use `--limit 0` to explicitly explain every image.
