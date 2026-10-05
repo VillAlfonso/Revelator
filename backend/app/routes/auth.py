@@ -581,8 +581,9 @@ def _key_to_dict(k: UserApiKey) -> dict:
         "key_preview": f"...{k.api_key[-4:]}",
         "api_key": k.api_key,
         "is_active": bool(k.is_active),
-        "quota_exhausted": bool(k.quota_exhausted_at and hours_until_reset and hours_until_reset > 0),
-        "hours_until_reset": hours_until_reset,
+        # Kept for API compatibility. Quota failures are never persisted locally.
+        "quota_exhausted": False,
+        "hours_until_reset": None,
         "created_at": k.created_at.isoformat() if k.created_at else "",
     }
 

@@ -109,7 +109,7 @@ export default function Terms() {
         </p>
 
         <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid #112418', textAlign: 'center' }}>
-          <Link to="/register" style={{ color: '#00ff66' }}>← Back to registration</Link>
+          <Link to="/login" style={{ color: '#00ff66' }}>← Back to sign in</Link>
         </div>
       </div>
     </div>

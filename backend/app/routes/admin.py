@@ -4,11 +4,13 @@ Admin CRUD routes - all endpoints require is_admin=True.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_admin, get_current_super_admin
+from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, user_has_permission
+from ..config import UPLOAD_DIR
 from ..database import get_db
 from ..models import User, Scan, AdminAuditLog
 from datetime import datetime, timedelta, timezone
@@ -457,5 +459,27 @@ def view_audit_logs(
         "available_verdicts": available_verdicts,
         "available_categories": available_categories,
     }
+
+
+@router.get("/scans/{scan_id}/image")
+def admin_scan_image(
+    scan_id: str,
+    token: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+):
+    """Serve a user's scan image to an authenticated admin only."""
+    viewer = get_user_from_token(token, db)
+    if not user_has_permission(viewer, "view_users", db):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    scan = db.query(Scan).filter(Scan.scan_id == scan_id).first()
+    if not scan or not scan.image_path:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    file_path = (UPLOAD_DIR / scan.image_path).resolve()
+    upload_root = UPLOAD_DIR.resolve()
+    if not file_path.is_file() or upload_root not in file_path.parents:
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(str(file_path), media_type="image/jpeg")
 
 

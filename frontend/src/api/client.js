@@ -53,7 +53,7 @@ async function request(path, options = {}) {
   let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   // If 401, try refreshing the token once
-  if (res.status === 401 && !options._retried) {
+  if (res.status === 401 && !options.noAuth && !options._retried) {
     const refreshed = await tryRefresh();
     if (refreshed) {
       headers['Authorization'] = `Bearer ${getToken()}`;
@@ -354,6 +354,11 @@ export const api = {
       if (v) params.set(k, v);
     }
     return request(`/admin/super/logs?${params.toString()}`);
+  },
+
+  adminScanImageUrl(scanId) {
+    const token = getToken();
+    return `${API_BASE}/admin/scans/${encodeURIComponent(scanId)}/image?token=${encodeURIComponent(token || '')}`;
   },
 
   adminGeminiStatus() {

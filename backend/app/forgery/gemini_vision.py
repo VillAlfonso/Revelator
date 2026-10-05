@@ -26,7 +26,12 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 # Fallback chain: best quality first, lite last.
 # If GEMINI_VISION_MODEL is set in .env, only that model is used (no fallback).
 # Otherwise, cascade through this chain on rate limit errors.
-_FALLBACK_CHAIN = ["gemini-2.5-flash-lite"]
+_FALLBACK_CHAIN = [
+    "gemini-2.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-pro-latest",
+]
 
 def _model_chain() -> list[str]:
     """Return the configured model followed by safe capacity fallbacks."""
@@ -45,6 +50,14 @@ def _is_transient_provider_error(exc: Exception) -> bool:
     return any(k in msg for k in (
         "503", "service unavailable", "temporarily unavailable", "high demand",
         "404", "not found", "no longer available", "model unavailable",
+    ))
+
+
+def _is_rejected_api_key(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        "401", "403", "permission denied", "api key not valid",
+        "invalid api key", "consumer_suspended", "api_key_service_blocked",
     ))
 
 
@@ -82,6 +95,13 @@ CATEGORY_LABELS = dict(CATEGORIES)
 
 
 SYSTEM_PROMPT = """You are a forensic document examiner. Classify the image into EXACTLY ONE of the 18 categories below. Reason step by step before answering, and only flag a forgery when you can point to specific visible evidence.
+
+AUTHENTICITY-FIRST RULE FOR REAL DOCUMENT PHOTOS:
+    A normal phone photograph or flatbed scan of a real physical document is NOT evidence of forgery. Real IDs, certificates, receipts, forms, and licenses commonly appear photographed at an angle, with perspective distortion, glare, shadows, hands, desks, walls, fabric, or other everyday backgrounds. These are capture conditions, not document alterations.
+    First look for positive genuine-document signals: consistent paper or laminate texture, continuous printing and security patterns, coherent seals/logos, natural ink or signature interaction, consistent perspective across the document, and a complete layout appropriate to the document type. When these genuine signals are present and no specific tampering sign is visible, prefer no_forgery_detected.
+    Do NOT call a real document digital_scanned or digital_desktop merely because it was photographed, has JPEG noise, has a realistic background, or has ordinary phone-camera perspective. A background can support that this is a real-world capture, but it can never prove authenticity by itself. Only a document-specific anomaly can support a forgery category.
+    Only override this genuine bias when there is clear, localized evidence such as a pasted boundary, inconsistent text/ink, missing or simulated security feature, erased/replaced content, or a physically altered surface.
+    For official IDs and certificates, printed color strips, patterned backgrounds, black/red bands, logos, seals, photo boxes, and rectangular text fields are expected design elements. Do not call them digital_cut_paste unless an artifact is localized to one inserted element and cannot be explained by the document's printed layout.
 
 CATEGORIES (use the code on the left in your JSON):
 
@@ -216,6 +236,9 @@ Fallbacks (use ONLY when nothing above fits):
 ═══════════════════════════════════════════════════════════════════════════
 IGNORE these (they are NOT forgery indicators):
   - Phone-camera blur, low resolution, poor lighting, shadows from the photographer
+    - Real-world capture context: desk, table, wall, fabric, hands, fingers, wallet, room, or other background around a document
+    - Perspective distortion, lens glare, flash reflection, camera focus falloff, and document edges that are slightly out of frame
+    - Normal ID-card laminate glare or a certificate's photographed glass/plastic reflections
   - Background surface (desk, hands, clutter behind the document)
   - JPEG compression noise on the entire image (this is normal)
   - Worn paper, creases, folds, age stains, coffee marks (these are wear, not forgery)
@@ -234,6 +257,7 @@ REASONING - work through these steps in order before you classify:
   6. Point to the PRIMARY anomaly's LOCATION (which region of the document).
   7. Pick the single best category code based on the PRIMARY evidence.
   8. Set confidence based on how clear the evidence is (see scale below).
+    9. Before finalizing, run an AUTHENTICITY CHECK: if the only suspicious cues are phone-photo artifacts, perspective, lighting, glare, background, blur, or normal wear, classify no_forgery_detected rather than a forgery type.
   ⚠ BANK CHECK RULE: When analyzing a check, always compare the numeric amount field AND the written-out pesos/dollars line. If they don't match, or if a digit appears squeezed against the currency symbol, classify as addition_insertion even if other anomalies (like a smudge or lighter patch) also exist.
   ⚠ GENUINE CURRENCY RULE: Photographing real money is not a forgery. When the image is a banknote, look for the specific COUNTERFEIT signs listed under currency_analysis. If you cannot point to at least one, classify no_forgery_detected. NEVER assign currency_analysis merely because the subject is currency - that code means "counterfeit detected", not "this is money".
   ⚠ INK LAYERING RULE: On any document with printed (toner/inkjet) text, if you see a stroke or mark that has a different texture, sheen, or "wetness" than the surrounding printed characters - especially if it appears to sit ON TOP of the printed text - this is addition_insertion (subtype B: character conversion). Do NOT classify abrasion or disrupted paper fiber as erasure_mechanical if the dominant anomaly is a visually different ink stroke overlaid on top of printed text.
@@ -669,11 +693,21 @@ def _coerce(parsed: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A trained classifier narrowed this image to: {label}.
+EXPLAIN_PROMPT_TEMPLATE = """You are a forensic document examiner. A local image classifier suggested: {label}.
 
-The classifier can be wrong. Judge the image yourself, but verify the specific category from this allowed list: {candidates}.
+The classifier can be wrong, especially when a signature box, paper texture, or camera angle resembles a training class. Judge the image yourself. The suggestion is only a lead, not a restriction. Choose the best category from this complete list: {candidates}.
 
 An authentic document is not a forgery. If you cannot point to a specific visible tampering or counterfeit sign, use no_forgery_detected. If this is not a document, use not_a_document.
+
+For official IDs, school certificates, licenses, and permits, treat printed color bands, black/red header or footer strips, patterned backgrounds, logos, seals, printed names, signatures, photo boxes, and rectangular form fields as normal document design. These features are not cut-and-paste evidence by themselves. If the whole layout is coherent and there is no localized halo, pixel mismatch, missing feature, or inconsistent field, prefer no_forgery_detected. Do not use currency_analysis for an ID or certificate merely because the local classifier suggested "counterfeit".
+
+For a local suggestion of traced_indentation or any traced category, ordinary handwriting, a signature-like squiggle, repeated loops, or dark ink strokes are NOT enough. Choose no_forgery_detected unless the image visibly shows the defining tracing evidence: a pressure groove/canal or colorless indentation around ink, carbon transfer residue, projection-tracing tremor with a matching reference, or another concrete physical tracing artifact. Ink on paper alone is normal writing.
+
+For checks and receipts, compare every numeric amount and written amount. If a digit or stroke appears added inside an existing amount, squeezed against a currency symbol, or changes the value, classify addition_insertion even when the rest of the form is genuine.
+
+For signatures and stamps, distinguish physical ink from digital compositing. A signature or stamp with a rectangular boundary, halo, pixelation, mismatched sharpness/noise, or no interaction with the paper is digital_cut_paste. A printed form box or border alone is not enough; the artifact must belong to the signature or stamp itself. Do not call it sympathetic_indented unless there is pressure-only writing with no visible ink.
+
+When the local suggestion is digital_scanned, use digital_scanned when the image is a scanned or re-captured document whose text, signatures, stamps, or filled fields are digitally layered into the overall page. Use digital_cut_paste only when one isolated element is visibly lifted and pasted onto an otherwise consistent document, with a boundary or halo directly around that element. Do not override a strong digital_scanned suggestion merely because the entire page is a clean scan or because a signature is visible.
 
 For currency, use currency_analysis only when a concrete counterfeit sign is visible, such as simulated security features, missing or printed-on watermark/thread, no expected raised intaglio, broken microprint, non-shifting colour ink, or wrong/mismatched serial numbers.
 
@@ -701,24 +735,47 @@ def explain_with_hint(
 
     buf = io.BytesIO()
     (image if image.mode == "RGB" else image.convert("RGB")).save(buf, format="JPEG", quality=88)
-    allowed = list(dict.fromkeys([*candidates, "no_forgery_detected", "not_a_document"]))
+    allowed = list(dict.fromkeys([
+        *candidates,
+        "addition_insertion", "digital_cut_paste", "digital_scanned",
+        "digital_desktop", "erasure_chemical", "erasure_mechanical",
+        "obliteration_ink", "obliteration_whiteout", "no_forgery_detected", "not_a_document",
+    ]))
     prompt = EXPLAIN_PROMPT_TEMPLATE.format(label=label, candidates=", ".join(allowed))
     from google.genai import types as genai_types
 
-    try:
-        response = client.models.generate_content(
-            model=_model_chain()[0],
-            contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
-            config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+    last_exc = None
+    model_used = None
+    all_rate_limited = True
+    for model in _model_chain():
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[prompt, genai_types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")],
+                config=genai_types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"),
+            )
+            parsed = json.loads(_strip_json_fence(response.text or ""))
+            model_used = model
+            break
+        except json.JSONDecodeError:
+            return _fallback("Explain-only response was not valid JSON", "gemini_unavailable")
+        except Exception as exc:
+            last_exc = exc
+            if _is_rate_limited(exc) or _is_transient_provider_error(exc):
+                continue
+            all_rate_limited = False
+            code = "invalid_api_key" if _is_rejected_api_key(exc) else "gemini_unavailable"
+            return _fallback(f"Explain-only API call failed: {exc}", code)
+    else:
+        return _fallback(
+            f"Explain-only models unavailable: {last_exc}",
+            "quota_exhausted" if all_rate_limited else "gemini_unavailable",
         )
-        parsed = json.loads(_strip_json_fence(response.text or ""))
-    except Exception as exc:
-        return _fallback(f"Explain-only API call failed: {exc}", "gemini_unavailable")
 
     if not isinstance(parsed, dict):
         return _fallback("Explain-only response was not a JSON object", "gemini_unavailable")
     result = _coerce(parsed)
-    result["model_used"] = _model_chain()[0]
+    result["model_used"] = model_used
     result["_hinted"] = True
     return result
 
@@ -855,6 +912,9 @@ def classify(
                 last_exc = exc
                 all_rate_limited = False
                 continue
+            if _is_rejected_api_key(exc):
+                all_rate_limited = False
+                return _fallback(f"API key rejected by Gemini: {exc}", "invalid_api_key")
             all_rate_limited = False
             return _fallback(f"API call failed: {exc}", "gemini_unavailable")
     else:

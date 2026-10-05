@@ -416,41 +416,31 @@ def _analyze_document_sync(
                         sample_explanation=sample_explanation,
                         admin_category=admin_category,
                     )
+        elif admin_category:
+            candidate = gemini_classify(
+                preprocessed,
+                document_type=document_type,
+                suspicion_reason=suspicion_reason,
+                area_of_concern=area_of_concern,
+                image_source=image_source,
+                is_forged_belief=is_forged_belief,
+                shot_type=shot_type,
+                lighting=lighting,
+                physical_clues=physical_clues,
+                api_key=api_key,
+                admin_category=admin_category,
+            )
         else:
-            if admin_category:
-                candidate = gemini_classify(
-                    preprocessed,
-                    document_type=document_type,
-                    suspicion_reason=suspicion_reason,
-                    area_of_concern=area_of_concern,
-                    image_source=image_source,
-                    is_forged_belief=is_forged_belief,
-                    shot_type=shot_type,
-                    lighting=lighting,
-                    physical_clues=physical_clues,
-                    api_key=api_key,
-                    admin_category=admin_category,
+            hint_is_currency = local_hint and (
+                local_hint.get("category") == "currency_analysis"
+                or "currency_analysis" in local_hint.get("candidates", [])
+            )
+            if local_hint and not hint_is_currency:
+                print(f"[DEBUG] classifier hint (not locked): {local_hint['category']} {local_hint['candidates']}")
+                candidate = explain_with_hint(
+                    preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
                 )
-            else:
-                hint_is_currency = local_hint and (
-                    local_hint.get("category") == "currency_analysis"
-                    or "currency_analysis" in local_hint.get("candidates", [])
-                )
-                if local_hint and not hint_is_currency:
-                    print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
-                    candidate = explain_with_hint(
-                        preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
-                    )
-                    # If the narrowed call fails, retry this same key with the full prompt.
-                    if candidate.get("_unavailable"):
-                        candidate = gemini_classify(
-                            preprocessed, document_type=document_type,
-                            suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
-                            image_source=image_source, is_forged_belief=is_forged_belief,
-                            shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
-                            api_key=api_key,
-                        )
-                else:
+                if candidate.get("_unavailable"):
                     candidate = gemini_classify(
                         preprocessed, document_type=document_type,
                         suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
@@ -458,6 +448,14 @@ def _analyze_document_sync(
                         shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
                         api_key=api_key,
                     )
+            else:
+                candidate = gemini_classify(
+                    preprocessed, document_type=document_type,
+                    suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                    image_source=image_source, is_forged_belief=is_forged_belief,
+                    shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                    api_key=api_key,
+                )
         if not candidate.get("_unavailable"):
             gemini = candidate
             active_key_row = key_row
@@ -465,10 +463,6 @@ def _analyze_document_sync(
 
         last_failure = candidate
         failure_code = candidate.get("_failure_code", "gemini_unavailable")
-        if key_row and failure_code == "quota_exhausted":
-            key_row.quota_exhausted_at = datetime.utcnow()
-            db.commit()
-
     if gemini is None:
         gemini = last_failure or {"_failure_code": "gemini_unavailable"}
 
@@ -483,16 +477,18 @@ def _analyze_document_sync(
             )
         if failure_code == "no_api_key":
             raise HTTPException(status_code=503, detail="no_api_key")
+        if failure_code == "invalid_api_key":
+            raise HTTPException(
+                status_code=422,
+                detail="invalid_api_key: Gemini rejected this API key or its project is restricted",
+            )
         failure_reason = re.sub(
             r"AIza[0-9A-Za-z_-]+",
             "[redacted]",
             str(gemini.get("_failure_reason") or "Provider request failed"),
         )[:300]
         print(f"[WARN] Gemini unavailable for user {current_user.id}: {failure_reason}")
-        raise HTTPException(
-            status_code=502,
-            detail=f"gemini_unavailable: {failure_reason}",
-        )
+        raise HTTPException(status_code=503, detail=f"gemini_unavailable: {failure_reason}")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
 
     # STAGE 2: Confidence-gated self-critique (only fires when model is uncertain)
