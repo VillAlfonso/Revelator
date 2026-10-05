@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 
 from .config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION, UPLOAD_DIR
 from .database import init_db
-from .routes import auth, analyze, payments, admin, prompt_analytics
+from .routes import auth, analyze, payments, admin, prompt_analytics, intercept
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
 
@@ -64,6 +64,7 @@ app.include_router(analyze.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
 app.include_router(prompt_analytics.router)
+app.include_router(intercept.router)
 
 
 @app.on_event("startup")

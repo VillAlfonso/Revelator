@@ -14,6 +14,7 @@ import SampleGallery from './pages/SampleGallery';
 import History from './pages/History';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
+import Intercept from './pages/Intercept';
 import ForensicsGuide from './pages/ForensicsGuide';
 import Logo from './components/Logo';
 
@@ -317,6 +318,8 @@ function Layout({ children }) {
     ? Math.max(0, 1 + drawerOffset / DRAWER_WIDTH)
     : Math.max(0, Math.min(1, drawerOffset / DRAWER_WIDTH));
   const isLight = theme === 'light';
+
+  if (location.pathname === '/intercept') return children;
 
   return (
     <div>
@@ -802,6 +805,7 @@ export default function App() {
               <Route path="/guide" element={<ProtectedRoute><ForensicsGuide /></ProtectedRoute>} />
               <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              <Route path="/intercept" element={<AdminRoute><Intercept /></AdminRoute>} />
               <Route path="*" element={<Navigate to="/scan" replace />} />
               </Routes>
             </Layout>

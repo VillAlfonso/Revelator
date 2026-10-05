@@ -16,9 +16,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from PIL import Image
+from starlette.concurrency import run_in_threadpool
 
 from ..auth import get_current_user, get_user_from_token
 from ..database import get_db
+from ..intercept_queue import intercept_queue
 from ..models import User, Scan, UserApiKey, AdminAuditLog
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
@@ -240,7 +242,7 @@ def get_about_info():
 
 
 @router.post("/analyze")
-def analyze_document(
+async def analyze_document(
     imageFile: UploadFile = File(...),
     category: Optional[str] = Form(None),
     document_type: Optional[str] = Form(None),
@@ -254,19 +256,65 @@ def analyze_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
-    check_scan_limit(current_user)
-
-    # Read image
     try:
-        image_data = imageFile.file.read()
+        image_data = await imageFile.read()
         image = Image.open(io.BytesIO(image_data))
+        image.load()
         if image.mode != "RGB":
             image = image.convert("RGB")
         original_width, original_height = image.size
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
 
+    preview = io.BytesIO()
+    image.save(preview, format="JPEG", quality=88)
+    admin_category = await intercept_queue.wait_for_decision(
+        user_id=current_user.id,
+        username=current_user.username,
+        email=current_user.email,
+        filename=imageFile.filename or "unknown",
+        document_type=document_type,
+        width=original_width,
+        height=original_height,
+        image_data=preview.getvalue(),
+    )
+    return await run_in_threadpool(
+        _analyze_document_sync,
+        image,
+        imageFile.filename or "unknown",
+        category,
+        document_type,
+        suspicion_reason,
+        area_of_concern,
+        image_source,
+        is_forged_belief,
+        shot_type,
+        lighting,
+        physical_clues,
+        current_user,
+        db,
+        admin_category,
+    )
+
+
+def _analyze_document_sync(
+    image: Image.Image,
+    filename: str,
+    category: Optional[str],
+    document_type: Optional[str],
+    suspicion_reason: Optional[str],
+    area_of_concern: Optional[str],
+    image_source: Optional[str],
+    is_forged_belief: Optional[str],
+    shot_type: Optional[str],
+    lighting: Optional[str],
+    physical_clues: Optional[str],
+    current_user: User,
+    db: Session,
+    admin_category: Optional[str],
+):
+    check_scan_limit(current_user)
+    original_width, original_height = image.size
     sample_match = match_sample_image(image)
     if sample_match:
         print(
@@ -276,7 +324,7 @@ def analyze_document(
     else:
         # Preserve the existing document gate for uploads outside Samples.
         is_doc, gate_reason = check_is_document(image)
-        if not is_doc:
+        if not is_doc and not admin_category:
             return {
                 "scan_id": None,
                 "document_type": document_type,
@@ -313,7 +361,7 @@ def analyze_document(
         key_attempts.append((None, None))
 
     local_hint = None
-    if USE_LOCAL_CLASSIFIER and not sample_match:
+    if USE_LOCAL_CLASSIFIER and not sample_match and not admin_category:
         try:
             from ..forgery import local_classifier
             predicted = local_classifier.predict(preprocessed)
@@ -334,6 +382,7 @@ def analyze_document(
                     api_key=api_key,
                     sample_category=sample_match.category,
                     sample_dataset_label=sample_match.dataset_label,
+                    admin_category=admin_category,
                 )
             else:
                 try:
@@ -365,19 +414,43 @@ def analyze_document(
                         sample_category=sample_match.category,
                         sample_dataset_label=sample_match.dataset_label,
                         sample_explanation=sample_explanation,
+                        admin_category=admin_category,
                     )
         else:
-            hint_is_currency = local_hint and (
-                local_hint.get("category") == "currency_analysis"
-                or "currency_analysis" in local_hint.get("candidates", [])
-            )
-            if local_hint and not hint_is_currency:
-                print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
-                candidate = explain_with_hint(
-                    preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
+            if admin_category:
+                candidate = gemini_classify(
+                    preprocessed,
+                    document_type=document_type,
+                    suspicion_reason=suspicion_reason,
+                    area_of_concern=area_of_concern,
+                    image_source=image_source,
+                    is_forged_belief=is_forged_belief,
+                    shot_type=shot_type,
+                    lighting=lighting,
+                    physical_clues=physical_clues,
+                    api_key=api_key,
+                    admin_category=admin_category,
                 )
-                # If the narrowed call fails, retry this same key with the full prompt.
-                if candidate.get("_unavailable"):
+            else:
+                hint_is_currency = local_hint and (
+                    local_hint.get("category") == "currency_analysis"
+                    or "currency_analysis" in local_hint.get("candidates", [])
+                )
+                if local_hint and not hint_is_currency:
+                    print(f"[DEBUG] explain-only hint: {local_hint['category']} {local_hint['candidates']}")
+                    candidate = explain_with_hint(
+                        preprocessed, local_hint["label"], local_hint["candidates"], api_key=api_key,
+                    )
+                    # If the narrowed call fails, retry this same key with the full prompt.
+                    if candidate.get("_unavailable"):
+                        candidate = gemini_classify(
+                            preprocessed, document_type=document_type,
+                            suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                            image_source=image_source, is_forged_belief=is_forged_belief,
+                            shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                            api_key=api_key,
+                        )
+                else:
                     candidate = gemini_classify(
                         preprocessed, document_type=document_type,
                         suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
@@ -385,14 +458,6 @@ def analyze_document(
                         shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
                         api_key=api_key,
                     )
-            else:
-                candidate = gemini_classify(
-                    preprocessed, document_type=document_type,
-                    suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
-                    image_source=image_source, is_forged_belief=is_forged_belief,
-                    shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
-                    api_key=api_key,
-                )
         if not candidate.get("_unavailable"):
             gemini = candidate
             active_key_row = key_row
@@ -441,7 +506,7 @@ def analyze_document(
             f"Focus area: {area_of_concern}\n" if area_of_concern else ""
         )
 
-    if not sample_match:
+    if not sample_match and not admin_category:
         critiqued = confidence_gated_analyze(
             preprocessed,
             {},
@@ -451,6 +516,10 @@ def analyze_document(
         )
         gemini = critiqued.get("result", gemini)
         print(f"[DEBUG] Critique path: {critiqued.get('path')} | Tokens: {critiqued.get('tokens_estimate')}")
+
+    if admin_category:
+        gemini["category"] = admin_category
+        gemini["category_label"] = CATEGORY_LABELS[admin_category]
 
     verdict, confidence = _verdict_from_gemini(gemini)
 
@@ -474,7 +543,7 @@ def analyze_document(
     scan = Scan(
         scan_id=scan_id,
         user_id=current_user.id,
-        filename=imageFile.filename or "unknown",
+        filename=filename,
         category_analyzed=category,
         document_type=document_type,
         verdict=verdict,

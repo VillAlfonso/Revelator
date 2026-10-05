@@ -100,6 +100,29 @@ async function tryRefresh() {
 
 // ── Public API ──────────────────────────────────────
 
+async function interceptFetch(path, options = {}) {
+  const makeRequest = () => fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${getToken() || ''}`,
+    },
+  });
+  let res = await makeRequest();
+  if (res.status === 401) {
+    if (await tryRefresh()) res = await makeRequest();
+    if (res.status === 401) {
+      clearTokens();
+      window.dispatchEvent(new CustomEvent('fg:session-expired'));
+    }
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Request failed (HTTP ${res.status})`);
+  }
+  return res;
+}
+
 export const api = {
   // Auth
   register(email, username, password, full_name) {
@@ -335,6 +358,50 @@ export const api = {
 
   adminGeminiStatus() {
     return request('/admin/gemini-status');
+  },
+
+  async adminInterceptEvents(onEvent, signal) {
+    const res = await interceptFetch('/intercept/events', { signal });
+    if (!res.body) throw new Error('Live intercept stream is not available in this browser');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        let event = 'message';
+        let data = '';
+        for (const line of frame.split(/\r?\n/)) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          if (line.startsWith('data:')) data += line.slice(5).trim();
+        }
+        if (data) onEvent(event, JSON.parse(data));
+      }
+    }
+  },
+
+  async adminInterceptImage(scanId) {
+    const res = await interceptFetch(`/intercept/scans/${encodeURIComponent(scanId)}/image`);
+    return URL.createObjectURL(await res.blob());
+  },
+
+  adminInterceptDecision(scanId, category) {
+    return request(`/intercept/scans/${encodeURIComponent(scanId)}/decision`, {
+      method: 'POST',
+      body: JSON.stringify({ category }),
+    });
+  },
+
+  adminInterceptSkip(scanId) {
+    return request(`/intercept/scans/${encodeURIComponent(scanId)}/skip`, {
+      method: 'POST',
+    });
   },
 
   getAbout() {
