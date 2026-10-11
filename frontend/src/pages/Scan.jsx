@@ -715,6 +715,13 @@ function ForensicResultCard({ result, canvasRef, verdictColors, documentTypeLabe
         </div>
       )}
 
+      <div role="note" style={{ borderBottom: '1px solid #7a4e10', background: 'rgba(255,160,64,0.08)', padding: '12px 16px' }}>
+        <strong style={{ display: 'block', color: '#ffc888', fontSize: 12, marginBottom: 4 }}>AI-assisted screening only</strong>
+        <span style={{ color: '#d8ffe6', fontSize: 12, lineHeight: 1.6 }}>
+          This probabilistic result can be wrong. It is not an official authenticity determination or a substitute for examination by a qualified forensic document examiner. Do not rely on it alone for legal, financial, identity, or other high-stakes decisions. “No forgery detected” does not prove authenticity.
+        </span>
+      </div>
+
       <div style={{ padding: 'clamp(14px, 4vw, 20px) clamp(12px, 3.5vw, 20px) 4px' }}>
         {/* ── Gemini Vision ── */}
         {geminiOk ? (
@@ -1033,4 +1040,3 @@ function ScanNotes({ scanId }) {
     </div>
   );
 }
-

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from .config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from .database import get_db
-from .models import User
+from .models import User, UserSession
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -38,19 +38,25 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str) -> str:
+def create_access_token(user_id: str, session_id: str | None = None, auth_version: int = 0) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "exp": expire, "type": "access", "ver": auth_version}
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "access"},
+        payload,
         SECRET_KEY,
         algorithm=JWT_ALGORITHM,
     )
 
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, session_id: str | None = None, auth_version: int = 0) -> str:
     expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {"sub": user_id, "exp": expire, "type": "refresh", "ver": auth_version}
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "refresh"},
+        payload,
         SECRET_KEY,
         algorithm=JWT_ALGORITHM,
     )
@@ -88,9 +94,10 @@ def create_signup_token(email: str, username: str, hashed_password: str, full_na
 
 def create_reset_token(user_id: str) -> str:
     """Short-lived token emailed to a user to reset their password (1h)."""
+    reset_id = secrets.token_urlsafe(24)
     expire = datetime.utcnow() + timedelta(hours=1)
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "reset"},
+        {"sub": user_id, "exp": expire, "type": "reset", "jti": reset_id},
         SECRET_KEY,
         algorithm=JWT_ALGORITHM,
     )
@@ -140,6 +147,26 @@ async def get_current_user(
     user = db.query(User).filter(User.id == payload["sub"]).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    if payload.get("ver", 0) != user.auth_version:
+        raise HTTPException(status_code=401, detail="Session has been revoked")
+    session_id = payload.get("sid")
+    if session_id:
+        session = (
+            db.query(UserSession)
+            .filter(
+                UserSession.id == session_id,
+                UserSession.user_id == user.id,
+                UserSession.revoked_at.is_(None),
+                UserSession.expires_at > datetime.utcnow(),
+            )
+            .first()
+        )
+        if not session:
+            raise HTTPException(status_code=401, detail="Session has been revoked or expired")
+        now = datetime.utcnow()
+        if not session.last_used_at or now - session.last_used_at >= timedelta(minutes=5):
+            session.last_used_at = now
+            db.commit()
     return user
 
 
@@ -200,4 +227,14 @@ def get_user_from_token(token: str, db: Session) -> User:
     user = db.query(User).filter(User.id == payload["sub"]).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    if payload.get("ver", 0) != user.auth_version:
+        raise HTTPException(status_code=401, detail="Session has been revoked")
+    session_id = payload.get("sid")
+    if session_id and not db.query(UserSession.id).filter(
+        UserSession.id == session_id,
+        UserSession.user_id == user.id,
+        UserSession.revoked_at.is_(None),
+        UserSession.expires_at > datetime.utcnow(),
+    ).first():
+        raise HTTPException(status_code=401, detail="Session has been revoked or expired")
     return user

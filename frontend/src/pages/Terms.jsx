@@ -16,7 +16,7 @@ export default function Terms() {
           TERMS OF SERVICE &amp; PRIVACY POLICY
         </h1>
         <p className="mono" style={{ color: '#6dba85', marginTop: 8, fontSize: 11, letterSpacing: 2 }}>
-          [ LAST UPDATED: 2026-05-16 ]
+          [ LAST UPDATED: 2026-10-07 ]
         </p>
       </div>
 
@@ -31,9 +31,11 @@ export default function Terms() {
         <h2 style={h2}>1. Use of the Service</h2>
         <p style={p}>
           Revelator provides automated, probabilistic assessments of document images.
-          Results are advisory only and are not a substitute for professional forensic
-          examination or legal advice. You are responsible for how you interpret and
-          act on any verdict the Service produces.
+          Results are screening aids only, not official determinations of authenticity,
+          accredited forensic opinions, or a substitute for examination by a qualified
+          forensic document examiner. Results may be wrong. Do not rely on them alone
+          for legal, financial, identity, employment, or other high-stakes decisions.
+          “No forgery detected” does not prove a document is authentic.
         </p>
 
         <h2 style={h2}>2. Accounts &amp; Eligibility</h2>
@@ -55,7 +57,8 @@ export default function Terms() {
         <h2 style={h2}>4. Documents You Upload</h2>
         <p style={p}>
           Images you submit are processed to generate an analysis and are stored as part
-          of your scan history so you can review past results. Do not upload documents
+          of your scan history so you can review past results. Images are sent to Google
+          Gemini for analysis using the configured API key. Do not upload documents
           containing information you are not authorized to process. You retain ownership
           of your uploaded content.
         </p>
@@ -64,9 +67,11 @@ export default function Terms() {
         <p style={p}>
           We store your account details (email, username, name), your scan history and
           uploaded images, and, if you provide them, your own AI API keys, which are used
-          solely to run your analyses. We do not sell your personal data. Analysis may be
-          performed using third-party AI providers; by using the Service you consent to
-          your uploaded images being transmitted to those providers for processing.
+          to run your analyses. We do not sell your personal data. We record limited
+          service-operational events (such as server errors and rate limits) and any
+          scan-result report you choose to send to administrators. These records do not
+          include uploaded image contents or request bodies. Google processes submitted
+          images under Google's own service terms and data-handling policies.
         </p>
 
         <h2 style={h2}>6. Email Communications</h2>
@@ -77,9 +82,12 @@ export default function Terms() {
 
         <h2 style={h2}>7. Data Retention &amp; Deletion</h2>
         <p style={p}>
-          Your data is retained while your account is active. You may request deletion of
-          your account and associated scan history; once deleted, this information cannot
-          be recovered.
+          Uploaded scan images and scan records remain in your account until you delete
+          an individual scan or permanently delete your account. You can download an
+          account export, including retained scan images, from Account settings. Deleting
+          your account removes its active profile, scan records, images, API keys, and
+          remembered devices. Copies held by infrastructure or third-party AI providers
+          may be subject to their separate backup and retention practices.
         </p>
 
         <h2 style={h2}>8. Disclaimer of Warranties</h2>
@@ -96,16 +104,26 @@ export default function Terms() {
           use of, or reliance on, the Service.
         </p>
 
-        <h2 style={h2}>10. Changes to These Terms</h2>
+        <h2 style={h2}>10. Analysis Records &amp; Limitations</h2>
+        <p style={p}>
+          A scan record may show the analysis model, application version, processing
+          method, confidence, and model-reported evidence. These details support
+          transparency but do not establish a legally defensible chain of custody,
+          independently validated accuracy, or a signed forensic report. Image quality,
+          lighting, document condition, and model limitations can affect results.
+          Stored scan images may be normalized JPEG copies rather than untouched originals.
+        </p>
+
+        <h2 style={h2}>11. Changes to These Terms</h2>
         <p style={p}>
           We may update these Terms from time to time. Continued use of the Service after
           changes take effect constitutes acceptance of the revised Terms.
         </p>
 
-        <h2 style={h2}>11. Contact</h2>
+        <h2 style={h2}>12. Contact</h2>
         <p style={p}>
-          Questions about these Terms or your data can be directed to the Service
-          operator.
+          You can report a scan-result issue from its entry in Scan History. For other
+          questions about these Terms or your data, contact the Service operator.
         </p>
 
         <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid #112418', textAlign: 'center' }}>

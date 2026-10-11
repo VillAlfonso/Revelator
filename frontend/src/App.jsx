@@ -153,9 +153,13 @@ function AuthProvider({ children }) {
   }
 
   function logout() {
-    api.clearTokens();
-    setUser(null);
-    localStorage.removeItem('fg_user');
+    api.logout()
+      .catch(err => console.error('Could not revoke server session during sign-out:', err.message))
+      .finally(() => {
+        api.clearTokens();
+        setUser(null);
+        localStorage.removeItem('fg_user');
+      });
   }
 
   function refreshUser() {

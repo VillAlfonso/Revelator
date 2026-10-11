@@ -42,7 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PIL import Image  # noqa: E402
 
-from app.config import GEMINI_API_KEY  # noqa: E402
+from app.config import GEMINI_API_KEY, GEMINI_VISION_MODEL  # noqa: E402
 from app.forgery.gemini_vision import (  # noqa: E402
     classify as gemini_classify,
     confidence_gated_analyze,
@@ -390,7 +390,7 @@ def main() -> int:
         })
     doc = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "model": os.getenv("GEMINI_VISION_MODEL") or "auto (fallback chain)",
+        "model": GEMINI_VISION_MODEL,
         "sample_per_bucket": args.sample,
         "critique": bool(args.critique),
         "category_filter": args.category or None,

@@ -36,6 +36,7 @@ class User(Base):
     gemini_api_key = Column(String, nullable=True)  # legacy single-key field (kept for migration)
     verification_sent_at = Column(DateTime, nullable=True)  # last time a verification email was sent
     two_factor_enabled = Column(Boolean, default=True, nullable=False)  # email-OTP 2FA on password login
+    auth_version = Column(Integer, default=0, nullable=False)
 
     # Relationships
     scans = relationship("Scan", back_populates="user", cascade="all, delete-orphan")
@@ -90,6 +91,44 @@ class TrustedDevice(Base):
     last_used_at = Column(DateTime, nullable=True)
 
 
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    label = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class OperationalEvent(Base):
+    __tablename__ = "operational_events"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    request_id = Column(String, nullable=True, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    severity = Column(String, nullable=False, default="info")
+    path = Column(String, nullable=True)
+    status_code = Column(Integer, nullable=True)
+    message = Column(Text, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    scan_id = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class Scan(Base):
     __tablename__ = "scans"
 
@@ -128,6 +167,9 @@ class Scan(Base):
     physical_clues = Column(String, nullable=True)
     is_forged_belief = Column(String, nullable=True)
     notes = Column(Text, nullable=True)  # user-authored notes attached to this scan
+    analysis_model = Column(String, nullable=True)
+    analysis_method = Column(String, nullable=True)
+    analysis_version = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

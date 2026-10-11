@@ -3,12 +3,12 @@ import React from 'react';
 /**
  * Shared password policy + live strength UI.
  *
- * Requirements (hard, block submit): 8+ chars, one letter, one number.
+ * Requirements (hard, block submit): 12+ chars, one letter, one number.
  * The remaining checks (uppercase, symbol, 12+) are strength boosters only, so
  * the frontend never rejects a password the backend would accept.
  */
 
-export const PASSWORD_MIN = 8;
+export const PASSWORD_MIN = 12;
 
 export function passwordChecks(pw) {
   const p = pw || '';

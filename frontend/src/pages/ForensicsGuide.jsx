@@ -107,12 +107,6 @@ const GROUPS = [
         description: 'Original text is scribbled over with a pen or marker, rendering it visually illegible. The underlying text may still be recoverable by infrared photography or other forensic techniques.',
         indicators: ['Ink scribbled over existing text', 'Possible underlying text visible via IR'],
       },
-      {
-        id: 'obliteration_whiteout',
-        label: 'Obliteration, White Out',
-        description: 'Correction fluid (Wite-Out, Tipp-Ex) is applied as an opaque white layer over existing text. The fluid leaves a distinctive raised, chalky surface texture that is visible to touch and sometimes to oblique light.',
-        indicators: ['Correction fluid layer over text', 'Raised chalky surface texture', 'Whitened patch inconsistent with paper'],
-      },
     ],
   },
   {
@@ -165,7 +159,6 @@ const SPECIMEN_EXTENSIONS = {
   digital_desktop: 'jpg',
   digital_scanned: 'jpg',
   obliteration_ink: 'jpeg',
-  obliteration_whiteout: 'jpeg',
   sympathetic_indented: 'jpg',
   sympathetic_special: 'jpg',
   currency_analysis: 'jpg',

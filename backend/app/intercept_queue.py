@@ -149,7 +149,9 @@ class InterceptQueue:
                 scan.event_loop.call_soon_threadsafe(scan.event.set)
             return {"user_id": scan.user_id, **scan.public_data()}
 
-    def subscribe(self) -> tuple[asyncio.Queue, list[dict[str, Any]], asyncio.AbstractEventLoop]:
+    def subscribe(
+        self,
+    ) -> tuple[asyncio.Queue, list[dict[str, Any]], asyncio.AbstractEventLoop]:
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         subscriber = (loop, queue)

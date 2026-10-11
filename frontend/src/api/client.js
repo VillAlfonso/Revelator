@@ -98,8 +98,6 @@ async function tryRefresh() {
   }
 }
 
-// ── Public API ──────────────────────────────────────
-
 async function interceptFetch(path, options = {}) {
   const makeRequest = () => fetch(`${API_BASE}${path}`, {
     ...options,
@@ -110,10 +108,12 @@ async function interceptFetch(path, options = {}) {
   });
   let res = await makeRequest();
   if (res.status === 401) {
-    if (await tryRefresh()) res = await makeRequest();
-    if (res.status === 401) {
+    if (await tryRefresh()) {
+      res = await makeRequest();
+    } else {
       clearTokens();
       window.dispatchEvent(new CustomEvent('fg:session-expired'));
+      throw new Error('Session expired');
     }
   }
   if (!res.ok) {
@@ -123,6 +123,35 @@ async function interceptFetch(path, options = {}) {
   return res;
 }
 
+async function authenticatedDownload(path, filename) {
+  const makeRequest = () => fetch(`${API_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${getToken() || ''}` },
+  });
+  let res = await makeRequest();
+  if (res.status === 401) {
+    if (await tryRefresh()) {
+      res = await makeRequest();
+    } else {
+      clearTokens();
+      window.dispatchEvent(new CustomEvent('fg:session-expired'));
+      throw new Error('Session expired');
+    }
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Request failed (HTTP ${res.status})`);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── Public API ──────────────────────────────────────
 export const api = {
   // Auth
   register(email, username, password, full_name) {
@@ -189,8 +218,57 @@ export const api = {
     });
   },
 
+  async changePassword(currentPassword, newPassword) {
+    const data = await request('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    saveTokens(data.access_token, data.refresh_token);
+    return data;
+  },
+
   getMe() {
     return request('/auth/me');
+  },
+
+  logout() {
+    return request('/auth/logout', { method: 'POST' });
+  },
+
+  exportMyData() {
+    return authenticatedDownload('/auth/me/export', 'revelator-account-export.zip');
+  },
+
+  deleteMyAccount(email, password, confirmation) {
+    return request('/auth/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ email, password, confirmation }),
+    });
+  },
+
+  getMySessions() {
+    return request('/auth/me/sessions');
+  },
+
+  revokeMySession(sessionId) {
+    return request(`/auth/me/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+  },
+
+  revokeOtherSessions() {
+    return request('/auth/me/sessions', { method: 'DELETE' });
+  },
+
+  getTrustedDevices() {
+    return request('/auth/me/trusted-devices');
+  },
+
+  revokeTrustedDevice(deviceId) {
+    return request(`/auth/me/trusted-devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+  },
+
+  clearLocalSession() {
+    clearTokens();
+    window.dispatchEvent(new CustomEvent('fg:session-expired'));
   },
 
   updateMe(data) {
@@ -266,6 +344,13 @@ export const api = {
 
   deleteScan(scanId) {
     return request(`/history/${encodeURIComponent(scanId)}`, { method: 'DELETE' });
+  },
+
+  reportScanFeedback(scanId, message) {
+    return request(`/history/${encodeURIComponent(scanId)}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
   },
 
   getScanImageUrl(scanId) {
@@ -354,6 +439,10 @@ export const api = {
       if (v) params.set(k, v);
     }
     return request(`/admin/super/logs?${params.toString()}`);
+  },
+
+  adminOperations(limit = 100, offset = 0) {
+    return request(`/admin/operations?limit=${limit}&offset=${offset}`);
   },
 
   adminScanImageUrl(scanId) {

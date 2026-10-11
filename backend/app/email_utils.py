@@ -1,12 +1,8 @@
-"""
-Email sending utilities - verification emails via SMTP.
-
-If SMTP is not configured, the verification link is printed to the server
-console instead so the flow can still be tested locally without a mail server.
-"""
+"""Email delivery utilities for verification, password reset, and sign-in codes."""
 
 import smtplib
 import logging
+import ssl
 from html import escape
 from urllib.parse import quote
 from email.mime.text import MIMEText
@@ -16,6 +12,7 @@ from .config import (
     SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, FROM_EMAIL,
     API_URL, FRONTEND_URL, APP_NAME,
 )
+from .operations import record_event
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +22,13 @@ def _smtp_configured() -> bool:
 
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Send an HTML email. Returns True if sent, False if SMTP isn't configured."""
+    """Send an HTML email and record delivery failures without logging message contents."""
     if not _smtp_configured():
+        record_event(
+            "email_delivery_failure",
+            "SMTP email delivery failed (not configured)",
+            severity="error",
+        )
         return False
 
     msg = MIMEMultipart("alternative")
@@ -35,11 +37,30 @@ def send_email(to_email: str, subject: str, html_body: str) -> bool:
     msg["To"] = to_email
     msg.attach(MIMEText(html_body, "html"))
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
-    return True
+    try:
+        if SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(
+                SMTP_HOST,
+                SMTP_PORT,
+                timeout=15,
+                context=ssl.create_default_context(),
+            )
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        with server:
+            if SMTP_PORT != 465:
+                server.starttls(context=ssl.create_default_context())
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.warning("SMTP delivery failed (%s)", type(exc).__name__)
+        record_event(
+            "email_delivery_failure",
+            f"SMTP email delivery failed ({type(exc).__name__})",
+            severity="error",
+        )
+        return False
 
 
 def _verification_html(link: str) -> str:
@@ -84,19 +105,11 @@ def _verification_html(link: str) -> str:
 </html>"""
 
 
-def send_verification_email(to_email: str, token: str) -> None:
-    """Send (or print, if SMTP unconfigured) the email verification link."""
+def send_verification_email(to_email: str, token: str) -> bool:
+    """Send an email verification link."""
     link = f"{API_URL}/api/auth/verify-email?token={quote(token, safe='')}"
     subject = f"Confirm your {APP_NAME} account"
-    try:
-        sent = send_email(to_email, subject, _verification_html(link))
-    except Exception as e:
-        logger.warning(f"Verification email to {to_email} failed: {e}")
-        sent = False
-
-    if not sent:
-        # Dev fallback so the flow is testable without a mail server.
-        print(f"[VERIFY EMAIL] SMTP unavailable - link for {to_email}:\n  {link}")
+    return send_email(to_email, subject, _verification_html(link))
 
 
 def _reset_html(link: str) -> str:
@@ -142,18 +155,11 @@ def _reset_html(link: str) -> str:
 </html>"""
 
 
-def send_reset_email(to_email: str, token: str) -> None:
-    """Send (or print, if SMTP unconfigured) the password reset link."""
+def send_reset_email(to_email: str, token: str) -> bool:
+    """Send a password reset link."""
     link = f"{FRONTEND_URL}/reset-password?token={quote(token, safe='')}"
     subject = f"Reset your {APP_NAME} password"
-    try:
-        sent = send_email(to_email, subject, _reset_html(link))
-    except Exception as e:
-        logger.warning(f"Reset email to {to_email} failed: {e}")
-        sent = False
-
-    if not sent:
-        print(f"[RESET EMAIL] SMTP unavailable - link for {to_email}:\n  {link}")
+    return send_email(to_email, subject, _reset_html(link))
 
 
 def _twofa_html(code: str, ttl_minutes: int) -> str:
@@ -195,17 +201,9 @@ def _twofa_html(code: str, ttl_minutes: int) -> str:
 
 
 def send_2fa_code_email(to_email: str, code: str, ttl_minutes: int = 10) -> bool:
-    """Send (or print, if SMTP unconfigured) the 2FA login code.
+    """Send the 2FA login code.
 
     Returns True if the email was actually sent. The caller uses this to decide
     whether it can require the code (never lock a user out when mail is down)."""
-    subject = f"Your {APP_NAME} sign-in code: {code}"
-    try:
-        sent = send_email(to_email, subject, _twofa_html(code, ttl_minutes))
-    except Exception as e:
-        logger.warning(f"2FA code email to {to_email} failed: {e}")
-        sent = False
-
-    if not sent:
-        print(f"[2FA CODE] SMTP unavailable - code for {to_email}: {code}")
-    return sent
+    subject = f"Your {APP_NAME} sign-in code"
+    return send_email(to_email, subject, _twofa_html(code, ttl_minutes))

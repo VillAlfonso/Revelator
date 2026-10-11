@@ -16,12 +16,26 @@ load_dotenv(ENV_PATH)
 # ============================================
 # DATABASE
 # ============================================
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./forgeguard.db")
+if os.getenv("REVELATOR_DATA_DIR"):
+    DATA_DIR = Path(os.environ["REVELATOR_DATA_DIR"])
+else:
+    _LOCAL_DATA_ROOT = Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".local" / "share"))
+    DATA_DIR = _LOCAL_DATA_ROOT / "Revelator" / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+_configured_database_url = os.getenv("DATABASE_URL")
+if _configured_database_url in (None, "", "sqlite:///./forgeguard.db"):
+    DATABASE_URL = f"sqlite:///{(DATA_DIR / 'forgeguard.db').as_posix()}"
+else:
+    DATABASE_URL = _configured_database_url
 
 # ============================================
 # AUTH / JWT
 # ============================================
 SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE-ME-generate-a-random-64-char-string")
+_configured_api_key_encryption_key = os.getenv("API_KEY_ENCRYPTION_KEY", "")
+API_KEY_ENCRYPTION_KEY = _configured_api_key_encryption_key or SECRET_KEY
+API_KEY_ENCRYPTION_KEY_CONFIGURED = bool(_configured_api_key_encryption_key)
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
@@ -77,7 +91,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 # Gemini Vision - primary forensic classifier. Reads the document image and returns
 # a structured JSON verdict against the 19-category taxonomy.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-3.8-flash")
 
 # Local specimen classifier. When its confidence is high, Gemini verifies a
 # narrowed category instead of choosing from the entire taxonomy.
@@ -103,6 +117,7 @@ ROBOFLOW_CUT_PASTE_MODEL = os.getenv("ROBOFLOW_CUT_PASTE_MODEL", "find-cut-and-p
 # ============================================
 # APP
 # ============================================
+APP_ENV = os.getenv("APP_ENV", "development").lower()
 APP_NAME = "Revelator"
 APP_VERSION = "2.0.0"
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -120,7 +135,7 @@ ALLOWED_ORIGINS = list(dict.fromkeys(_configured_origins + [
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 # Uploaded scan images are stored here (created on startup if missing).
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(Path(__file__).parent.parent / "uploads")))
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 
 # Plan limits. -1 means unlimited.
 UNLIMITED = -1

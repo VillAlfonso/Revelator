@@ -1,0 +1,156 @@
+"""
+Revelator Configuration
+=======================
+All settings loaded from environment variables.
+"""
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from project root
+ENV_PATH = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(ENV_PATH)
+
+
+# ============================================
+# DATABASE
+# ============================================
+if os.getenv("REVELATOR_DATA_DIR"):
+    DATA_DIR = Path(os.environ["REVELATOR_DATA_DIR"])
+else:
+    _LOCAL_DATA_ROOT = Path(os.getenv("LOCALAPPDATA") or (Path.home() / ".local" / "share"))
+    DATA_DIR = _LOCAL_DATA_ROOT / "Revelator" / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+_configured_database_url = os.getenv("DATABASE_URL")
+if _configured_database_url in (None, "", "sqlite:///./forgeguard.db"):
+    DATABASE_URL = f"sqlite:///{(DATA_DIR / 'forgeguard.db').as_posix()}"
+else:
+    DATABASE_URL = _configured_database_url
+
+# ============================================
+# AUTH / JWT
+# ============================================
+SECRET_KEY = os.getenv("SECRET_KEY", "CHANGE-ME-generate-a-random-64-char-string")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+
+# When false, registration creates a verified account immediately and returns
+# tokens (no email round-trip). Right for free / laptop-hosted deployments that
+# lack reliable transactional email or a stable public URL for the verify link.
+REQUIRE_EMAIL_VERIFICATION = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
+
+# Two-factor authentication: a 6-digit code emailed on password login. When on
+# (and SMTP is configured) a password sign-in must confirm the code unless the
+# device was remembered. Google logins are exempt (Google already does MFA).
+# If SMTP is not configured the login flow falls back to no-2FA so nobody gets
+# locked out. Per-user opt-out lives on User.two_factor_enabled.
+TWO_FACTOR_ENABLED = os.getenv("TWO_FACTOR_ENABLED", "true").lower() == "true"
+TWO_FACTOR_CODE_TTL_MINUTES = int(os.getenv("TWO_FACTOR_CODE_TTL_MINUTES", "10"))
+TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv("TWO_FACTOR_MAX_ATTEMPTS", "5"))
+TRUSTED_DEVICE_DAYS = int(os.getenv("TRUSTED_DEVICE_DAYS", "30"))
+
+# ============================================
+# OAUTH (Google)
+# ============================================
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+# ============================================
+# PAYMENTS (Stripe & PayMongo)
+# ============================================
+# Stripe (global, card-based)
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_ID_PRO = os.getenv("STRIPE_PRICE_ID_PRO", "")
+STRIPE_PRICE_ID_PREMIUM = os.getenv("STRIPE_PRICE_ID_PREMIUM", "")
+# Legacy alias - old "basic" tier maps to new "pro". Keep so existing .env files still load.
+STRIPE_PRICE_ID_BASIC = os.getenv("STRIPE_PRICE_ID_BASIC", STRIPE_PRICE_ID_PRO)
+
+# PayMongo (Philippines, cards + e-wallets)
+PAYMONGO_SECRET_KEY = os.getenv("PAYMONGO_SECRET_KEY", "")
+PAYMONGO_PUBLIC_KEY = os.getenv("PAYMONGO_PUBLIC_KEY", "")
+
+# ============================================
+# LLM
+# ============================================
+USE_CLOUD_LLM = os.getenv("USE_CLOUD_LLM", "true").lower() == "true"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+# Vision-capable Groq model. Receives the annotated image + prompt for the explainer.
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+
+# Gemini Vision - primary forensic classifier. Reads the document image and returns
+# a structured JSON verdict against the 19-category taxonomy.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
+
+# Local specimen classifier. When its confidence is high, Gemini verifies a
+# narrowed category instead of choosing from the entire taxonomy.
+USE_LOCAL_CLASSIFIER = os.getenv("USE_LOCAL_CLASSIFIER", "true").lower() == "true"
+LOCAL_CLASSIFIER_THRESHOLD = float(os.getenv("LOCAL_CLASSIFIER_THRESHOLD", "0.85"))
+
+# ============================================
+# YOLO
+# ============================================
+YOLO_WEIGHTS_PATH = os.getenv("YOLO_WEIGHTS_PATH", "./weights/best.pt")
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.25"))
+
+# ============================================
+# ROBOFLOW (hosted inference for select categories)
+# ============================================
+# When set, the digital_cut_paste category routes to a Roboflow-hosted model
+# instead of a local YOLO checkpoint. Other categories continue to use local
+# weights until they are migrated.
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
+ROBOFLOW_API_URL = os.getenv("ROBOFLOW_API_URL", "https://serverless.roboflow.com")
+ROBOFLOW_CUT_PASTE_MODEL = os.getenv("ROBOFLOW_CUT_PASTE_MODEL", "find-cut-and-paste/1")
+
+# ============================================
+# APP
+# ============================================
+APP_NAME = "Revelator"
+APP_VERSION = "2.0.0"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+_configured_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("ALLOWED_ORIGINS", FRONTEND_URL).split(",")
+    if origin.strip()
+]
+ALLOWED_ORIGINS = list(dict.fromkeys(_configured_origins + [
+    "http://localhost",
+    "capacitor://localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]))
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+# Uploaded scan images are stored here (created on startup if missing).
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", str(DATA_DIR / "uploads")))
+
+# Plan limits. -1 means unlimited.
+UNLIMITED = -1
+FREE_SCANS_PER_MONTH = int(os.getenv("FREE_SCANS_PER_MONTH", "10"))
+PRO_SCANS_PER_MONTH = int(os.getenv("PRO_SCANS_PER_MONTH", "-1"))         # $5/mo unlimited
+PREMIUM_SCANS_PER_MONTH = int(os.getenv("PREMIUM_SCANS_PER_MONTH", "-1"))  # $10/mo unlimited + AI
+
+# Plan pricing (USD/month). Source of truth for the /plans API response.
+PRO_PRICE_USD = float(os.getenv("PRO_PRICE_USD", "5"))
+PREMIUM_PRICE_USD = float(os.getenv("PREMIUM_PRICE_USD", "10"))
+
+# Plans that include the AI/LLM-generated forensic explanation.
+LLM_PLANS = {"pro", "premium"}
+
+# ============================================
+# EMAIL (optional, for password reset etc.)
+# ============================================
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@forgeguard.app")

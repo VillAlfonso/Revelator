@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 import { consumeApiKeyTutorialRequest } from '../apiKeyTutorial';
+import PasswordStrength, { passwordPolicyError } from '../components/PasswordStrength';
 
 const darkInput = {
   background: '#0a0f0c',
@@ -29,6 +30,20 @@ export default function Account() {
   const [revealedKeys, setRevealedKeys] = useState({});
 
   const [twoFABusy, setTwoFABusy] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [trustedDevices, setTrustedDevices] = useState([]);
+  const [securityError, setSecurityError] = useState('');
+  const [securityBusy, setSecurityBusy] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const deleteAccountSectionRef = useRef(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
   const [tutorialFocus, setTutorialFocus] = useState(false);
   const tutorialRef = useRef(null);
 
@@ -52,6 +67,22 @@ export default function Account() {
   }, []);
 
   useEffect(() => { loadKeys(); }, [loadKeys]);
+
+  const loadSecurityItems = useCallback(async () => {
+    setSecurityError('');
+    try {
+      const [sessionData, deviceData] = await Promise.all([
+        api.getMySessions(),
+        api.getTrustedDevices(),
+      ]);
+      setSessions(sessionData.sessions || []);
+      setTrustedDevices(deviceData.devices || []);
+    } catch (err) {
+      setSecurityError(err.message || 'Could not load session security details.');
+    }
+  }, []);
+
+  useEffect(() => { loadSecurityItems(); }, [loadSecurityItems]);
 
   useEffect(() => {
     if (!consumeApiKeyTutorialRequest()) return undefined;
@@ -165,6 +196,112 @@ export default function Account() {
     }
   }
 
+  async function revokeSession(session) {
+    setSecurityError('');
+    setSecurityBusy(true);
+    try {
+      await api.revokeMySession(session.id);
+      if (session.current) {
+        api.clearLocalSession();
+        return;
+      }
+      await loadSecurityItems();
+    } catch (err) {
+      setSecurityError(err.message || 'Could not revoke this session.');
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  async function revokeOtherSessions() {
+    setSecurityError('');
+    setSecurityBusy(true);
+    try {
+      await api.revokeOtherSessions();
+      await loadSecurityItems();
+    } catch (err) {
+      setSecurityError(err.message || 'Could not revoke other sessions.');
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  async function revokeTrustedDevice(deviceId) {
+    setSecurityError('');
+    setSecurityBusy(true);
+    try {
+      await api.revokeTrustedDevice(deviceId);
+      await loadSecurityItems();
+    } catch (err) {
+      setSecurityError(err.message || 'Could not revoke this remembered device.');
+    } finally {
+      setSecurityBusy(false);
+    }
+  }
+
+  async function changePassword() {
+    setSecurityError('');
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) {
+      setSecurityError(`${policyError}.`);
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setSecurityError('New passwords do not match.');
+      return;
+    }
+    setPasswordBusy(true);
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      await refreshUser();
+      await loadSecurityItems();
+      setMsg('Password changed. Other sessions and remembered devices were signed out.');
+    } catch (err) {
+      setSecurityError(err.message || 'Could not change password.');
+    } finally {
+      setPasswordBusy(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteBusy) return;
+    setDeleteError('');
+    if (deleteEmail.trim().toLowerCase() !== user?.email?.toLowerCase()) {
+      setDeleteError('Enter the email address for this account to continue.');
+      return;
+    }
+    if (deleteConfirmation !== 'DELETE') {
+      setDeleteError('Type DELETE exactly to confirm permanent account deletion.');
+      return;
+    }
+    if (user?.has_password && !deletePassword) {
+      setDeleteError('Enter your current password to delete this account.');
+      return;
+    }
+
+    setDeleteBusy(true);
+    try {
+      await api.deleteMyAccount(deleteEmail.trim(), deletePassword || undefined, deleteConfirmation);
+      api.clearLocalSession();
+    } catch (err) {
+      setDeleteError(err.message || 'Account deletion failed. Your account has not been confirmed as deleted. Please try again.');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  function closeDeleteAccount() {
+    if (deleteBusy) return;
+    setDeleteEmail('');
+    setDeletePassword('');
+    setDeleteConfirmation('');
+    setDeleteError('');
+    if (deleteAccountSectionRef.current) deleteAccountSectionRef.current.open = false;
+  }
+
   return (
     <div style={{ maxWidth: 760 }}>
       <h1 className="oswald glow" style={{
@@ -221,40 +358,6 @@ export default function Account() {
             <div><span style={{ color: '#3f6e4a', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Member since:</span> <span className="mono" style={{ fontSize: 14 }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</span></div>
           </div>
         )}
-      </div>
-
-      {/* Security */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 className="oswald" style={{
-          fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', color: '#d8ffe6', marginBottom: 14,
-        }}>
-          Security
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ fontSize: 14, color: '#d8ffe6', fontWeight: 600, marginBottom: 4 }}>
-              Two-factor sign-in (email code)
-            </div>
-            <div style={{ fontSize: 12, color: '#6dba85', lineHeight: 1.6 }}>
-              When on, signing in on a new device asks for a 6-digit code we email you.
-              Trusted devices skip it for 30 days.
-            </div>
-          </div>
-          <button
-            onClick={() => toggle2FA(!user?.two_factor_enabled)}
-            disabled={twoFABusy}
-            className={user?.two_factor_enabled ? 'btn btn-secondary' : 'btn btn-primary'}
-            style={{ fontSize: 12, padding: '10px 18px', minHeight: 'unset', whiteSpace: 'nowrap' }}
-          >
-            {twoFABusy ? '…' : user?.two_factor_enabled ? 'Turn off' : 'Turn on'}
-          </button>
-        </div>
-        <div className="mono" style={{
-          marginTop: 12, fontSize: 11, letterSpacing: 1,
-          color: user?.two_factor_enabled ? '#00ff66' : '#6b7280',
-        }}>
-          STATUS: {user?.two_factor_enabled ? '● ENABLED' : '○ DISABLED'}
-        </div>
       </div>
 
       {/* API Keys */}
@@ -343,6 +446,7 @@ export default function Account() {
                     </a>
                   )}
                 </div>
+
                 {item.img && (
                   <img
                     src={item.img}
@@ -576,6 +680,164 @@ export default function Account() {
           </button>
         </div>
       </div>
+      {/* Security */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h2 className="oswald" style={{
+          fontSize: 16, letterSpacing: 2, textTransform: 'uppercase', color: '#d8ffe6', marginBottom: 14,
+        }}>
+          Security
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ fontSize: 14, color: '#d8ffe6', fontWeight: 600, marginBottom: 4 }}>
+              Two-factor sign-in (email code)
+            </div>
+            <div style={{ fontSize: 12, color: '#6dba85', lineHeight: 1.6 }}>
+              When on, signing in on a new device asks for a 6-digit code we email you.
+              Trusted devices skip it for 30 days.
+            </div>
+          </div>
+          <button
+            onClick={() => toggle2FA(!user?.two_factor_enabled)}
+            disabled={twoFABusy}
+            className={user?.two_factor_enabled ? 'btn btn-secondary' : 'btn btn-primary'}
+            style={{ fontSize: 12, padding: '10px 18px', minHeight: 'unset', whiteSpace: 'nowrap' }}
+          >
+            {twoFABusy ? '…' : user?.two_factor_enabled ? 'Turn off' : 'Turn on'}
+          </button>
+        </div>
+        <div className="mono" style={{
+          marginTop: 12, fontSize: 11, letterSpacing: 1,
+          color: user?.two_factor_enabled ? '#00ff66' : '#6b7280',
+        }}>
+          STATUS: {user?.two_factor_enabled ? '● ENABLED' : '○ DISABLED'}
+        </div>
+        {user?.has_password && (
+          <div style={{ marginTop: 18, borderTop: '1px solid #112418', paddingTop: 16 }}>
+            <h3 className="oswald" style={{ fontSize: 13, color: '#d8ffe6', letterSpacing: 1.5, margin: '0 0 10px', textTransform: 'uppercase' }}>Change password</h3>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <input className="input" type="password" autoComplete="current-password" placeholder="Current password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+              <div>
+                <input className="input" type="password" autoComplete="new-password" placeholder="New password (12+ characters, letters and numbers)" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                <PasswordStrength password={newPassword} />
+              </div>
+              <input className="input" type="password" autoComplete="new-password" placeholder="Confirm new password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} />
+              <button className="btn btn-secondary" onClick={changePassword} disabled={passwordBusy || !currentPassword || !newPassword || !confirmNewPassword} style={{ justifySelf: 'start' }}>
+                {passwordBusy ? 'Changing…' : 'Update password'}
+              </button>
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop: 20, borderTop: '1px solid #112418', paddingTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <h3 className="oswald" style={{ fontSize: 13, color: '#d8ffe6', letterSpacing: 1.5, margin: 0, textTransform: 'uppercase' }}>Active sessions</h3>
+            <button className="btn btn-secondary" onClick={revokeOtherSessions} disabled={securityBusy || sessions.filter(s => !s.current).length === 0} style={{ fontSize: 11, padding: '7px 10px' }}>
+              Sign out other sessions
+            </button>
+          </div>
+          {securityError && <p role="alert" style={{ color: '#ff8a99', fontSize: 12 }}>{securityError}</p>}
+          {sessions.map(session => (
+            <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #112418' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: '#d8ffe6', fontSize: 12, wordBreak: 'break-word' }}>{session.label || 'Unknown device'} {session.current ? '(this device)' : ''}</div>
+                <div className="mono" style={{ color: '#6dba85', fontSize: 10, marginTop: 3 }}>
+                  Last active {session.last_used_at ? new Date(session.last_used_at).toLocaleString() : 'unknown'}
+                </div>
+              </div>
+              <button className="btn btn-secondary" onClick={() => revokeSession(session)} disabled={securityBusy} style={{ fontSize: 10, padding: '6px 9px' }}>Revoke</button>
+            </div>
+          ))}
+          <h3 className="oswald" style={{ fontSize: 13, color: '#d8ffe6', letterSpacing: 1.5, margin: '18px 0 8px', textTransform: 'uppercase' }}>Remembered devices</h3>
+          {trustedDevices.length === 0 && <p style={{ color: '#6dba85', fontSize: 12 }}>No remembered devices.</p>}
+          {trustedDevices.map(device => (
+            <div key={device.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #112418' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: '#d8ffe6', fontSize: 12, wordBreak: 'break-word' }}>{device.label || 'Remembered device'}</div>
+                <div className="mono" style={{ color: '#6dba85', fontSize: 10, marginTop: 3 }}>Expires {new Date(device.expires_at).toLocaleString()}</div>
+              </div>
+              <button className="btn btn-secondary" onClick={() => revokeTrustedDevice(device.id)} disabled={securityBusy} style={{ fontSize: 10, padding: '6px 9px' }}>Forget</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <details ref={deleteAccountSectionRef} className="card" style={{ marginBottom: 0 }}>
+        <summary style={{
+          cursor: 'pointer', fontFamily: "'Oswald', sans-serif",
+          fontSize: 16, letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          Delete account and data
+        </summary>
+        <div style={{ marginTop: 12 }}>
+          <p style={{ color: '#86efac', fontSize: 12, lineHeight: 1.7 }}>
+            Permanently remove your profile, scan history, uploaded images, API keys, sessions, and remembered devices. This cannot be undone.
+          </p>
+          <form onSubmit={event => { event.preventDefault(); deleteAccount(); }}>
+            <label htmlFor="delete-account-email" style={{ fontSize: 11, color: '#86efac', display: 'block', marginBottom: 5 }}>Account email</label>
+            <input
+              id="delete-account-email"
+              className="input"
+              type="email"
+              autoComplete="email"
+              value={deleteEmail}
+              onChange={e => setDeleteEmail(e.target.value)}
+              required
+              style={{ marginBottom: 10 }}
+              disabled={deleteBusy}
+            />
+            {user?.has_password && (
+              <>
+                <label htmlFor="delete-account-password" style={{ fontSize: 11, color: '#86efac', display: 'block', marginBottom: 5 }}>Current password</label>
+                <input
+                  id="delete-account-password"
+                  className="input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  required
+                  style={{ marginBottom: 10 }}
+                  disabled={deleteBusy}
+                />
+              </>
+            )}
+            <label htmlFor="delete-account-confirmation" style={{ fontSize: 11, color: '#86efac', display: 'block', marginBottom: 5 }}>
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-account-confirmation"
+              className="input"
+              type="text"
+              autoComplete="off"
+              value={deleteConfirmation}
+              onChange={e => setDeleteConfirmation(e.target.value)}
+              required
+              aria-describedby="delete-account-confirmation-help"
+              style={{ marginBottom: 5 }}
+              disabled={deleteBusy}
+            />
+            <p id="delete-account-confirmation-help" style={{ color: '#6dba85', fontSize: 11, margin: '0 0 10px' }}>
+              Enter DELETE in uppercase. Account deletion is permanent.
+            </p>
+            {deleteError && <p role="alert" aria-live="assertive" style={{ color: '#ff8a99', fontSize: 12 }}>{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={closeDeleteAccount} disabled={deleteBusy}>Cancel</button>
+              <button
+                type="submit"
+                className="btn btn-danger"
+                disabled={
+                  deleteBusy ||
+                  deleteEmail.trim().toLowerCase() !== user?.email?.toLowerCase() ||
+                  (Boolean(user?.has_password) && !deletePassword) ||
+                  deleteConfirmation !== 'DELETE'
+                }
+              >
+                {deleteBusy ? 'Deleting…' : 'Permanently delete'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </details>
     </div>
   );
 }

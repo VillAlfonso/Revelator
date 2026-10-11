@@ -299,12 +299,12 @@ export default function Register() {
               type={showPw ? 'text' : 'password'}
               value={form.password}
               onChange={update('password')}
-              placeholder="At least 8 chars, letters + numbers"
+              placeholder="At least 12 chars, letters + numbers"
               maxLength={128}
               autoComplete="new-password"
               aria-invalid={!!fieldErrors.password}
               required
-              minLength={8}
+              minLength={12}
             />
             <PasswordStrength password={form.password} />
             <FieldError msg={fieldErrors.password} />

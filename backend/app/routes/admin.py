@@ -3,6 +3,7 @@ Admin CRUD routes - all endpoints require is_admin=True.
 """
 
 from typing import Optional
+import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -12,7 +13,10 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, user_has_permission
 from ..config import UPLOAD_DIR
 from ..database import get_db
-from ..models import User, Scan, AdminAuditLog
+from ..models import (
+    User, Scan, AdminAuditLog, OperationalEvent, LoginCode, TrustedDevice,
+    UserSession, PasswordResetToken,
+)
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -58,6 +62,59 @@ def stats(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
         "total_scans": total_scans,
         "admins": admin_count,
         "super_admins": super_admin_count,
+    }
+
+
+@router.get("/operations")
+def operations_events(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """Show operational errors, rate limits, and user-submitted scan reports."""
+    query = db.query(OperationalEvent).filter(
+        ~OperationalEvent.event_type.ilike("%intercept%"),
+        or_(
+            OperationalEvent.path.is_(None),
+            ~OperationalEvent.path.ilike("%/api/intercept%"),
+        ),
+    ).order_by(OperationalEvent.created_at.desc())
+    total = query.count()
+    rows = query.offset(offset).limit(limit).all()
+    user_ids = {event.user_id for event in rows if event.user_id}
+    users = {
+        user.id: user
+        for user in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+    day_ago = datetime.utcnow() - timedelta(days=1)
+    recent_errors = db.query(func.count(OperationalEvent.id)).filter(
+        OperationalEvent.created_at >= day_ago,
+        OperationalEvent.severity.in_(("error", "critical")),
+        ~OperationalEvent.event_type.ilike("%intercept%"),
+        or_(
+            OperationalEvent.path.is_(None),
+            ~OperationalEvent.path.ilike("%/api/intercept%"),
+        ),
+    ).scalar() or 0
+    return {
+        "events": [{
+            "id": event.id,
+            "request_id": event.request_id,
+            "event_type": event.event_type,
+            "severity": event.severity,
+            "path": event.path,
+            "status_code": event.status_code,
+            "message": event.message,
+            "scan_id": event.scan_id,
+            "actor": ({
+                "username": users[event.user_id].username,
+                "email": users[event.user_id].email,
+            } if event.user_id in users else None),
+            "created_at": event.created_at.isoformat() if event.created_at else "",
+        } for event in rows],
+        "total": total,
+        "errors_last_24_hours": recent_errors,
     }
 
 
@@ -109,6 +166,18 @@ def delete_user(
         raise HTTPException(status_code=403, detail="Cannot delete a super admin. Demote first.")
 
     snapshot = {"username": user.username, "email": user.email, "role": user.role}
+    user_dir = (UPLOAD_DIR / user.id).resolve()
+    if user_dir.parent == UPLOAD_DIR.resolve() and user_dir.is_dir():
+        shutil.rmtree(user_dir)
+
+    db.query(LoginCode).filter(LoginCode.user_id == user_id).delete()
+    db.query(TrustedDevice).filter(TrustedDevice.user_id == user_id).delete()
+    db.query(UserSession).filter(UserSession.user_id == user_id).delete()
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete()
+    db.query(OperationalEvent).filter(OperationalEvent.user_id == user_id).delete()
+    db.query(AdminAuditLog).filter(
+        (AdminAuditLog.admin_id == user_id) | (AdminAuditLog.target_user_id == user_id)
+    ).delete(synchronize_session=False)
     db.delete(user)
     db.commit()
 
@@ -170,6 +239,8 @@ _GEMINI_FREE_LIMITS = {
     "gemini-2.0-flash-exp":  {"rpd": 1500, "rpm": 15},
     "gemini-1.5-flash":      {"rpd": 1500, "rpm": 15},
     "gemini-1.5-pro":        {"rpd":   50, "rpm":  2},
+    "gemini-flash-latest":      {"rpd": 1500, "rpm": 10},
+    "gemini-flash-lite-latest": {"rpd": 1500, "rpm": 15},
 }
 
 
@@ -327,7 +398,7 @@ def view_audit_logs(
     db: Session = Depends(get_db),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    kind: Optional[str] = Query(None, description="Filter: 'admin', 'scan', or None for all"),
+    kind: Optional[str] = Query(None, description="Filter: 'admin', 'scan', 'operation', or None for all"),
     action: Optional[str] = Query(None, description="Exact action, e.g. user_scan, ban_user"),
     actor: Optional[str] = Query(None, description="Actor username/email substring"),
     role: Optional[str] = Query(None, description="Actor role (user/admin/superadmin)"),
@@ -337,9 +408,11 @@ def view_audit_logs(
     end_date: Optional[str] = Query(None, description="YYYY-MM-DD inclusive"),
     q: Optional[str] = Query(None, description="Free-text search across actor/action/target/scan"),
 ):
-    """View audit logs (admin actions + user scans) with filters. Admins and super admins."""
+    """View admin actions, user scans, and service events in one filtered feed."""
     # Admin actions
-    admin_logs_query = db.query(AdminAuditLog).order_by(AdminAuditLog.created_at.desc())
+    admin_logs_query = db.query(AdminAuditLog).filter(
+        ~AdminAuditLog.action.ilike("%intercept%")
+    ).order_by(AdminAuditLog.created_at.desc())
     admin_logs_total = admin_logs_query.count()
 
     # Scans (treated as user_scan events in the unified log)
@@ -363,8 +436,10 @@ def view_audit_logs(
             })
 
     if kind in (None, "scan"):
+        scan_ids_in_feed = set()
         for scan in scans_query.limit(500).all():
             user = db.query(User).filter(User.id == scan.user_id).first()
+            scan_ids_in_feed.add(scan.scan_id)
             combined.append({
                 "id": f"scan_{scan.id}",
                 "kind": "scan",
@@ -405,6 +480,124 @@ def view_audit_logs(
                 "created_at": scan.created_at.isoformat() if scan.created_at else "",
             })
 
+        legacy_intercepts = db.query(AdminAuditLog).filter(
+            AdminAuditLog.action.ilike("%intercept%"),
+        ).order_by(AdminAuditLog.created_at.desc()).limit(500).all()
+        for log in legacy_intercepts:
+            try:
+                details = json.loads(log.details) if log.details else {}
+            except json.JSONDecodeError:
+                details = {}
+            scan_id = details.get("scan_id")
+            if not scan_id or scan_id in scan_ids_in_feed:
+                continue
+
+            scan = db.query(Scan).filter(Scan.scan_id == scan_id).first()
+            if scan:
+                scan_user = db.query(User).filter(User.id == scan.user_id).first()
+                scan_log = {
+                    "scan_id": scan.scan_id,
+                    "filename": scan.filename,
+                    "verdict": scan.verdict,
+                    "confidence_score": scan.confidence_score,
+                    "detected_category": scan.detected_category,
+                    "detected_subtype": scan.detected_subtype,
+                    "category_confidence": scan.category_confidence,
+                    "category_explanation": scan.category_explanation,
+                    "category_evidence": json.loads(scan.category_evidence) if scan.category_evidence else [],
+                    "reasoning_steps": json.loads(scan.reasoning_steps) if scan.reasoning_steps else [],
+                    "alternatives": json.loads(scan.alternatives) if scan.alternatives else [],
+                    "anomaly_location": scan.anomaly_location,
+                    "certainty_level": scan.certainty_level,
+                    "tools_likely_used": scan.tools_likely_used,
+                    "document_type": scan.document_type,
+                    "scanned_at": scan.created_at.isoformat() if scan.created_at else "",
+                    "image_width": scan.image_width,
+                    "image_height": scan.image_height,
+                    "has_image": bool(scan.image_path),
+                    "llm_explanation": scan.llm_explanation,
+                    "user_context": {
+                        "suspicion_reason": scan.suspicion_reason,
+                        "area_of_concern": scan.area_of_concern,
+                        "image_source": scan.image_source,
+                        "shot_type": scan.shot_type,
+                        "lighting": scan.lighting,
+                        "physical_clues": scan.physical_clues,
+                        "is_forged_belief": scan.is_forged_belief,
+                    },
+                }
+                scan_actor = ({
+                    "username": scan_user.username,
+                    "email": scan_user.email,
+                    "role": scan_user.role,
+                } if scan_user else None)
+                created_at = scan.created_at.isoformat() if scan.created_at else log.created_at.isoformat()
+            else:
+                scan_user = db.query(User).filter(User.id == log.target_user_id).first() if log.target_user_id else None
+                scan_log = {
+                    "scan_id": scan_id,
+                    "filename": details.get("filename") or "Uploaded document",
+                    "verdict": None,
+                    "confidence_score": None,
+                    "detected_category": details.get("category"),
+                    "has_image": False,
+                    "scanned_at": log.created_at.isoformat() if log.created_at else "",
+                }
+                scan_actor = ({
+                    "username": scan_user.username,
+                    "email": scan_user.email,
+                    "role": scan_user.role,
+                } if scan_user else None)
+                created_at = log.created_at.isoformat() if log.created_at else ""
+
+            scan_ids_in_feed.add(scan_id)
+            combined.append({
+                "id": f"legacy_scan_{log.id}",
+                "kind": "scan",
+                "actor": scan_actor,
+                "action": "user_scan",
+                "target": None,
+                "scan": scan_log,
+                "created_at": created_at,
+            })
+
+    operations_query = db.query(OperationalEvent).filter(
+        ~OperationalEvent.event_type.ilike("%intercept%"),
+        or_(
+            OperationalEvent.path.is_(None),
+            ~OperationalEvent.path.ilike("%/api/intercept%"),
+        ),
+    ).order_by(OperationalEvent.created_at.desc())
+    operations_total = operations_query.count()
+    operation_rows = operations_query.limit(500).all() if kind in (None, "operation") else []
+    operation_user_ids = {event.user_id for event in operation_rows if event.user_id}
+    operation_users = {
+        user.id: user
+        for user in db.query(User).filter(User.id.in_(operation_user_ids)).all()
+    } if operation_user_ids else {}
+    for event in operation_rows:
+        operation_user = operation_users.get(event.user_id)
+        combined.append({
+            "id": f"operation_{event.id}",
+            "kind": "operation",
+            "actor": ({
+                "username": operation_user.username,
+                "email": operation_user.email,
+                "role": operation_user.role,
+            } if operation_user else None),
+            "action": event.event_type,
+            "target": None,
+            "operation": {
+                "request_id": event.request_id,
+                "severity": event.severity,
+                "path": event.path,
+                "status_code": event.status_code,
+                "message": event.message,
+                "scan_id": event.scan_id,
+            },
+            "created_at": event.created_at.isoformat() if event.created_at else "",
+        })
+
     # Distinct values for the frontend filter dropdowns (computed pre-filter).
     available_actions = sorted({e["action"] for e in combined if e.get("action")})
     available_verdicts = sorted({(e.get("scan") or {}).get("verdict") for e in combined if e.get("scan") and e["scan"].get("verdict")})
@@ -439,6 +632,9 @@ def view_audit_logs(
                 a.get("username"), a.get("email"), e.get("action"),
                 t.get("username"), t.get("email"),
                 s.get("scan_id"), s.get("filename"), s.get("detected_category"), s.get("verdict"),
+                (e.get("operation") or {}).get("path"),
+                (e.get("operation") or {}).get("message"),
+                (e.get("operation") or {}).get("request_id"),
             ] if x).lower()
             if ql not in hay:
                 return False
@@ -455,6 +651,15 @@ def view_audit_logs(
         "total": len(combined),
         "admin_actions_total": admin_logs_total,
         "scans_total": scans_total,
+        "operations_total": operations_total,
+        "errors_last_24_hours": db.query(func.count(OperationalEvent.id)).filter(
+            OperationalEvent.created_at >= datetime.utcnow() - timedelta(days=1),
+            OperationalEvent.severity.in_(("error", "critical")),
+            or_(
+                OperationalEvent.path.is_(None),
+                ~OperationalEvent.path.ilike("%/api/intercept%"),
+            ),
+        ).scalar() or 0,
         "available_actions": available_actions,
         "available_verdicts": available_verdicts,
         "available_categories": available_categories,
@@ -481,5 +686,3 @@ def admin_scan_image(
     if not file_path.is_file() or upload_root not in file_path.parents:
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(str(file_path), media_type="image/jpeg")
-
-

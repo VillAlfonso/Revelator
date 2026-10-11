@@ -22,7 +22,7 @@ export default function Admin() {
   const [logs, setLogs] = useState([]);
   const [logsStats, setLogsStats] = useState({ admin_actions_total: 0, scans_total: 0, total: 0 });
   const [logsLoading, setLogsLoading] = useState(false);
-  const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan'
+  const [logsFilter, setLogsFilter] = useState('all'); // 'all', 'admin', 'scan', 'operation'
   const [logFilters, setLogFilters] = useState({ action: '', role: '', verdict: '', category: '', start_date: '', end_date: '', q: '' });
   const [logMeta, setLogMeta] = useState({ available_actions: [], available_verdicts: [], available_categories: [] });
   const [banningUserId, setBanningUserId] = useState(null);
@@ -56,6 +56,8 @@ export default function Admin() {
       setLogsStats({
         admin_actions_total: data.admin_actions_total || 0,
         scans_total: data.scans_total || 0,
+        operations_total: data.operations_total || 0,
+        errors_last_24_hours: data.errors_last_24_hours || 0,
         total: data.total || 0,
       });
       setLogMeta({
@@ -190,7 +192,7 @@ export default function Admin() {
             marginBottom: '-12px',
           }}
         >
-          Audit Logs
+          Logs
         </button>
         <button
           className="mono"
@@ -295,6 +297,7 @@ export default function Admin() {
           logFilters={logFilters}
           setLogFilters={setLogFilters}
           logMeta={logMeta}
+          error={error}
         />
       )}
 
@@ -513,8 +516,9 @@ const ACTION_COLORS = {
   user_scan:      '#00ff66',
 };
 
-function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh, logFilters, setLogFilters, logMeta }) {
+function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh, logFilters, setLogFilters, logMeta, error }) {
   const [qDraft, setQDraft] = useState(logFilters.q || '');
+  const [detailFormat, setDetailFormat] = useState('readable');
   useEffect(() => { setQDraft(logFilters.q || ''); }, [logFilters.q]);
   const setF = (k, v) => setLogFilters(f => ({ ...f, [k]: v }));
   const clearFilters = () => setLogFilters({ action: '', role: '', verdict: '', category: '', start_date: '', end_date: '', q: '' });
@@ -525,6 +529,8 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 }}>
         <StatCard label="Total Scans" value={logsStats.scans_total ?? 0} />
         <StatCard label="Admin Actions" value={logsStats.admin_actions_total ?? 0} />
+        <StatCard label="Service Events" value={logsStats.operations_total ?? 0} />
+        <StatCard label="Errors (24 hours)" value={logsStats.errors_last_24_hours ?? 0} />
         <StatCard label="Matching Events" value={logsStats.total ?? 0} />
       </div>
 
@@ -550,6 +556,9 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
             {opt.label}
           </button>
         ))}
+        <button className="btn btn-secondary" onClick={onRefresh} disabled={loading} style={{ marginLeft: 'auto' }}>
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
@@ -590,21 +599,27 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
         )}
       </div>
 
+      {error && <div role="alert" className="card" style={{ color: '#ff8a99', marginBottom: 12 }}>{error}</div>}
       {loading && <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>Loading logs...</div>}
       {!loading && logs.length === 0 && (
         <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No log entries match these filters.</div>
       )}
       {logs.map(log => (
-        <LogRow key={log.id} log={log} />
+        <LogRow key={log.id} log={log} detailFormat={detailFormat} />
       ))}
     </div>
   );
 }
 
-function LogRow({ log }) {
+function LogRow({ log, detailFormat }) {
   const [expanded, setExpanded] = useState(false);
   const isScan = log.kind === 'scan';
-  const accent = ACTION_COLORS[log.action] || '#86efac';
+  const isOperation = log.kind === 'operation';
+  const accent = isOperation && ['error', 'critical'].includes(log.operation?.severity)
+    ? '#ff8a99'
+    : isOperation && log.operation?.severity === 'warning'
+      ? '#ffa040'
+      : ACTION_COLORS[log.action] || '#86efac';
   const timestamp = log.created_at ? new Date(log.created_at).toLocaleString() : '';
 
   return (
@@ -620,7 +635,7 @@ function LogRow({ log }) {
             fontSize: 9, padding: '3px 8px', borderRadius: 2, letterSpacing: 1.5,
             background: `${accent}1a`, color: accent, border: `1px solid ${accent}66`, textTransform: 'uppercase',
           }}>
-            {isScan ? 'SCAN' : 'ADMIN'}
+            {isScan ? 'SCAN' : isOperation ? 'SERVICE' : 'ADMIN'}
           </span>
           <span style={{ color: '#e5e5e5', fontWeight: 600, fontSize: 13 }}>
             {log.actor?.username || '-'}
@@ -653,6 +668,11 @@ function LogRow({ log }) {
               </span>
             </>
           )}
+          {isOperation && log.operation && (
+            <span className="mono" style={{ fontSize: 10, color: accent, textTransform: 'uppercase' }}>
+              {log.operation.severity}{log.operation.status_code ? ` · HTTP ${log.operation.status_code}` : ''}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: '#737373', fontSize: 11, whiteSpace: 'nowrap' }}>{timestamp}</span>
@@ -662,47 +682,94 @@ function LogRow({ log }) {
 
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #112418' }}>
-          {isScan && log.scan ? (
-            <ScanJsonDetail scan={log.scan} />
-          ) : (
+          {isScan && log.scan && <ScanImagePreview scan={log.scan} />}
+          {detailFormat === 'json' ? (
             <pre style={{
               color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
               background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, maxHeight: 480, overflow: 'auto',
             }}>
-              {JSON.stringify(log.details ?? {}, null, 2)}
+              {JSON.stringify(log, null, 2)}
             </pre>
+          ) : isScan && log.scan ? (
+            <ScanJsonDetail scan={log.scan} />
+          ) : isOperation && log.operation ? (
+            <OperationDetail operation={log.operation} />
+          ) : (
+            <ReadableAuditDetails details={log.details} />
           )}
+          <div role="group" aria-label="Log detail format" style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 10 }}>
+            {['readable', 'json'].map(format => (
+              <button
+                key={format}
+                type="button"
+                className="mono"
+                aria-pressed={detailFormat === format}
+                onClick={event => {
+                  event.stopPropagation();
+                  setDetailFormat(format);
+                }}
+                style={{
+                  padding: '5px 10px', fontSize: 10, cursor: 'pointer', textTransform: 'uppercase',
+                  background: detailFormat === format ? 'rgba(0,255,102,0.1)' : 'transparent',
+                  border: `1px solid ${detailFormat === format ? '#00ff66' : '#1d3825'}`,
+                  color: detailFormat === format ? '#00ff66' : '#86efac',
+                }}
+              >
+                {format}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function ScanJsonDetail({ scan }) {
-  const imageUrl = scan.has_image ? api.adminScanImageUrl(scan.scan_id) : null;
+function ReadableAuditDetails({ details }) {
+  let values = details;
+  if (typeof values === 'string') {
+    try {
+      values = JSON.parse(values);
+    } catch {
+      values = { details: values };
+    }
+  }
+  const rows = values && typeof values === 'object' && !Array.isArray(values)
+    ? Object.entries(values)
+    : [['details', values]];
+  if (rows.length === 0) return <div style={{ color: '#6dba85', fontSize: 12 }}>No additional details.</div>;
+  return (
+    <div style={{ display: 'grid', gap: 7 }}>
+      {rows.map(([key, value]) => (
+        <div key={key} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12, lineHeight: 1.5 }}>
+          <strong style={{ color: '#6dba85', textTransform: 'capitalize' }}>{key.replace(/_/g, ' ')}:</strong>
+          <span style={{ color: '#d8ffe6', overflowWrap: 'anywhere' }}>
+            {value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
+function OperationDetail({ operation }) {
+  return (
+    <div className="mono" style={{ color: '#86efac', fontSize: 11, lineHeight: 1.8, overflowWrap: 'anywhere' }}>
+      <div>{operation.message}</div>
+      <div style={{ color: '#6dba85' }}>
+        {operation.path || 'service'}
+        {operation.status_code ? ` · HTTP ${operation.status_code}` : ''}
+        {operation.scan_id ? ` · Scan ${operation.scan_id}` : ''}
+        {operation.request_id ? ` · Request ${operation.request_id}` : ''}
+      </div>
+    </div>
+  );
+}
+
+function ScanJsonDetail({ scan }) {
   return (
     <div>
-      {imageUrl && (
-        <div style={{ marginBottom: 14 }}>
-          <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-            Scan Image
-          </div>
-          <img
-            src={imageUrl}
-            alt={`Uploaded scan ${scan.scan_id}`}
-            style={{
-              display: 'block', width: '100%', maxWidth: 720, maxHeight: 420,
-              objectFit: 'contain', objectPosition: 'left center',
-              background: '#000', border: '1px solid #1d3825', borderRadius: 3,
-            }}
-          />
-          <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, marginTop: 5 }}>
-            {scan.image_width || '?'} × {scan.image_height || '?'} px
-          </div>
-        </div>
-      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         <Pill label="Scan ID" value={scan.scan_id} mono />
         <Pill label="Verdict" value={scan.verdict?.toUpperCase()} />
@@ -711,18 +778,38 @@ function ScanJsonDetail({ scan }) {
         {scan.certainty_level && <Pill label="Certainty" value={scan.certainty_level} />}
         {scan.document_type && <Pill label="Doc Type" value={scan.document_type} />}
       </div>
-      <details style={{ marginTop: 10 }}>
-        <summary style={{ cursor: 'pointer', color: '#86efac', fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>
-          ▸ Full JSON metadata
-        </summary>
-        <pre style={{
-          color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
-          background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418', marginTop: 8,
-          whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 480, overflow: 'auto',
-        }}>
-          {JSON.stringify(scan, null, 2)}
-        </pre>
-      </details>
+    </div>
+  );
+}
+
+function ScanImagePreview({ scan }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  if (!scan.has_image) return null;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+        Scan Image
+      </div>
+      {imageFailed ? (
+        <div role="status" className="mono" style={{ color: '#ffa040', fontSize: 11, padding: 12, border: '1px solid #7a4e10' }}>
+          Image unavailable for this scan.
+        </div>
+      ) : (
+        <img
+          src={api.adminScanImageUrl(scan.scan_id)}
+          alt={`Uploaded scan ${scan.scan_id}`}
+          onError={() => setImageFailed(true)}
+          style={{
+            display: 'block', width: '100%', maxWidth: 720, maxHeight: 420,
+            objectFit: 'contain', objectPosition: 'left center',
+            background: '#000', border: '1px solid #1d3825', borderRadius: 3,
+          }}
+        />
+      )}
+      <div className="mono" style={{ color: '#3f6e4a', fontSize: 10, marginTop: 5 }}>
+        {scan.image_width || '?'} × {scan.image_height || '?'} px
+      </div>
     </div>
   );
 }

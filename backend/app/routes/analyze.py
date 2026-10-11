@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -21,10 +21,12 @@ from starlette.concurrency import run_in_threadpool
 from ..auth import get_current_user, get_user_from_token
 from ..database import get_db
 from ..intercept_queue import intercept_queue
-from ..models import User, Scan, UserApiKey, AdminAuditLog
+from ..models import User, Scan, UserApiKey, AdminAuditLog, OperationalEvent
+from ..key_storage import decrypt_api_key
+from ..operations import enforce_rate_limit
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
-    UNLIMITED, LLM_PLANS, UPLOAD_DIR, USE_LOCAL_CLASSIFIER,
+    UNLIMITED, LLM_PLANS, UPLOAD_DIR, USE_LOCAL_CLASSIFIER, APP_VERSION,
     LOCAL_CLASSIFIER_THRESHOLD, GEMINI_VISION_MODEL,
 )
 from ..forgery.document_gate import check_is_document
@@ -179,8 +181,8 @@ def get_about_info():
                 "tagline": "Screening-level forensic triage - live now.",
                 "available": True,
                 "plans": ["all"],
-                "description": "Powered by Gemini Vision 2.0. Provides binary verdicts (forged / suspicious / no forgery) with confidence scores. Includes alternative category suggestions and image annotation.",
-                "models": ["gemini-2.0-flash-exp"],
+                "description": "Powered by Gemini 3.8 Flash Vision. Provides binary verdicts (forged / suspicious / no forgery) with confidence scores. Includes alternative category suggestions and image annotation.",
+                "models": ["gemini-3.8-flash"],
                 "training": "Trained on 4,380+ labeled document images across 19 forgery categories.",
                 "strengths": [
                     "Fast analysis (< 5 seconds per scan)",
@@ -278,6 +280,7 @@ async def analyze_document(
         height=original_height,
         image_data=preview.getvalue(),
     )
+
     return await run_in_threadpool(
         _analyze_document_sync,
         image,
@@ -354,9 +357,9 @@ def _analyze_document_sync(
     key_rows = db.query(UserApiKey).filter(
         UserApiKey.user_id == current_user.id,
     ).order_by(UserApiKey.is_active.desc(), UserApiKey.created_at.asc()).all()
-    key_attempts = [(row.api_key, row) for row in key_rows]
+    key_attempts = [(decrypt_api_key(row.api_key), row) for row in key_rows]
     if current_user.gemini_api_key and not key_rows:
-        key_attempts.append((current_user.gemini_api_key, None))
+        key_attempts.append((decrypt_api_key(current_user.gemini_api_key), None))
     if not key_attempts:
         key_attempts.append((None, None))
 
@@ -567,6 +570,13 @@ def _analyze_document_sync(
         lighting=lighting,
         physical_clues=physical_clues,
         is_forged_belief=is_forged_belief,
+        analysis_model=gemini.get("model_used") or GEMINI_VISION_MODEL,
+        analysis_method=(
+            "exact_sample_match" if sample_match
+            else "local_classifier_hint" if local_hint
+            else "standard_gemini"
+        ),
+        analysis_version=APP_VERSION,
     )
     db.add(scan)
     current_user.scans_this_month += 1
@@ -688,6 +698,41 @@ def get_scan_detail(
 
 class NotesUpdate(BaseModel):
     notes: str
+
+
+class ScanFeedback(BaseModel):
+    message: str
+
+
+@router.post("/history/{scan_id}/feedback")
+def report_scan_feedback(
+    scan_id: str,
+    body: ScanFeedback,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Send an issue report about a scan to the operational/admin inbox."""
+    enforce_rate_limit(request, "scan_feedback", current_user.id, 5, 3600)
+    message = body.message.strip()
+    if not message or len(message) > 3000:
+        raise HTTPException(status_code=400, detail="Report text must be between 1 and 3000 characters.")
+    scan = db.query(Scan).filter(
+        Scan.scan_id == scan_id,
+        Scan.user_id == current_user.id,
+    ).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    db.add(OperationalEvent(
+        event_type="scan_feedback",
+        severity="info",
+        path="/api/history",
+        message=message,
+        user_id=current_user.id,
+        scan_id=scan.scan_id,
+    ))
+    db.commit()
+    return {"success": True, "message": "Your report was sent to the service team."}
 
 
 @router.put("/history/{scan_id}/notes")

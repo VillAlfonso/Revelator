@@ -1,19 +1,16 @@
-"""Hidden administrator-only live scan intercept endpoints."""
+"""Administrator-only live scan classification endpoints."""
 
 import asyncio
 import json
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from ..auth import get_current_admin
-from ..database import get_db
 from ..forgery.gemini_vision import CATEGORY_CODES
 from ..intercept_queue import intercept_queue
-from ..models import AdminAuditLog, User
+from ..models import User
 
 router = APIRouter(prefix="/api/intercept", tags=["admin-intercept"])
 
@@ -73,34 +70,17 @@ def decide_intercept_scan(
     scan_id: str,
     body: InterceptDecision,
     current_admin: User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
 ):
     if body.category not in CATEGORY_CODES:
         raise HTTPException(status_code=422, detail="Unknown classification category")
 
     try:
-        scan = intercept_queue.choose_category(scan_id, body.category)
+        intercept_queue.choose_category(scan_id, body.category)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except TimeoutError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
 
-    db.add(
-        AdminAuditLog(
-            admin_id=current_admin.id,
-            action="intercept_scan_classification",
-            target_user_id=scan["user_id"],
-            details=json.dumps(
-                {
-                    "scan_id": scan_id,
-                    "filename": scan["filename"],
-                    "category": body.category,
-                    "selected_at": datetime.utcnow().isoformat(),
-                }
-            ),
-        )
-    )
-    db.commit()
     return {"success": True, "id": scan_id, "category": body.category}
 
 
@@ -108,28 +88,12 @@ def decide_intercept_scan(
 def skip_intercept_scan(
     scan_id: str,
     current_admin: User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
 ):
     try:
-        scan = intercept_queue.skip_scan(scan_id)
+        intercept_queue.skip_scan(scan_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except TimeoutError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
 
-    db.add(
-        AdminAuditLog(
-            admin_id=current_admin.id,
-            action="intercept_scan_skipped",
-            target_user_id=scan["user_id"],
-            details=json.dumps(
-                {
-                    "scan_id": scan_id,
-                    "filename": scan["filename"],
-                    "skipped_at": datetime.utcnow().isoformat(),
-                }
-            ),
-        )
-    )
-    db.commit()
     return {"success": True, "id": scan_id, "skipped": True}

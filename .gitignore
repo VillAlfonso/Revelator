@@ -53,7 +53,9 @@ logs/
 
 # Database
 *.db
-!forgeguard.db
+*.db-*
+*.sqlite
+*.sqlite3
 
 # User-uploaded scan images
 backend/uploads/

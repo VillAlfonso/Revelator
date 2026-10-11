@@ -28,6 +28,28 @@ def init_db():
     """Create all tables, then add new columns to existing tables for dev SQLite migrations."""
     Base.metadata.create_all(bind=engine)
     _ensure_columns()
+    _encrypt_existing_api_keys()
+
+
+def _encrypt_existing_api_keys():
+    """Migrate legacy plaintext BYOK values to authenticated encrypted storage."""
+    from .key_storage import encrypt_api_key
+    from .models import User, UserApiKey
+
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.gemini_api_key.isnot(None)).all()
+        for user in users:
+            user.gemini_api_key = encrypt_api_key(user.gemini_api_key)
+        keys = db.query(UserApiKey).all()
+        for key in keys:
+            key.api_key = encrypt_api_key(key.api_key)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def _ensure_columns():
@@ -62,6 +84,8 @@ def _ensure_columns():
                 conn.execute(text("UPDATE users SET is_verified = 1"))
             if "two_factor_enabled" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN NOT NULL DEFAULT 1"))
+            if "auth_version" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0"))
 
             # Plan rename migration: legacy 'basic' -> new 'pro' ($5 unlimited);
             # legacy 'pro' (1000-scan tier) -> new 'premium' ($10 unlimited + AI).
@@ -111,6 +135,17 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE scans ADD COLUMN is_forged_belief VARCHAR"))
             if "notes" not in scan_cols:
                 conn.execute(text("ALTER TABLE scans ADD COLUMN notes TEXT"))
+            if "analysis_model" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN analysis_model VARCHAR"))
+            if "analysis_method" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN analysis_method VARCHAR"))
+            if "analysis_version" not in scan_cols:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN analysis_version VARCHAR"))
+
+        if "operational_events" in table_names:
+            event_cols = {col["name"] for col in inspector.get_columns("operational_events")}
+            if "request_id" not in event_cols:
+                conn.execute(text("ALTER TABLE operational_events ADD COLUMN request_id VARCHAR"))
 
         # Create user_api_keys table for multi-key management
         if "user_api_keys" not in table_names:

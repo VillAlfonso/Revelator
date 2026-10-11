@@ -5,15 +5,22 @@ Forensic document forgery detection - FastAPI gateway + Gemini Vision.
 """
 
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 
-from .config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION, UPLOAD_DIR
-from .database import init_db
+from .config import (
+    ALLOWED_ORIGINS, API_KEY_ENCRYPTION_KEY, API_KEY_ENCRYPTION_KEY_CONFIGURED,
+    API_URL, APP_ENV, APP_NAME, APP_VERSION, FRONTEND_URL,
+    SECRET_KEY, SMTP_HOST, SMTP_USER, SMTP_PASSWORD, UPLOAD_DIR,
+)
+from .database import engine, init_db
+from .operations import record_event
 from .routes import auth, analyze, payments, admin, prompt_analytics, intercept
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
@@ -30,23 +37,28 @@ app.add_middleware(
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     """Reject cross-site browser mutations and attach baseline security headers."""
+    request_id = uuid4().hex
+    request.state.request_id = request_id
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         fetch_site = request.headers.get("sec-fetch-site")
 
         if origin and origin.rstrip("/") not in ALLOWED_ORIGINS:
-            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"})
+            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
         if referer and not any(referer.startswith(f"{allowed}/") for allowed in ALLOWED_ORIGINS):
-            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"})
+            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
         if fetch_site == "cross-site":
-            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"})
+            return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
 
     response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(self), microphone=()"
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://accounts.google.com; "
@@ -69,6 +81,17 @@ app.include_router(intercept.router)
 
 @app.on_event("startup")
 async def startup_event():
+    if APP_ENV == "production":
+        if SECRET_KEY == "CHANGE-ME-generate-a-random-64-char-string" or len(SECRET_KEY) < 32:
+            raise RuntimeError("Production requires a unique SECRET_KEY with at least 32 characters.")
+        if not API_KEY_ENCRYPTION_KEY_CONFIGURED or len(API_KEY_ENCRYPTION_KEY) < 32:
+            raise RuntimeError("Production requires a separate API_KEY_ENCRYPTION_KEY with at least 32 characters.")
+        if not all((SMTP_HOST, SMTP_USER, SMTP_PASSWORD)):
+            raise RuntimeError("Production requires SMTP_HOST, SMTP_USER, and SMTP_PASSWORD for account email.")
+        if FRONTEND_URL.startswith(("http://localhost", "http://127.0.0.1")):
+            raise RuntimeError("Production requires FRONTEND_URL to use the deployed HTTPS origin.")
+        if not API_URL.startswith("https://"):
+            raise RuntimeError("Production requires API_URL to use the deployed HTTPS origin.")
     print("\n" + "=" * 50)
     print(f"{APP_NAME} API v{APP_VERSION} Starting...")
     print("=" * 50)
@@ -79,8 +102,52 @@ async def startup_event():
 
 
 @app.get("/api/health")
-def health_check():
-    return {"status": "healthy", "version": APP_VERSION}
+def health_check(request: Request):
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        record_event(
+            "health_check_failure",
+            f"Database health check failed ({type(exc).__name__})",
+            severity="critical",
+            request_id=getattr(request.state, "request_id", None),
+            path="/api/health",
+            status_code=503,
+        )
+        raise HTTPException(status_code=503, detail="Service unavailable")
+    return {"status": "healthy", "version": APP_VERSION, "database": "healthy"}
+
+
+@app.exception_handler(Exception)
+async def log_unhandled_error(request: Request, exc: Exception):
+    import logging
+
+    request_id = getattr(request.state, "request_id", uuid4().hex)
+    logging.getLogger("revelator").error(
+        "Unhandled request error %s (%s) on %s",
+        request_id,
+        type(exc).__name__,
+        request.url.path,
+    )
+    record_event(
+        "application_error",
+        f"Unhandled server error ({type(exc).__name__})",
+        severity="error",
+        request_id=request_id,
+        path=request.url.path,
+        status_code=500,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected server error occurred.", "request_id": request_id},
+        headers={
+            "X-Request-ID": request_id,
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+        },
+    )
 
 
 # ── Android app download ──────────────────────────────────────────────────
