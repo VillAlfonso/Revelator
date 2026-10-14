@@ -29,10 +29,7 @@ from ..config import GEMINI_API_KEY, GEMINI_VISION_MODEL
 _FALLBACK_CHAIN = [
     "gemini-2.5-flash-lite",
     "gemini-flash-lite-latest",
-    "gemini-flash-latest",
-    "gemini-pro-latest",
 ]
-
 def _model_chain() -> list[str]:
     """Return the configured model followed by safe capacity fallbacks."""
     if GEMINI_VISION_MODEL:
@@ -50,6 +47,7 @@ def _is_transient_provider_error(exc: Exception) -> bool:
     return any(k in msg for k in (
         "503", "service unavailable", "temporarily unavailable", "high demand",
         "404", "not found", "no longer available", "model unavailable",
+        "timeout", "timed out", "deadline exceeded", "connection error",
     ))
 
 
@@ -864,10 +862,10 @@ def classify(
         if admin_category not in CATEGORY_LABELS:
             raise ValueError(f"Unknown administrator category: {admin_category}")
         prompt += (
-            "\n\nADMINISTRATOR CLASSIFICATION: An authorized administrator selected "
-            f"{admin_category} ({CATEGORY_LABELS[admin_category]}). Use exactly "
-            "this category code in the JSON category field. Do not substitute another "
-            "category. Keep the explanation grounded in visible image evidence and "
+            "\n\nCLASSIFICATION CONSTRAINT: Use exactly "
+            f"{admin_category} ({CATEGORY_LABELS[admin_category]}) in the JSON "
+            "category field. Do not mention that the category was supplied, selected, "
+            "or constrained. Ground the explanation in visible image evidence and "
             "describe uncertainty honestly."
         )
     from google.genai import types as genai_types
@@ -1245,7 +1243,17 @@ def analyze_prompts() -> Dict[str, Any]:
         ("traced_carbon", "traced_indentation", "Both hand-drawn with hesitation/tremor; carbon has residue, indentation has groove."),
         ("traced_carbon", "traced_projection", "Both show uniform line weight from following a guide."),
         ("traced_indentation", "traced_projection", "Both hand-drawn from a visual reference."),
+        ("traced_projection", "digital_cut_paste", "Both can look like unusually perfect signatures; physical ink and pen movement distinguish tracing from digital compositing."),
+        ("traced_projection", "digital_scanned", "Both can look unnaturally clean; paper-fiber interaction distinguishes physical tracing from a digital overlay."),
+        ("traced_indentation", "digital_desktop", "Mechanical-looking text can be software-generated rather than physically traced."),
+        ("traced_carbon", "digital_cut_paste", "Both can show ghost-like residue; carbon leaves physical ink residue while digital compositing leaves a pixel halo."),
         ("sympathetic_indented", "traced_indentation", "Both involve grooves; sympathetic has grooves WITHOUT ink, traced has grooves WITH ink. Not explicitly distinguished in prompt."),
+        ("digital_cut_paste", "digital_desktop", "Both are software-generated; cut-and-paste alters an otherwise real document while desktop publishing fabricates the whole document."),
+        ("digital_cut_paste", "digital_scanned", "Both insert elements digitally; the base document is authentic for cut-and-paste and a scan for digital-scanned."),
+        ("digital_desktop", "digital_scanned", "Both are software-generated; desktop publishing starts from scratch while digital-scanned starts from a real document scan."),
+        ("addition_insertion", "erasure_chemical", "Both can alter a character's meaning; insertion adds ink while chemical erasure removes and replaces content."),
+        ("addition_insertion", "erasure_mechanical", "Both can alter a character's meaning; insertion adds ink while mechanical erasure removes and replaces content."),
+        ("erasure_chemical", "erasure_mechanical", "Both remove and replace content; solvent damage differs from roughened or abraded paper fibers."),
         ("erasure_chemical", "obliteration_ink", "Both can show smudges/halos. Erasure smudge at edge of blank; obliteration covers text."),
         ("obliteration_ink", "obliteration_whiteout", "Both cover text. Minimal prompt detail (≤5 words each)."),
     ]

@@ -6,6 +6,13 @@ import io
 
 from PIL import Image
 
+from .gemini_vision import (
+    _is_rate_limited,
+    _is_rejected_api_key,
+    _is_transient_provider_error,
+    _model_chain,
+)
+
 
 SAMPLE_EXPLANATION_PROMPT = """This sample's assigned category is "{category}" and its dataset label is "{dataset_label}". Both labels are fixed by its dataset folder and are not yours to choose.
 
@@ -34,17 +41,33 @@ def explain_labeled_sample(
     )
 
     client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            SAMPLE_EXPLANATION_PROMPT.format(
-                category=category, dataset_label=dataset_label
-            ),
-            types.Part.from_bytes(data=buffer.getvalue(), mime_type="image/jpeg"),
-        ],
-        config=types.GenerateContentConfig(temperature=0.2),
-    )
-    explanation = (response.text or "").strip()
-    if not explanation:
-        raise ValueError("Gemini returned an empty sample explanation.")
-    return explanation
+    contents = [
+        SAMPLE_EXPLANATION_PROMPT.format(
+            category=category, dataset_label=dataset_label
+        ),
+        types.Part.from_bytes(data=buffer.getvalue(), mime_type="image/jpeg"),
+    ]
+    models = list(dict.fromkeys([model, *_model_chain()]))
+    last_error = None
+
+    for fallback_model in models:
+        try:
+            response = client.models.generate_content(
+                model=fallback_model,
+                contents=contents,
+                config=types.GenerateContentConfig(temperature=0.2),
+            )
+            explanation = (response.text or "").strip()
+            if not explanation:
+                raise ValueError("Gemini returned an empty sample explanation.")
+            return explanation
+        except Exception as exc:
+            if _is_rejected_api_key(exc):
+                raise
+            if not (_is_rate_limited(exc) or _is_transient_provider_error(exc)):
+                raise
+            last_error = exc
+
+    raise RuntimeError(
+        f"All Gemini models failed to explain the labeled sample: {last_error}"
+    ) from last_error

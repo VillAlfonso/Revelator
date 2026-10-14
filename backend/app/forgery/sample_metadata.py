@@ -14,7 +14,6 @@ from PIL import Image
 
 SAMPLES_DIR = Path(__file__).resolve().parents[3] / "Samples"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
-SAMPLE_DIRECTORY_NAMES = {"sample", "samples"}
 
 FOLDER_CATEGORIES = {
     "counterfeit": ("other", "Other Forgery"),
@@ -106,26 +105,6 @@ def _image_fingerprint(image: Image.Image) -> bytes:
     return digest.digest()
 
 
-def _filesystem_roots() -> tuple[Path, ...]:
-    """Return all mounted volume roots on Windows, or the filesystem root elsewhere."""
-    if os.name != "nt":
-        return (Path("/"),)
-
-    import ctypes
-
-    get_drive_strings = ctypes.windll.kernel32.GetLogicalDriveStringsW
-    get_drive_strings.argtypes = (ctypes.c_uint, ctypes.c_wchar_p)
-    get_drive_strings.restype = ctypes.c_uint
-    size = get_drive_strings(0, None)
-    buffer = ctypes.create_unicode_buffer(size)
-    get_drive_strings(size, buffer)
-    return tuple(Path(drive) for drive in buffer[:size - 1].split("\0") if drive)
-
-
-def _is_sample_directory(path: str) -> bool:
-    return Path(path).name.casefold() in SAMPLE_DIRECTORY_NAMES
-
-
 def _skip_directory(name: str) -> bool:
     normalized = name.casefold()
     if normalized in {"$recycle.bin", "system volume information"}:
@@ -136,34 +115,8 @@ def _skip_directory(name: str) -> bool:
 
 
 def discover_sample_roots() -> tuple[Path, ...]:
-    """Find directories named Sample or Samples on all mounted filesystems."""
-    discovered: set[Path] = set()
-    inaccessible = 0
-
-    def record_error(exc: OSError) -> None:
-        nonlocal inaccessible
-        inaccessible += 1
-
-    for root in _filesystem_roots():
-        if not root.is_dir():
-            continue
-        for current, directories, _ in os.walk(
-            root, topdown=True, followlinks=False, onerror=record_error
-        ):
-            directories[:] = [
-                name for name in directories
-                if not _skip_directory(name)
-            ]
-            if _is_sample_directory(current):
-                discovered.add(Path(current))
-                directories.clear()
-
-    if inaccessible:
-        print(
-            f"[WARN] Sample-folder discovery could not inspect "
-            f"{inaccessible} inaccessible filesystem location(s)."
-        )
-    return tuple(sorted(discovered))
+    """Use the project Samples tree without walking unrelated mounted drives."""
+    return (SAMPLES_DIR,) if SAMPLES_DIR.is_dir() else ()
 
 
 @lru_cache(maxsize=1)

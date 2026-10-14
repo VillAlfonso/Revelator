@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -132,6 +132,7 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -145,6 +146,8 @@ async def get_current_user(
         )
 
     user = db.query(User).filter(User.id == payload["sub"]).first()
+    if user:
+        request.state.user_id = user.id
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     if payload.get("ver", 0) != user.auth_version:

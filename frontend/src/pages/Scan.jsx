@@ -15,6 +15,8 @@ export default function Scan() {
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [uploadError, setUploadError] = useState('');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [documentType, setDocumentType] = useState('');
   const [documentTypes, setDocumentTypes] = useState([]);
@@ -71,18 +73,50 @@ export default function Scan() {
   function resetScan() {
     setFile(null);
     setPreview(null);
+    setUploadError('');
     clearScan();
     setQuotaExhausted(false);
   }
 
-  function handleFileChange(e) {
-    const f = e.target.files[0];
-    if (!f) return;
+  function selectFile(f) {
+    if (!f.type.startsWith('image/')) {
+      setUploadError('Please choose an image file to scan.');
+      return;
+    }
+
+    setUploadError('');
     setFile(f);
     clearScan();
     const reader = new FileReader();
     reader.onload = ev => setPreview(ev.target.result);
+    reader.onerror = () => setUploadError('The selected image could not be opened. Please try another image.');
     reader.readAsDataURL(f);
+  }
+
+  function handleFileChange(e) {
+    const f = e.target.files[0];
+    if (f) selectFile(f);
+    e.target.value = '';
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes('Files')) setIsDraggingFile(true);
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) setIsDraggingFile(false);
+  }
+
+  function handleFileDrop(e) {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const image = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+    if (image) {
+      selectFile(image);
+    } else if (e.dataTransfer.files.length) {
+      setUploadError('Please drop an image file to scan.');
+    }
   }
 
   async function handleTakePhoto() {
@@ -217,16 +251,29 @@ export default function Scan() {
               </button>
 
               <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileRef.current.click();
+                  }
+                }}
                 onClick={() => fileRef.current.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleFileDrop}
                 style={{
                   border: '1px dashed #1f5d39', borderRadius: 3,
                   padding: 36, textAlign: 'center',
-                  background: 'rgba(0,255,102,0.02)',
+                  background: isDraggingFile ? 'rgba(0,255,102,0.12)' : 'rgba(0,255,102,0.02)',
+                  borderColor: isDraggingFile ? '#00ff66' : '#1f5d39',
                   cursor: 'pointer',
                 }}
               >
                 <div className="mono glow" style={{ fontSize: 28, marginBottom: 8, color: '#00ff66' }}>+</div>
                 <p className="mono" style={{ color: '#86efac', fontSize: 12, letterSpacing: 1.5 }}>UPLOAD FROM DEVICE</p>
+                <p className="mono" style={{ color: '#6dba85', fontSize: 10, marginBottom: 0 }}>OR DRAG AND DROP AN IMAGE HERE</p>
               </div>
             </>
           ) : (
@@ -270,6 +317,11 @@ export default function Scan() {
                 </button>
               </div>
             </>
+          )}
+          {uploadError && (
+            <p role="alert" className="mono" style={{ color: '#ff6673', fontSize: 11, margin: '12px 0 0', textAlign: 'center' }}>
+              {uploadError}
+            </p>
           )}
         </div>
 

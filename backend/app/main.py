@@ -5,6 +5,7 @@ Forensic document forgery detection - FastAPI gateway + Gemini Vision.
 """
 
 from pathlib import Path
+import logging
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -24,6 +25,28 @@ from .operations import record_event
 from .routes import auth, analyze, payments, admin, prompt_analytics, intercept
 
 app = FastAPI(title=f"{APP_NAME} API", description="AI-powered document forgery detection SaaS", version=APP_VERSION)
+logger = logging.getLogger("revelator")
+
+
+def _log_failed_api_response(request: Request, status_code: int) -> None:
+    if (
+        not request.url.path.startswith("/api/")
+        or status_code < 400
+        or getattr(request.state, "operational_failure_recorded", False)
+    ):
+        return
+
+    severity = "error" if status_code >= 500 else "warning"
+    request_id = getattr(request.state, "request_id", None)
+    record_event(
+        "http_request_failure",
+        f"API request failed with HTTP {status_code}",
+        severity=severity,
+        request_id=request_id,
+        path=request.url.path,
+        status_code=status_code,
+        user_id=getattr(request.state, "user_id", None),
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,13 +68,17 @@ async def security_middleware(request: Request, call_next):
         fetch_site = request.headers.get("sec-fetch-site")
 
         if origin and origin.rstrip("/") not in ALLOWED_ORIGINS:
+            _log_failed_api_response(request, 403)
             return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
         if referer and not any(referer.startswith(f"{allowed}/") for allowed in ALLOWED_ORIGINS):
+            _log_failed_api_response(request, 403)
             return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
         if fetch_site == "cross-site":
+            _log_failed_api_response(request, 403)
             return JSONResponse(status_code=403, content={"detail": "Cross-site request blocked"}, headers={"X-Request-ID": request_id})
 
     response = await call_next(request)
+    _log_failed_api_response(request, response.status_code)
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -115,16 +142,15 @@ def health_check(request: Request):
             path="/api/health",
             status_code=503,
         )
+        request.state.operational_failure_recorded = True
         raise HTTPException(status_code=503, detail="Service unavailable")
     return {"status": "healthy", "version": APP_VERSION, "database": "healthy"}
 
 
 @app.exception_handler(Exception)
 async def log_unhandled_error(request: Request, exc: Exception):
-    import logging
-
     request_id = getattr(request.state, "request_id", uuid4().hex)
-    logging.getLogger("revelator").error(
+    logger.error(
         "Unhandled request error %s (%s) on %s",
         request_id,
         type(exc).__name__,
@@ -138,6 +164,7 @@ async def log_unhandled_error(request: Request, exc: Exception):
         path=request.url.path,
         status_code=500,
     )
+    request.state.operational_failure_recorded = True
     return JSONResponse(
         status_code=500,
         content={"detail": "An unexpected server error occurred.", "request_id": request_id},

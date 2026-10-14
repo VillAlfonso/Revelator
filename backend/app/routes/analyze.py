@@ -23,7 +23,7 @@ from ..database import get_db
 from ..intercept_queue import intercept_queue
 from ..models import User, Scan, UserApiKey, AdminAuditLog, OperationalEvent
 from ..key_storage import decrypt_api_key
-from ..operations import enforce_rate_limit
+from ..operations import enforce_rate_limit, record_event
 from ..config import (
     FREE_SCANS_PER_MONTH, PRO_SCANS_PER_MONTH, PREMIUM_SCANS_PER_MONTH,
     UNLIMITED, LLM_PLANS, UPLOAD_DIR, USE_LOCAL_CLASSIFIER, APP_VERSION,
@@ -36,7 +36,6 @@ from ..forgery.gemini_vision import (
 )
 from ..forgery.document_types import get_document_types_response, DOCUMENT_TYPES
 from ..forgery.sample_metadata import match_sample_image
-from ..forgery.sample_prompt import explain_labeled_sample
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -74,15 +73,33 @@ def _verdict_from_gemini(gemini: dict) -> tuple[str, float]:
     if cat in _FORGERY_CATS:
         if conf >= 0.70:
             return "forged", conf
-        if conf >= 0.50:
-            return "suspicious", conf
-        return "no_forgery_detected", conf
+        return "suspicious", conf
     # "other" or unknown - apply same confidence thresholds, don't auto-escalate
     if conf >= 0.70:
         return "forged", conf
-    if conf >= 0.50:
-        return "suspicious", conf
-    return "no_forgery_detected", conf
+    return "suspicious", conf
+
+
+def _exact_sample_result(sample_match) -> dict:
+    """Return the folder-verified label for an exact local sample image."""
+    return {
+        "category": sample_match.category,
+        "category_label": sample_match.category_label,
+        "subtype": None,
+        "confidence": 1.0,
+        "explanation": (
+            f"Exact image match to a {sample_match.dataset_label} specimen in the "
+            "local dataset. The category comes from its labeled folder; Gemini "
+            "Vision was not needed for this result."
+        ),
+        "evidence": ["Pixel-exact match to a labeled local specimen."],
+        "reasoning_steps": ["Used the verified category label assigned to the exact specimen match."],
+        "anomaly_location": None,
+        "tools_likely_used": None,
+        "certainty_level": "HIGH",
+        "alternatives": [],
+        "model_used": "local_exact_sample_match",
+    }
 
 
 @router.get("/document-types")
@@ -245,6 +262,7 @@ def get_about_info():
 
 @router.post("/analyze")
 async def analyze_document(
+    request: Request,
     imageFile: UploadFile = File(...),
     category: Optional[str] = Form(None),
     document_type: Optional[str] = Form(None),
@@ -297,6 +315,7 @@ async def analyze_document(
         current_user,
         db,
         admin_category,
+        request.state,
     )
 
 
@@ -315,6 +334,7 @@ def _analyze_document_sync(
     current_user: User,
     db: Session,
     admin_category: Optional[str],
+    request_state,
 ):
     check_scan_limit(current_user)
     original_width, original_height = image.size
@@ -354,14 +374,18 @@ def _analyze_document_sync(
 
     # Try the selected key first, then the user's other saved keys. A single
     # suspended or misconfigured key must not block the rest of the account.
-    key_rows = db.query(UserApiKey).filter(
-        UserApiKey.user_id == current_user.id,
-    ).order_by(UserApiKey.is_active.desc(), UserApiKey.created_at.asc()).all()
-    key_attempts = [(decrypt_api_key(row.api_key), row) for row in key_rows]
-    if current_user.gemini_api_key and not key_rows:
-        key_attempts.append((decrypt_api_key(current_user.gemini_api_key), None))
-    if not key_attempts:
-        key_attempts.append((None, None))
+    if sample_match and not admin_category:
+        key_attempts = []
+    else:
+        key_rows = db.query(UserApiKey).filter(
+            UserApiKey.user_id == current_user.id,
+        ).order_by(UserApiKey.is_active.desc(), UserApiKey.created_at.asc()).all()
+        key_attempts = [(decrypt_api_key(row.api_key), row) for row in key_rows]
+        if current_user.gemini_api_key and not key_rows:
+            key_attempts.append((decrypt_api_key(current_user.gemini_api_key), None))
+        if not key_attempts:
+            key_attempts.append((None, None))
+        key_attempts = key_attempts[:2]
 
     local_hint = None
     if USE_LOCAL_CLASSIFIER and not sample_match and not admin_category:
@@ -374,51 +398,26 @@ def _analyze_document_sync(
         except Exception as exc:
             print(f"[DEBUG] local classifier unavailable: {exc}")
 
-    gemini = None
+    gemini = _exact_sample_result(sample_match) if sample_match and not admin_category else None
     active_key_row = None
     last_failure = None
     for api_key, key_row in key_attempts:
         if sample_match:
-            if not api_key:
-                candidate = gemini_classify(
-                    preprocessed,
-                    api_key=api_key,
-                    sample_category=sample_match.category,
-                    sample_dataset_label=sample_match.dataset_label,
-                    admin_category=admin_category,
-                )
-            else:
-                try:
-                    sample_explanation = explain_labeled_sample(
-                        preprocessed,
-                        sample_match.category_label,
-                        sample_match.dataset_label,
-                        api_key,
-                        GEMINI_VISION_MODEL,
-                    )
-                except Exception as exc:
-                    candidate = {
-                        "_unavailable": True,
-                        "_failure_code": "gemini_unavailable",
-                        "_failure_reason": f"Sample-specific prompt failed: {exc}",
-                    }
-                else:
-                    candidate = gemini_classify(
-                        preprocessed,
-                        document_type=document_type,
-                        suspicion_reason=suspicion_reason,
-                        area_of_concern=area_of_concern,
-                        image_source=image_source,
-                        is_forged_belief=is_forged_belief,
-                        shot_type=shot_type,
-                        lighting=lighting,
-                        physical_clues=physical_clues,
-                        api_key=api_key,
-                        sample_category=sample_match.category,
-                        sample_dataset_label=sample_match.dataset_label,
-                        sample_explanation=sample_explanation,
-                        admin_category=admin_category,
-                    )
+            candidate = gemini_classify(
+                preprocessed,
+                document_type=document_type,
+                suspicion_reason=suspicion_reason,
+                area_of_concern=area_of_concern,
+                image_source=image_source,
+                is_forged_belief=is_forged_belief,
+                shot_type=shot_type,
+                lighting=lighting,
+                physical_clues=physical_clues,
+                api_key=api_key,
+                sample_category=sample_match.category,
+                sample_dataset_label=sample_match.dataset_label,
+                admin_category=admin_category,
+            )
         elif admin_category:
             candidate = gemini_classify(
                 preprocessed,
@@ -466,6 +465,20 @@ def _analyze_document_sync(
 
         last_failure = candidate
         failure_code = candidate.get("_failure_code", "gemini_unavailable")
+        record_event(
+            "gemini_provider_failure",
+            f"Gemini analysis attempt failed ({failure_code})",
+            severity="error" if failure_code == "invalid_api_key" else "warning",
+            request_id=getattr(request_state, "request_id", None),
+            path="/api/analyze",
+            status_code={
+                "invalid_api_key": 422,
+                "quota_exhausted": 429,
+                "no_api_key": 503,
+                "gemini_unavailable": 503,
+            }.get(failure_code, 503),
+            user_id=current_user.id,
+        )
     if gemini is None:
         gemini = last_failure or {"_failure_code": "gemini_unavailable"}
 
@@ -490,7 +503,7 @@ def _analyze_document_sync(
             "[redacted]",
             str(gemini.get("_failure_reason") or "Provider request failed"),
         )[:300]
-        print(f"[WARN] Gemini unavailable for user {current_user.id}: {failure_reason}")
+        request_state.operational_failure_recorded = True
         raise HTTPException(status_code=503, detail=f"gemini_unavailable: {failure_reason}")
     print(f"[DEBUG] model={gemini.get('model_used')} category={gemini.get('category')} confidence={gemini.get('confidence')} certainty={gemini.get('certainty_level')}")
 

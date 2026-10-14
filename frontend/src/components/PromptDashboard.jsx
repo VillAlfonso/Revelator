@@ -35,6 +35,7 @@ export default function PromptDashboard() {
   const tabs = [
     { id: 'overview',   label: 'Overview' },
     { id: 'accuracy',   label: 'System Accuracy' },
+    { id: 'specimens',  label: 'Specimens' },
     { id: 'detail',     label: 'Detail Levels' },
     { id: 'overlaps',   label: 'Overlaps' },
     { id: 'aux',        label: 'Auxiliary Prompts' },
@@ -67,6 +68,8 @@ export default function PromptDashboard() {
 
       {tab === 'accuracy' ? (
         <Accuracy data={accuracy} />
+      ) : tab === 'specimens' ? (
+        <Specimens data={data.specimens} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
           <div>
@@ -204,6 +207,59 @@ function Overview({ data, onSelect }) {
         the model gravitates toward categories with the richest descriptions ("prompt mass bias").
         A category with 5 words of detail has almost no anchor; one with 500 words pulls the verdict.
       </div>
+
+      <Sub title="▸ Gemini Vision runtime">
+        <div style={{
+          background: '#0a120c', border: '1px solid #112418', borderLeft: '3px solid #5b8def',
+          padding: 12, borderRadius: 3, color: '#d8ffe6', fontSize: 12, lineHeight: 1.8,
+        }}>
+          <div><strong style={{ color: '#5b8def' }}>Model:</strong> {data.vision.model}</div>
+          <div><strong style={{ color: '#5b8def' }}>App version:</strong> {data.vision.app_version}</div>
+          <div><strong style={{ color: '#5b8def' }}>Prompt version:</strong> {data.vision.prompt_version}</div>
+          <div><strong style={{ color: '#5b8def' }}>Fallback models:</strong> {data.vision.model_fallback_chain.join(' → ')}</div>
+        </div>
+      </Sub>
+    </div>
+  );
+}
+
+function Specimens({ data }) {
+  if (data.status !== 'ok') {
+    return <Box color="#ffaa00">Specimen inventory is unavailable at {data.source}.</Box>;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+        <Stat label="Specimen Images" value={data.total_images} />
+        <Stat label="Specimen Folders" value={data.folder_count} />
+        <Stat label="Forged" value={data.labels.forged} />
+        <Stat label="Genuine" value={data.labels.genuine} />
+        <Stat label="Unsorted" value={data.labels.unsorted} />
+      </div>
+      {data.folders.map(folder => (
+        <div key={folder.name} style={{
+          background: '#0a120c', border: '1px solid #112418', borderLeft: '3px solid #00ff66',
+          padding: 12, borderRadius: 3, marginBottom: 8,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#d8ffe6', fontSize: 12 }}>
+            <strong>{folder.name}</strong>
+            <span className="mono" style={{ color: '#00ff66' }}>{folder.total_images} images</span>
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6, fontSize: 10, color: '#86efac' }}>
+            <span>Forged: {folder.labels.forged}</span>
+            <span>Genuine: {folder.labels.genuine}</span>
+            <span>Unsorted: {folder.labels.unsorted}</span>
+          </div>
+          {folder.subfolders.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 10, color: '#6dba85', lineHeight: 1.6 }}>
+              {folder.subfolders.map(subfolder => (
+                <div key={subfolder.name}>{subfolder.name}: {subfolder.total_images} images</div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

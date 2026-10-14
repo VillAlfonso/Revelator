@@ -1,0 +1,5 @@
+tunnel: ac5f952f-02ad-457d-8d2d-64cafbc359ec
+ingress:
+  - hostname: revelator.site
+    service: http://localhost:8010
+  - service: http_status:404

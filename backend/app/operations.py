@@ -41,7 +41,7 @@ def record_event(
         db.commit()
     except Exception:
         db.rollback()
-        logger.error("Could not persist operational event")
+        logger.exception("Could not persist operational event")
     finally:
         db.close()
 
@@ -82,6 +82,7 @@ def enforce_rate_limit(request, scope: str, subject: str, limit: int, window_sec
                     path=request.url.path,
                     status_code=429,
                 )
+            request.state.operational_failure_recorded = True
             raise HTTPException(
                 status_code=429,
                 detail="Too many requests. Please wait and try again.",
