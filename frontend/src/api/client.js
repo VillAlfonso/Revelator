@@ -485,10 +485,10 @@ export const api = {
     return URL.createObjectURL(await res.blob());
   },
 
-  adminInterceptDecision(scanId, category) {
+  adminInterceptDecision(scanId, category, provider = 'gemini') {
     return request(`/intercept/scans/${encodeURIComponent(scanId)}/decision`, {
       method: 'POST',
-      body: JSON.stringify({ category }),
+      body: JSON.stringify({ category, provider }),
     });
   },
 
@@ -497,6 +497,7 @@ export const api = {
       method: 'POST',
     });
   },
+
 
   getAbout() {
     return request('/about', { noAuth: true });

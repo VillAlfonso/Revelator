@@ -4,11 +4,18 @@ import asyncio
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
 
 INTERCEPT_WINDOW_SECONDS = 30
+
+
+@dataclass(frozen=True)
+class ScanDecision:
+    category: str | None = None
+    provider: str = "gemini"
 
 
 class PendingScan:
@@ -38,6 +45,7 @@ class PendingScan:
             datetime.utcnow() + timedelta(seconds=INTERCEPT_WINDOW_SECONDS)
         ).isoformat()
         self.category: str | None = None
+        self.provider = "gemini"
         self.event: asyncio.Event | None = None
         self.event_loop: asyncio.AbstractEventLoop | None = None
 
@@ -74,7 +82,7 @@ class InterceptQueue:
         width: int,
         height: int,
         image_data: bytes,
-    ) -> str | None:
+    ) -> ScanDecision:
         loop = asyncio.get_running_loop()
         scan = PendingScan(
             user_id=user_id,
@@ -104,13 +112,15 @@ class InterceptQueue:
                 if self._pending.get(scan.id) is scan:
                     del self._pending[scan.id]
                     self._publish_locked("scan_removed", {"id": scan.id})
-        return scan.category
+        return ScanDecision(category=scan.category, provider=scan.provider)
 
     def get_pending(self, scan_id: str) -> PendingScan | None:
         with self._lock:
             return self._pending.get(scan_id)
 
-    def choose_category(self, scan_id: str, category: str) -> dict[str, Any]:
+    def choose_category(self, scan_id: str, category: str, *, provider: str = "gemini") -> dict[str, Any]:
+        if provider not in {"gemini", "openai"}:
+            raise ValueError("Unknown analysis provider")
         with self._lock:
             scan = self._pending.get(scan_id)
             if scan is None:
@@ -123,15 +133,18 @@ class InterceptQueue:
                 raise TimeoutError("The 30-second decision window has expired")
 
             scan.category = category
+            scan.provider = provider
             del self._pending[scan_id]
             self._publish_locked(
-                "scan_decided", {"id": scan_id, "category": category}
+                "scan_decided", {"id": scan_id, "category": category, "provider": provider}
             )
             if scan.event_loop and scan.event:
                 scan.event_loop.call_soon_threadsafe(scan.event.set)
             return {"user_id": scan.user_id, **scan.public_data()}
 
-    def skip_scan(self, scan_id: str) -> dict[str, Any]:
+    def skip_scan(self, scan_id: str, *, provider: str = "gemini") -> dict[str, Any]:
+        if provider not in {"gemini", "openai"}:
+            raise ValueError("Unknown analysis provider")
         with self._lock:
             scan = self._pending.get(scan_id)
             if scan is None:
@@ -144,7 +157,8 @@ class InterceptQueue:
                 raise TimeoutError("The 30-second decision window has expired")
 
             del self._pending[scan_id]
-            self._publish_locked("scan_skipped", {"id": scan_id})
+            scan.provider = provider
+            self._publish_locked("scan_skipped", {"id": scan_id, "provider": provider})
             if scan.event_loop and scan.event:
                 scan.event_loop.call_soon_threadsafe(scan.event.set)
             return {"user_id": scan.user_id, **scan.public_data()}

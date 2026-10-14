@@ -35,6 +35,7 @@ export default function Intercept() {
   const [connection, setConnection] = useState('connecting');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [openAIScans, setOpenAIScans] = useState({});
   const controllerRef = useRef(null);
 
   const selectedScan = useMemo(
@@ -64,6 +65,11 @@ export default function Intercept() {
         return;
       }
       if (event === 'scan_removed' || event === 'scan_decided' || event === 'scan_skipped') {
+        setOpenAIScans(current => {
+          const next = { ...current };
+          delete next[data.id];
+          return next;
+        });
         setScans(current => current.filter(item => item.id !== data.id));
         setSelectedId(current => current === data.id ? null : current);
         return;
@@ -132,7 +138,7 @@ export default function Intercept() {
     setBusy(true);
     setError('');
     try {
-      await api.adminInterceptDecision(selectedScan.id, category);
+      await api.adminInterceptDecision(selectedScan.id, category, openAIScans[selectedScan.id] ? 'openai' : 'gemini');
       setScans(current => current.filter(scan => scan.id !== selectedScan.id));
       setSelectedId(null);
     } catch (err) {
@@ -142,14 +148,14 @@ export default function Intercept() {
     }
   }
 
-  async function skipScan() {
-    if (!selectedScan || busy) return;
+  async function skipScan(targetScan = selectedScan) {
+    if (!targetScan || busy || remainingSeconds(targetScan, Date.now()) <= 0) return;
     setBusy(true);
     setError('');
     try {
-      await api.adminInterceptSkip(selectedScan.id);
-      setScans(current => current.filter(scan => scan.id !== selectedScan.id));
-      setSelectedId(null);
+      await api.adminInterceptSkip(targetScan.id);
+      setScans(current => current.filter(scan => scan.id !== targetScan.id));
+      setSelectedId(current => current === targetScan.id ? null : current);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -177,6 +183,28 @@ export default function Intercept() {
         </div>
       </header>
 
+      <div style={{ marginBottom: 22 }}>
+        <label style={{ ...styles.skip, marginTop: 0, display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box' }}>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={!!openAIScans[selectedId]}
+            disabled={busy || !selectedScan || remainingSeconds(selectedScan, now) <= 0}
+            onChange={event => {
+              const checked = event.target.checked;
+              setOpenAIScans(current => ({ ...current, [selectedId]: checked }));
+            }}
+            style={{ accentColor: '#00ff66', width: 20, height: 20 }}
+          />
+          Use OpenAI API key for this scan — {openAIScans[selectedId] ? 'ON' : 'OFF'}
+        </label>
+        <div style={styles.note}>
+          {selectedScan
+            ? `${openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the forgery type you choose for ${selectedScan.filename}. Toggling does not submit the scan.`
+            : 'Select a waiting scan to choose its provider, then choose the forgery type. Off uses Gemini; on uses OpenAI.'}
+        </div>
+      </div>
+
       {error && (
         <div role="alert" style={styles.error}>
           <span>{error}</span>
@@ -202,12 +230,15 @@ export default function Intercept() {
             const seconds = remainingSeconds(scan, now);
             const isSelected = scan.id === selectedId;
             return (
-              <button
-                type="button"
+              <div
                 key={scan.id}
-                onClick={() => setSelectedId(scan.id)}
                 style={{ ...styles.card, ...(isSelected ? styles.selectedCard : {}) }}
               >
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(scan.id)}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 7, width: '100%', padding: 0, color: 'inherit', textAlign: 'left', background: 'transparent', border: 0, cursor: 'pointer' }}
+                >
                 <div style={styles.cardTop}>
                   <strong style={styles.username}>{scan.username}</strong>
                   <span style={{ ...styles.timer, color: seconds <= 5 ? '#ff6677' : '#00ff66' }}>
@@ -216,10 +247,26 @@ export default function Intercept() {
                 </div>
                 <span style={styles.filename}>{scan.filename}</span>
                 <span style={styles.cardMeta}>{scan.email}{scan.document_type ? ` · ${scan.document_type}` : ''}</span>
+                </button>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={!!openAIScans[scan.id]}
+                    disabled={busy || seconds <= 0}
+                    onChange={event => {
+                      const checked = event.target.checked;
+                      setOpenAIScans(current => ({ ...current, [scan.id]: checked }));
+                      setSelectedId(scan.id);
+                    }}
+                    style={{ accentColor: '#00ff66', width: 20, height: 20 }}
+                  />
+                  Use OpenAI API key — {openAIScans[scan.id] ? 'ON' : 'OFF'}
+                </label>
                 <div style={styles.progressTrack}>
                   <div style={{ ...styles.progress, width: `${Math.min(100, (seconds / 15) * 100)}%` }} />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -261,12 +308,12 @@ export default function Intercept() {
               <button
                 type="button"
                 disabled={busy || remainingSeconds(selectedScan, now) <= 0}
-                onClick={skipScan}
+                onClick={() => skipScan()}
                 style={styles.skip}
               >
                 Skip and let the system classify
               </button>
-              <div style={styles.note}>Gemini will explain the selected category. The selected code is enforced in the final result.</div>
+              <div style={styles.note}>{openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the selected category. The selected code is enforced in the final result. Skipping or letting the timer expire keeps the automatic Gemini flow.</div>
             </section>
           )}
         </div>

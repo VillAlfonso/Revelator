@@ -30,6 +30,7 @@ from ..config import (
     LOCAL_CLASSIFIER_THRESHOLD, GEMINI_VISION_MODEL,
 )
 from ..forgery.document_gate import check_is_document
+from ..forgery.openai_vision import classify as openai_classify, OpenAIAnalysisError
 from ..forgery.gemini_vision import (
     classify as gemini_classify, CATEGORY_CODES, CATEGORY_LABELS,
     preprocess_image, confidence_gated_analyze, explain_with_hint,
@@ -288,7 +289,7 @@ async def analyze_document(
 
     preview = io.BytesIO()
     image.save(preview, format="JPEG", quality=88)
-    admin_category = await intercept_queue.wait_for_decision(
+    decision = await intercept_queue.wait_for_decision(
         user_id=current_user.id,
         username=current_user.username,
         email=current_user.email,
@@ -314,8 +315,9 @@ async def analyze_document(
         physical_clues,
         current_user,
         db,
-        admin_category,
+        decision.category,
         request.state,
+        decision.provider,
     )
 
 
@@ -335,16 +337,17 @@ def _analyze_document_sync(
     db: Session,
     admin_category: Optional[str],
     request_state,
+    provider: str = "gemini",
 ):
     check_scan_limit(current_user)
     original_width, original_height = image.size
-    sample_match = match_sample_image(image)
+    sample_match = match_sample_image(image) if provider != "openai" else None
     if sample_match:
         print(
             f"[DEBUG] exact Samples match: {sample_match.sample_path} "
             f"-> {sample_match.category}"
         )
-    else:
+    elif provider != "openai":
         # Preserve the existing document gate for uploads outside Samples.
         is_doc, gate_reason = check_is_document(image)
         if not is_doc and not admin_category:
@@ -374,7 +377,7 @@ def _analyze_document_sync(
 
     # Try the selected key first, then the user's other saved keys. A single
     # suspended or misconfigured key must not block the rest of the account.
-    if sample_match and not admin_category:
+    if provider == "openai" or (sample_match and not admin_category):
         key_attempts = []
     else:
         key_rows = db.query(UserApiKey).filter(
@@ -388,7 +391,7 @@ def _analyze_document_sync(
         key_attempts = key_attempts[:2]
 
     local_hint = None
-    if USE_LOCAL_CLASSIFIER and not sample_match and not admin_category:
+    if provider != "openai" and USE_LOCAL_CLASSIFIER and not sample_match and not admin_category:
         try:
             from ..forgery import local_classifier
             predicted = local_classifier.predict(preprocessed)
@@ -399,6 +402,17 @@ def _analyze_document_sync(
             print(f"[DEBUG] local classifier unavailable: {exc}")
 
     gemini = _exact_sample_result(sample_match) if sample_match and not admin_category else None
+    if provider == "openai":
+        try:
+            gemini = openai_classify(
+                preprocessed, document_type=document_type,
+                suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
+                image_source=image_source, is_forged_belief=is_forged_belief,
+                shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
+                admin_category=admin_category,
+            )
+        except OpenAIAnalysisError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     active_key_row = None
     last_failure = None
     for api_key, key_row in key_attempts:
@@ -518,7 +532,7 @@ def _analyze_document_sync(
             f"Focus area: {area_of_concern}\n" if area_of_concern else ""
         )
 
-    if not sample_match and not admin_category:
+    if provider != "openai" and not sample_match and not admin_category:
         critiqued = confidence_gated_analyze(
             preprocessed,
             {},
@@ -585,7 +599,8 @@ def _analyze_document_sync(
         is_forged_belief=is_forged_belief,
         analysis_model=gemini.get("model_used") or GEMINI_VISION_MODEL,
         analysis_method=(
-            "exact_sample_match" if sample_match
+            "standard_openai" if provider == "openai"
+            else "exact_sample_match" if sample_match
             else "local_classifier_hint" if local_hint
             else "standard_gemini"
         ),

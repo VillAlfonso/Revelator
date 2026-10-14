@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import get_current_admin
+from ..config import OPENAI_API_KEY
 from ..forgery.gemini_vision import CATEGORY_CODES
 from ..intercept_queue import intercept_queue
 from ..models import User
@@ -17,6 +19,7 @@ router = APIRouter(prefix="/api/intercept", tags=["admin-intercept"])
 
 class InterceptDecision(BaseModel):
     category: str
+    provider: Literal["gemini", "openai"] = "gemini"
 
 
 def _sse(event: str, data: dict) -> str:
@@ -73,15 +76,17 @@ def decide_intercept_scan(
 ):
     if body.category not in CATEGORY_CODES:
         raise HTTPException(status_code=422, detail="Unknown classification category")
+    if body.provider == "openai" and not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="OpenAI API key is not configured on the server")
 
     try:
-        intercept_queue.choose_category(scan_id, body.category)
+        intercept_queue.choose_category(scan_id, body.category, provider=body.provider)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except TimeoutError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
 
-    return {"success": True, "id": scan_id, "category": body.category}
+    return {"success": True, "id": scan_id, "category": body.category, "provider": body.provider}
 
 
 @router.post("/scans/{scan_id}/skip")
