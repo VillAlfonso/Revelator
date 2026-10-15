@@ -4,6 +4,8 @@ import asyncio
 import threading
 import time
 import uuid
+import json
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -64,12 +66,31 @@ class PendingScan:
 
 
 class InterceptQueue:
-    def __init__(self):
+    def __init__(self, settings_path: Path | None = None):
         self._lock = threading.RLock()
+        self._settings_path = settings_path
+        self._openai_all_scans = False
+        if settings_path and settings_path.exists():
+            self._openai_all_scans = json.loads(settings_path.read_text(encoding="utf-8")).get("openai_all_scans") is True
         self._pending: dict[str, PendingScan] = {}
         self._subscribers: set[
             tuple[asyncio.AbstractEventLoop, asyncio.Queue]
         ] = set()
+
+    def provider_settings(self) -> dict[str, bool]:
+        with self._lock:
+            return {"openai_all_scans": self._openai_all_scans}
+
+    def set_openai_all_scans(self, enabled: bool) -> dict[str, bool]:
+        with self._lock:
+            settings = {"openai_all_scans": enabled}
+            if self._settings_path:
+                temporary = self._settings_path.with_suffix(".tmp")
+                temporary.write_text(json.dumps(settings), encoding="utf-8")
+                temporary.replace(self._settings_path)
+            self._openai_all_scans = enabled
+            self._publish_locked("provider_settings", settings)
+            return settings
 
     async def wait_for_decision(
         self,
@@ -109,6 +130,8 @@ class InterceptQueue:
             pass
         finally:
             with self._lock:
+                if self._openai_all_scans:
+                    scan.provider = "openai"
                 if self._pending.get(scan.id) is scan:
                     del self._pending[scan.id]
                     self._publish_locked("scan_removed", {"id": scan.id})
@@ -203,4 +226,6 @@ class InterceptQueue:
                 pass
 
 
-intercept_queue = InterceptQueue()
+from .config import DATA_DIR
+
+intercept_queue = InterceptQueue(DATA_DIR / "intercept-provider-settings.json")

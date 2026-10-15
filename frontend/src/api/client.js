@@ -492,6 +492,13 @@ export const api = {
     });
   },
 
+  adminInterceptProviderSettings(openaiAllScans) {
+    return request('/intercept/provider-settings', {
+      method: 'PUT',
+      body: JSON.stringify({ openai_all_scans: openaiAllScans }),
+    });
+  },
+
   adminInterceptSkip(scanId) {
     return request(`/intercept/scans/${encodeURIComponent(scanId)}/skip`, {
       method: 'POST',

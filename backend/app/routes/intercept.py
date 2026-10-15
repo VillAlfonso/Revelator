@@ -22,6 +22,28 @@ class InterceptDecision(BaseModel):
     provider: Literal["gemini", "openai"] = "gemini"
 
 
+class InterceptProviderSettings(BaseModel):
+    openai_all_scans: bool
+
+
+@router.get("/provider-settings")
+def get_provider_settings(current_admin: User = Depends(get_current_admin)):
+    return intercept_queue.provider_settings()
+
+
+@router.put("/provider-settings")
+def set_provider_settings(
+    body: InterceptProviderSettings,
+    current_admin: User = Depends(get_current_admin),
+):
+    if body.openai_all_scans and not OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="OpenAI API key is not configured on the server")
+    try:
+        return intercept_queue.set_openai_all_scans(body.openai_all_scans)
+    except OSError as exc:
+        raise HTTPException(status_code=503, detail="Could not save the global provider setting") from exc
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
@@ -32,7 +54,7 @@ async def intercept_events(current_admin: User = Depends(get_current_admin)):
 
     async def event_stream():
         try:
-            yield _sse("snapshot", {"scans": snapshot})
+            yield _sse("snapshot", {"scans": snapshot, **intercept_queue.provider_settings()})
             while True:
                 try:
                     message = await asyncio.wait_for(queue.get(), timeout=15)

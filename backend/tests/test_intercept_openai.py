@@ -21,6 +21,43 @@ RESULT = {"category": "no_forgery_detected", "confidence": 0.9,
 
 
 class QueueTests(unittest.IsolatedAsyncioTestCase):
+    async def test_global_override_preserves_category_and_individual_settings(self):
+        queue = InterceptQueue()
+        first, first_id = await self.start_scan(queue)
+        queue.set_openai_all_scans(True)
+        self.assertFalse(first.done())
+        queue.choose_category(first_id, "erasure_chemical", provider="gemini")
+        decision = await first
+        self.assertEqual((decision.category, decision.provider), ("erasure_chemical", "openai"))
+        queue.set_openai_all_scans(False)
+        for individual in ["gemini", "openai"]:
+            task, scan_id = await self.start_scan(queue)
+            queue.choose_category(scan_id, "other", provider=individual)
+            self.assertEqual((await task).provider, individual)
+
+    async def test_global_applies_to_skip_and_timeout_without_admin(self):
+        queue = InterceptQueue()
+        queue.set_openai_all_scans(True)
+        task, scan_id = await self.start_scan(queue)
+        queue.skip_scan(scan_id)
+        self.assertEqual((await task).provider, "openai")
+        with patch("app.intercept_queue.INTERCEPT_WINDOW_SECONDS", 0.01):
+            task, _ = await self.start_scan(queue)
+            self.assertEqual((await task).provider, "openai")
+
+    async def test_global_setting_persists_and_notifies_admins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            queue = InterceptQueue(path)
+            events, _, loop = queue.subscribe()
+            queue.set_openai_all_scans(True)
+            event = await asyncio.wait_for(events.get(), timeout=1)
+            self.assertEqual(event, {"event": "provider_settings", "data": {"openai_all_scans": True}})
+            self.assertTrue(InterceptQueue(path).provider_settings()["openai_all_scans"])
+            queue.set_openai_all_scans(False)
+            self.assertFalse(InterceptQueue(path).provider_settings()["openai_all_scans"])
+            queue.unsubscribe(events, loop)
+
     async def start_scan(self, queue):
         task = asyncio.create_task(queue.wait_for_decision(
             user_id="test", username="test", email="test@example.com",
@@ -62,6 +99,16 @@ class QueueTests(unittest.IsolatedAsyncioTestCase):
 
 
 class OpenAITests(unittest.TestCase):
+    def test_global_enable_requires_key_and_does_not_submit_scans(self):
+        with patch.object(intercept, "OPENAI_API_KEY", ""), patch.object(intercept, "intercept_queue") as queue:
+            with self.assertRaises(HTTPException):
+                intercept.set_provider_settings(intercept.InterceptProviderSettings(openai_all_scans=True), current_admin=Mock())
+            queue.set_openai_all_scans.assert_not_called()
+            intercept.set_provider_settings(intercept.InterceptProviderSettings(openai_all_scans=False), current_admin=Mock())
+            queue.set_openai_all_scans.assert_called_once_with(False)
+            queue.choose_category.assert_not_called()
+            queue.skip_scan.assert_not_called()
+
     def test_decision_passes_category_and_provider_together(self):
         with patch.object(intercept, "OPENAI_API_KEY", "test-key"), patch.object(intercept, "intercept_queue") as queue:
             intercept.decide_intercept_scan(
@@ -111,8 +158,9 @@ class OpenAITests(unittest.TestCase):
                 **_coerce(RESULT), "model_used": "gpt-4.1-mini",
             }))
             for name in ["gemini_classify", "confidence_gated_analyze", "explain_with_hint",
-                         "match_sample_image", "check_is_document"]:
+                         "check_is_document"]:
                 stack.enter_context(patch.object(analyze, name, side_effect=AssertionError(name)))
+            lookup = stack.enter_context(patch.object(analyze, "match_sample_image", return_value=None))
             db = Mock()
             user = SimpleNamespace(id="test", scan_reset_date=None, scans_this_month=0)
             result = analyze._analyze_document_sync(
@@ -121,12 +169,57 @@ class OpenAITests(unittest.TestCase):
                 user, db, "erasure_chemical", SimpleNamespace(), provider="openai",
             )
             provider.assert_called_once()
+            lookup.assert_called_once()
             self.assertEqual(provider.call_args.kwargs["admin_category"], "erasure_chemical")
             db.query.assert_not_called()
             self.assertEqual(result["detected_category"], "erasure_chemical")
             saved = db.add.call_args.args[0]
             self.assertEqual(saved.analysis_method, "standard_openai")
             self.assertEqual(saved.analysis_model, "gpt-4.1-mini")
+
+    def test_exact_sample_result_matches_for_both_providers(self):
+        sample = SimpleNamespace(sample_path="Samples/Traced/forged.png", category="traced_projection", category_label="Projection Tracing", dataset_label="forged")
+        for selected_provider in ["gemini", "openai"]:
+            with self.subTest(provider=selected_provider), ExitStack() as stack:
+                directory = stack.enter_context(tempfile.TemporaryDirectory())
+                stack.enter_context(patch.object(analyze, "UPLOAD_DIR", Path(directory)))
+                lookup = stack.enter_context(patch.object(analyze, "match_sample_image", return_value=sample))
+                for name in ["openai_classify", "gemini_classify", "confidence_gated_analyze", "check_is_document"]:
+                    stack.enter_context(patch.object(analyze, name, side_effect=AssertionError(name)))
+                db = Mock()
+                user = SimpleNamespace(id="test", scan_reset_date=None, scans_this_month=0)
+                result = analyze._analyze_document_sync(
+                    Image.new("RGB", (20, 20)), "test.jpg", None, None,
+                    None, None, None, None, None, None, None,
+                    user, db, None, SimpleNamespace(), provider=selected_provider,
+                )
+                lookup.assert_called_once()
+                self.assertEqual(result["detected_category"], "traced_projection")
+                self.assertEqual(result["category_confidence"], 1.0)
+                saved = db.add.call_args.args[0]
+                self.assertEqual(saved.analysis_method, "exact_sample_match")
+                self.assertEqual(saved.analysis_model, "local_exact_sample_match")
+
+    def test_admin_choice_still_overrides_openai_sample_match(self):
+        with ExitStack() as stack:
+            directory = stack.enter_context(tempfile.TemporaryDirectory())
+            stack.enter_context(patch.object(analyze, "UPLOAD_DIR", Path(directory)))
+            stack.enter_context(patch.object(analyze, "match_sample_image", return_value=SimpleNamespace(
+                sample_path="Samples/Traced/forged.png", category="traced_projection", dataset_label="forged",
+            )))
+            provider = stack.enter_context(patch.object(analyze, "openai_classify", return_value={
+                **_coerce(RESULT), "model_used": "gpt-4.1-mini",
+            }))
+            db = Mock()
+            result = analyze._analyze_document_sync(
+                Image.new("RGB", (20, 20)), "test.jpg", None, None,
+                None, None, None, None, None, None, None,
+                SimpleNamespace(id="test", scan_reset_date=None, scans_this_month=0),
+                db, "erasure_chemical", SimpleNamespace(), provider="openai",
+            )
+            self.assertEqual(provider.call_args.kwargs["admin_category"], "erasure_chemical")
+            self.assertEqual(result["detected_category"], "erasure_chemical")
+            self.assertEqual(db.add.call_args.args[0].analysis_method, "standard_openai")
 
     def test_missing_key_does_not_release_scan(self):
         with patch.object(intercept, "OPENAI_API_KEY", ""), patch.object(intercept, "intercept_queue") as queue:

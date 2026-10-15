@@ -36,6 +36,9 @@ export default function Intercept() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [openAIScans, setOpenAIScans] = useState({});
+  const [openAIAllScans, setOpenAIAllScans] = useState(false);
+  const [providerSettingsReady, setProviderSettingsReady] = useState(false);
+  const [savingProvider, setSavingProvider] = useState(false);
   const controllerRef = useRef(null);
 
   const selectedScan = useMemo(
@@ -56,7 +59,14 @@ export default function Intercept() {
       setConnection('live');
       setError('');
       if (event === 'snapshot') {
+        setOpenAIAllScans(data.openai_all_scans === true);
+        setProviderSettingsReady(true);
         setScans(data.scans.map(withDeadline));
+        return;
+      }
+      if (event === 'provider_settings') {
+        setOpenAIAllScans(data.openai_all_scans === true);
+        setProviderSettingsReady(true);
         return;
       }
       if (event === 'scan_added') {
@@ -133,6 +143,20 @@ export default function Intercept() {
 
   const liveScans = scans.filter(scan => remainingSeconds(scan, now) > 0);
 
+  async function toggleAllScans(enabled) {
+    if (savingProvider) return;
+    setSavingProvider(true);
+    setError('');
+    try {
+      const settings = await api.adminInterceptProviderSettings(enabled);
+      setOpenAIAllScans(settings.openai_all_scans === true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingProvider(false);
+    }
+  }
+
   async function chooseCategory(category) {
     if (!selectedScan || busy) return;
     setBusy(true);
@@ -184,6 +208,24 @@ export default function Intercept() {
       </header>
 
       <div style={{ marginBottom: 22 }}>
+        <label style={{ ...styles.skip, marginTop: 0, display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box', borderColor: '#00ff66' }}>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={openAIAllScans}
+            disabled={!providerSettingsReady || savingProvider || connection !== 'live'}
+            onChange={event => toggleAllScans(event.target.checked)}
+            style={{ accentColor: '#00ff66', width: 20, height: 20 }}
+          />
+          Use OpenAI API key for ALL users' scans — {openAIAllScans ? 'ON' : 'OFF'}
+          {savingProvider && ' (Saving...)'}
+        </label>
+        <div style={styles.note}>
+          On uses OpenAI for all waiting and new scans, including skipped and timed-out scans. Off follows each scan's individual setting. Scans already being analyzed are unaffected. Your forgery-type choices remain available.
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 22 }}>
         <label style={{ ...styles.skip, marginTop: 0, display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box' }}>
           <input
             type="checkbox"
@@ -200,7 +242,7 @@ export default function Intercept() {
         </label>
         <div style={styles.note}>
           {selectedScan
-            ? `${openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the forgery type you choose for ${selectedScan.filename}. Toggling does not submit the scan.`
+            ? `${openAIAllScans || openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the forgery type you choose for ${selectedScan.filename}. Toggling does not submit the scan.${openAIAllScans ? ' The global toggle currently overrides this individual setting.' : ''}`
             : 'Select a waiting scan to choose its provider, then choose the forgery type. Off uses Gemini; on uses OpenAI.'}
         </div>
       </div>
@@ -313,7 +355,7 @@ export default function Intercept() {
               >
                 Skip and let the system classify
               </button>
-              <div style={styles.note}>{openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the selected category. The selected code is enforced in the final result. Skipping or letting the timer expire keeps the automatic Gemini flow.</div>
+              <div style={styles.note}>{openAIAllScans || openAIScans[selectedId] ? 'OpenAI' : 'Gemini'} will explain the selected category. The selected code is enforced in the final result. Skipping or letting the timer expire uses {openAIAllScans ? 'OpenAI' : 'the automatic Gemini flow'}.</div>
             </section>
           )}
         </div>

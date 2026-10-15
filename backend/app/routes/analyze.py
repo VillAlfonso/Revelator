@@ -90,8 +90,8 @@ def _exact_sample_result(sample_match) -> dict:
         "confidence": 1.0,
         "explanation": (
             f"Exact image match to a {sample_match.dataset_label} specimen in the "
-            "local dataset. The category comes from its labeled folder; Gemini "
-            "Vision was not needed for this result."
+            "local dataset. The category comes from its labeled folder; AI "
+            "vision analysis was not needed for this result."
         ),
         "evidence": ["Pixel-exact match to a labeled local specimen."],
         "reasoning_steps": ["Used the verified category label assigned to the exact specimen match."],
@@ -341,7 +341,7 @@ def _analyze_document_sync(
 ):
     check_scan_limit(current_user)
     original_width, original_height = image.size
-    sample_match = match_sample_image(image) if provider != "openai" else None
+    sample_match = match_sample_image(image)
     if sample_match:
         print(
             f"[DEBUG] exact Samples match: {sample_match.sample_path} "
@@ -402,7 +402,7 @@ def _analyze_document_sync(
             print(f"[DEBUG] local classifier unavailable: {exc}")
 
     gemini = _exact_sample_result(sample_match) if sample_match and not admin_category else None
-    if provider == "openai":
+    if provider == "openai" and gemini is None:
         try:
             gemini = openai_classify(
                 preprocessed, document_type=document_type,
@@ -599,7 +599,8 @@ def _analyze_document_sync(
         is_forged_belief=is_forged_belief,
         analysis_model=gemini.get("model_used") or GEMINI_VISION_MODEL,
         analysis_method=(
-            "standard_openai" if provider == "openai"
+            "exact_sample_match" if sample_match and not admin_category
+            else "standard_openai" if provider == "openai"
             else "exact_sample_match" if sample_match
             else "local_classifier_hint" if local_hint
             else "standard_gemini"
