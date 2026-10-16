@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../App';
-import PromptDashboard from '../components/PromptDashboard';
 
 const PLANS = ['free', 'basic', 'pro'];
 
@@ -11,7 +10,7 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 export default function Admin() {
   const { user: me } = useAuth();
   const isSuperAdmin = me?.role === "superadmin";
-  const [tab, setTab] = useState('users'); // 'users', 'logs', 'prompt'
+  const [tab, setTab] = useState('users'); // 'users', 'logs'
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -194,19 +193,6 @@ export default function Admin() {
         >
           Logs
         </button>
-        <button
-          className="mono"
-          onClick={() => setTab('prompt')}
-          style={{
-            padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
-            color: tab === 'prompt' ? '#00ff66' : '#86efac',
-            textTransform: 'uppercase', letterSpacing: 1,
-            borderBottom: tab === 'prompt' ? '2px solid #00ff66' : 'none',
-            marginBottom: '-12px',
-          }}
-        >
-          Prompt Analytics
-        </button>
       </div>
 
       {tab === 'users' && (
@@ -301,24 +287,6 @@ export default function Admin() {
         />
       )}
 
-      {tab === 'prompt' && (
-      <div className="card">
-        <div style={{ marginBottom: 20 }}>
-          <h2 className="oswald" style={{
-            fontSize: 13, letterSpacing: 2.5, textTransform: 'uppercase',
-            color: '#6dba85', marginBottom: 14, margin: 0,
-          }}>
-            ▸ How the Analyst Reasons - Live Prompt Analytics
-          </h2>
-          <p style={{ fontSize: 12, color: '#86efac', marginBottom: 16, lineHeight: 1.6 }}>
-            Behind every classification is a prompt that defines 19 forgery categories, branching rules, and
-            user-context variables. This dashboard reads the live prompt and shows how each category is
-            described, where overlaps exist, and which categories tend to dominate when evidence is ambiguous.
-          </p>
-        </div>
-        <PromptDashboard />
-      </div>
-      )}
     </div>
   );
 }
