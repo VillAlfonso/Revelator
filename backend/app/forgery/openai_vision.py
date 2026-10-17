@@ -10,7 +10,7 @@ from PIL import Image
 
 from ..config import OPENAI_API_KEY, OPENAI_VISION_MODEL
 from .gemini_vision import (
-    CATEGORY_CODES, CATEGORY_LABELS, SYSTEM_PROMPT, _build_user_context_block, _coerce,
+    CATEGORY_CODES, CATEGORY_LABELS, SYSTEM_PROMPT, REPORT_EXPLANATION_RULES, _build_user_context_block, _coerce,
 )
 
 
@@ -42,7 +42,7 @@ def classify(
         document_type, suspicion_reason, area_of_concern, image_source,
         is_forged_belief, shot_type, lighting, physical_clues,
     )
-    instructions = SYSTEM_PROMPT
+    instructions = SYSTEM_PROMPT + REPORT_EXPLANATION_RULES
     if admin_category:
         if admin_category not in CATEGORY_CODES:
             raise ValueError("Unknown administrator category")

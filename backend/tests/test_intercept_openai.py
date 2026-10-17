@@ -133,6 +133,8 @@ class OpenAITests(unittest.TestCase):
         self.assertEqual(result["category_label"], "Alteration - Erasure: Chemical")
         payload = post.call_args.kwargs["json"]
         self.assertFalse(payload["store"])
+        self.assertIn("REPORT WRITING RULES", payload["instructions"])
+        self.assertIn("Do not invent observations", payload["instructions"])
         self.assertIn("CLASSIFICATION CONSTRAINT: Use exactly erasure_chemical", payload["instructions"])
         self.assertIn("receipt", payload["input"][0]["content"][0]["text"])
         self.assertTrue(payload["input"][0]["content"][1]["image_url"].startswith("data:image/jpeg;base64,"))
@@ -177,28 +179,31 @@ class OpenAITests(unittest.TestCase):
             self.assertEqual(saved.analysis_method, "standard_openai")
             self.assertEqual(saved.analysis_model, "gpt-4.1-mini")
 
-    def test_exact_sample_result_matches_for_both_providers(self):
+    def test_sample_match_uses_provider_for_visible_explanation(self):
         sample = SimpleNamespace(sample_path="Samples/Traced/forged.png", category="traced_projection", category_label="Projection Tracing", dataset_label="forged")
         for selected_provider in ["gemini", "openai"]:
             with self.subTest(provider=selected_provider), ExitStack() as stack:
                 directory = stack.enter_context(tempfile.TemporaryDirectory())
                 stack.enter_context(patch.object(analyze, "UPLOAD_DIR", Path(directory)))
-                lookup = stack.enter_context(patch.object(analyze, "match_sample_image", return_value=sample))
-                for name in ["openai_classify", "gemini_classify", "confidence_gated_analyze", "check_is_document"]:
-                    stack.enter_context(patch.object(analyze, name, side_effect=AssertionError(name)))
+                stack.enter_context(patch.object(analyze, "match_sample_image", return_value=sample))
+                response = {**_coerce({**RESULT, "category": "traced_projection", "explanation": "Projection tracing: the visible strokes show uneven contours."}), "model_used": "test-model"}
+                chosen = stack.enter_context(patch.object(analyze, selected_provider + "_classify", return_value=response))
+                other = "gemini" if selected_provider == "openai" else "openai"
+                stack.enter_context(patch.object(analyze, other + "_classify", side_effect=AssertionError(other)))
                 db = Mock()
-                user = SimpleNamespace(id="test", scan_reset_date=None, scans_this_month=0)
+                db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+                user = SimpleNamespace(id="test", scan_reset_date=None, scans_this_month=0, gemini_api_key=None)
                 result = analyze._analyze_document_sync(
                     Image.new("RGB", (20, 20)), "test.jpg", None, None,
                     None, None, None, None, None, None, None,
                     user, db, None, SimpleNamespace(), provider=selected_provider,
                 )
-                lookup.assert_called_once()
+                chosen.assert_called_once()
+                field = "sample_category" if selected_provider == "gemini" else "admin_category"
+                self.assertEqual(chosen.call_args.kwargs[field], "traced_projection")
                 self.assertEqual(result["detected_category"], "traced_projection")
-                self.assertEqual(result["category_confidence"], 1.0)
-                saved = db.add.call_args.args[0]
-                self.assertEqual(saved.analysis_method, "exact_sample_match")
-                self.assertEqual(saved.analysis_model, "local_exact_sample_match")
+                self.assertEqual(result["category_explanation"], response["explanation"])
+                self.assertEqual(db.add.call_args.args[0].analysis_model, "test-model")
 
     def test_admin_choice_still_overrides_openai_sample_match(self):
         with ExitStack() as stack:

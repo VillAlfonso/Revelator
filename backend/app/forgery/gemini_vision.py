@@ -598,6 +598,20 @@ def _build_user_context_block(
     )
 
 
+REPORT_EXPLANATION_RULES = """
+
+REPORT WRITING RULES: In all user-facing JSON fields, including explanation,
+evidence, reasoning_steps, alternatives and tools_likely_used, discuss only
+observable image features and their relationship to the category. Never mention
+intercept, administrator choices, supplied or constrained categories, local
+datasets, Samples folders, folder labels, specimen matches, pixel matches, or
+internal routing. These are not visual evidence or reasoning steps.
+When a category is specified, keep it and explain relevant visible features.
+Do not invent observations or claim independent verification. If the image does
+not show enough supporting detail, state that visual limitation honestly.
+"""
+
+
 def _client(api_key: Optional[str] = None):
     key = api_key or GEMINI_API_KEY
     if not key:
@@ -837,7 +851,7 @@ def classify(
     buf.seek(0)
 
     base_prompt = system_prompt_override if system_prompt_override else SYSTEM_PROMPT
-    prompt = base_prompt + _build_user_context_block(
+    prompt = base_prompt + REPORT_EXPLANATION_RULES + _build_user_context_block(
         document_type, suspicion_reason, area_of_concern, image_source,
         is_forged_belief, shot_type, lighting, physical_clues,
     )

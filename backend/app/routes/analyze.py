@@ -81,28 +81,6 @@ def _verdict_from_gemini(gemini: dict) -> tuple[str, float]:
     return "suspicious", conf
 
 
-def _exact_sample_result(sample_match) -> dict:
-    """Return the folder-verified label for an exact local sample image."""
-    return {
-        "category": sample_match.category,
-        "category_label": sample_match.category_label,
-        "subtype": None,
-        "confidence": 1.0,
-        "explanation": (
-            f"Exact image match to a {sample_match.dataset_label} specimen in the "
-            "local dataset. The category comes from its labeled folder; AI "
-            "vision analysis was not needed for this result."
-        ),
-        "evidence": ["Pixel-exact match to a labeled local specimen."],
-        "reasoning_steps": ["Used the verified category label assigned to the exact specimen match."],
-        "anomaly_location": None,
-        "tools_likely_used": None,
-        "certainty_level": "HIGH",
-        "alternatives": [],
-        "model_used": "local_exact_sample_match",
-    }
-
-
 @router.get("/document-types")
 def get_document_types():
     return get_document_types_response()
@@ -377,7 +355,7 @@ def _analyze_document_sync(
 
     # Try the selected key first, then the user's other saved keys. A single
     # suspended or misconfigured key must not block the rest of the account.
-    if provider == "openai" or (sample_match and not admin_category):
+    if provider == "openai":
         key_attempts = []
     else:
         key_rows = db.query(UserApiKey).filter(
@@ -401,7 +379,7 @@ def _analyze_document_sync(
         except Exception as exc:
             print(f"[DEBUG] local classifier unavailable: {exc}")
 
-    gemini = _exact_sample_result(sample_match) if sample_match and not admin_category else None
+    gemini = None
     if provider == "openai" and gemini is None:
         try:
             gemini = openai_classify(
@@ -409,7 +387,7 @@ def _analyze_document_sync(
                 suspicion_reason=suspicion_reason, area_of_concern=area_of_concern,
                 image_source=image_source, is_forged_belief=is_forged_belief,
                 shot_type=shot_type, lighting=lighting, physical_clues=physical_clues,
-                admin_category=admin_category,
+                admin_category=admin_category or (sample_match.category if sample_match else None),
             )
         except OpenAIAnalysisError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
