@@ -190,3 +190,23 @@ def _ensure_columns():
             conn.execute(text("DROP TABLE roles"))
         if "users" in table_names:
             conn.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin', 'superadmin')"))
+
+        if "user_sessions" in table_names:
+            session_cols = {col["name"] for col in inspect(conn).get_columns("user_sessions")}
+            for name in ("browser_id", "ip_address", "location"):
+                if name not in session_cols:
+                    conn.execute(text(f"ALTER TABLE user_sessions ADD COLUMN {name} VARCHAR"))
+            if "browser_id" not in session_cols:
+                # One-time approved cleanup: legacy rows cannot identify devices.
+                conn.execute(text("UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE revoked_at IS NULL"))
+                conn.execute(text("UPDATE users SET auth_version = auth_version + 1"))
+
+        if "users" in table_names:
+            cols = {col["name"] for col in inspect(conn).get_columns("users")}
+            for name, definition in (("archived_at", "DATETIME"), ("totp_secret", "TEXT"), ("totp_last_step", "INTEGER NOT NULL DEFAULT -1")):
+                if name not in cols:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
+            if "totp_secret" not in cols:
+                # Require fresh primary authentication before mandatory enrollment.
+                conn.execute(text("UPDATE users SET auth_version = auth_version + 1"))
+                conn.execute(text("UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE revoked_at IS NULL"))

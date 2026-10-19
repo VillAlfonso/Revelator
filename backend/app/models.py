@@ -38,6 +38,10 @@ class User(Base):
     two_factor_enabled = Column(Boolean, default=True, nullable=False)  # email-OTP 2FA on password login
     auth_version = Column(Integer, default=0, nullable=False)
 
+    archived_at = Column(DateTime, nullable=True)
+    totp_secret = Column(Text, nullable=True)
+    totp_last_step = Column(Integer, default=-1, nullable=False)
+
     # Relationships
     scans = relationship("Scan", back_populates="user", cascade="all, delete-orphan")
     api_keys = relationship("UserApiKey", back_populates="user", cascade="all, delete-orphan")
@@ -55,6 +59,18 @@ class UserApiKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="api_keys")
+
+
+class RegistrationCode(Base):
+    __tablename__ = "registration_codes"
+    id = Column(String, primary_key=True, default=gen_uuid)
+    email = Column(String, unique=True, nullable=False)
+    username = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, default="")
+    code_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
 
 
 class LoginCode(Base):
@@ -93,6 +109,10 @@ class TrustedDevice(Base):
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
+
+    browser_id = Column(String, nullable=True, index=True)
+    ip_address = Column(String, nullable=True)
+    location = Column(String, nullable=True)
 
     id = Column(String, primary_key=True, default=gen_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
@@ -188,3 +208,31 @@ class AdminAuditLog(Base):
 
     admin = relationship("User", foreign_keys=[admin_id])
     target_user = relationship("User", foreign_keys=[target_user_id])
+
+
+class AuthChallenge(Base):
+    __tablename__ = "auth_challenges"
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, index=True)
+    auth_version = Column(Integer, nullable=False)
+    secret = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    attempts = Column(Integer, default=0, nullable=False)
+
+
+class RecoveryCode(Base):
+    __tablename__ = "recovery_codes"
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, nullable=False, index=True)
+    code_hash = Column(String, nullable=False, unique=True)
+
+
+class AccountArchiveEvent(Base):
+    __tablename__ = "account_archive_events"
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, nullable=False, index=True)
+    email = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)
+    actor_id = Column(String, nullable=True)
+    snapshot = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

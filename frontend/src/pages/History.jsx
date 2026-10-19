@@ -193,8 +193,6 @@ function ScanDetailView({ detail, onBack, onDeleted }) {
   const canvasRef = useRef(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
-  const [feedback, setFeedback] = useState('');
-  const [feedbackStatus, setFeedbackStatus] = useState('');
   const cat = detail.detected_category;
   const color = geminiColor(cat);
   const label = geminiLabel(cat, detail.detected_category_label);
@@ -215,17 +213,6 @@ function ScanDetailView({ detail, onBack, onDeleted }) {
     } catch (err) {
       setDeleteError(err.message || 'Could not delete this scan');
       setDeleting(false);
-    }
-  }
-
-  async function submitFeedback() {
-    setFeedbackStatus('');
-    try {
-      await api.reportScanFeedback(detail.scan_id, feedback);
-      setFeedback('');
-      setFeedbackStatus('Report sent to the service team.');
-    } catch (err) {
-      setFeedbackStatus(err.message || 'Could not send the report.');
     }
   }
 
@@ -469,25 +456,7 @@ function ScanDetailView({ detail, onBack, onDeleted }) {
         </div>
       </div>
       <NotesSection scanId={detail.scan_id} initialNotes={detail.notes || ''} />
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 className="oswald" style={{ fontSize: 14, color: '#d8ffe6', letterSpacing: 1.5, margin: '0 0 8px' }}>Report a problem with this result</h3>
-        <p style={{ color: '#86efac', fontSize: 12, lineHeight: 1.6, marginTop: 0 }}>
-          This sends your scan ID and message to the service administrators. Do not include unrelated sensitive personal information.
-        </p>
-        <textarea
-          className="input"
-          value={feedback}
-          maxLength={3000}
-          onChange={event => { setFeedback(event.target.value); setFeedbackStatus(''); }}
-          placeholder="Describe an issue with this analysis (max 3000 characters)"
-          rows={4}
-          style={{ width: '100%', resize: 'vertical', marginBottom: 10 }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span role="status" style={{ color: feedbackStatus.includes('sent') ? '#86efac' : '#ff8a99', fontSize: 12 }}>{feedbackStatus}</span>
-          <button className="btn btn-secondary" onClick={submitFeedback} disabled={!feedback.trim()}>Send report</button>
-        </div>
-      </div>
+
     </div>
   );
 }

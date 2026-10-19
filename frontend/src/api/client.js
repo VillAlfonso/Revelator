@@ -37,9 +37,18 @@ function saveDeviceToken(email, token) {
   if (token) localStorage.setItem(deviceKey(email), token);
 }
 
+function browserIdentity() {
+  let id = localStorage.getItem('fg_browser_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('fg_browser_id', id);
+  }
+  return id;
+}
+
 async function request(path, options = {}) {
   const token = getToken();
-  const headers = { ...options.headers };
+  const headers = { ...options.headers, 'X-Browser-ID': browserIdentity() };
 
   if (token && !options.noAuth) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -86,7 +95,7 @@ async function tryRefresh() {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Browser-ID': browserIdentity() },
       body: JSON.stringify({ refresh_token: refresh }),
     });
     if (!res.ok) return false;
@@ -153,11 +162,20 @@ async function authenticatedDownload(path, filename) {
 
 // ── Public API ──────────────────────────────────────
 export const api = {
+  setSessionLocation(location) {
+    return request('/auth/me/session-location', { method: 'PUT', body: JSON.stringify(location) });
+  },
   // Auth
   register(email, username, password, full_name) {
     return request('/auth/register', {
       method: 'POST', noAuth: true,
       body: JSON.stringify({ email, username, password, full_name }),
+    });
+  },
+
+  verifyRegistration(email, code) {
+    return request('/auth/verify-registration', {
+      method: 'POST', noAuth: true, body: JSON.stringify({ email, code }),
     });
   },
 
@@ -170,14 +188,14 @@ export const api = {
 
   // Finish an email-2FA login. On success the server may return a device_token
   // to remember this browser; stash it so next time skips the code.
-  async verify2fa(email, code, rememberDevice = false) {
-    const data = await request('/auth/verify-2fa', {
-      method: 'POST', noAuth: true,
-      body: JSON.stringify({ email, code, remember_device: rememberDevice }),
-    });
-    if (data && data.device_token) saveDeviceToken(email, data.device_token);
-    return data;
+  verifyAuthenticator(challenge_token, code) {
+    return request('/auth/verify-2fa', { method: 'POST', noAuth: true, body: JSON.stringify({ challenge_token, code }) });
   },
+  recoverAccount(email, recovery_code, password) {
+    return request('/auth/forgot-password', { method: 'POST', noAuth: true, body: JSON.stringify({ email, recovery_code, password }) });
+  },
+  adminArchive() { return request('/admin/archive'); },
+  adminResetAuthenticator(id, reason) { return request(`/admin/users/${encodeURIComponent(id)}/reset-authenticator`, { method: 'POST', body: JSON.stringify({ reason }) }); },
 
   resend2fa(email) {
     return request('/auth/resend-2fa', {

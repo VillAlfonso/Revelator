@@ -873,14 +873,12 @@ def classify(
                 f"<sample_evidence>{sample_explanation[:1200]}</sample_evidence>"
             )
     if admin_category:
+        from .fixed_category import explanation_prompt
         if admin_category not in CATEGORY_LABELS:
             raise ValueError(f"Unknown administrator category: {admin_category}")
-        prompt += (
-            "\n\nCLASSIFICATION CONSTRAINT: Use exactly "
-            f"{admin_category} ({CATEGORY_LABELS[admin_category]}) in the JSON "
-            "category field. Do not mention that the category was supplied, selected, "
-            "or constrained. Ground the explanation in visible image evidence and "
-            "describe uncertainty honestly."
+        prompt = explanation_prompt(admin_category, CATEGORY_LABELS[admin_category]) + REPORT_EXPLANATION_RULES + _build_user_context_block(
+            document_type, suspicion_reason, area_of_concern, image_source,
+            is_forged_belief, shot_type, lighting, physical_clues,
         )
     from google.genai import types as genai_types
 

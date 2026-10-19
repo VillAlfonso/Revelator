@@ -125,17 +125,21 @@ class OpenAITests(unittest.TestCase):
         post.return_value.json.return_value = {
             "status": "completed", "model": "gpt-4.1-mini",
             "output": [{"type": "message", "content": [
-                {"type": "output_text", "text": json.dumps(RESULT)},
+                {"type": "output_text", "text": json.dumps({**RESULT, "category": "erasure_chemical", "evidence": ["Visible fading"], "subtype": None, "anomaly_location": None, "tools_likely_used": None, "reasoning_steps": [], "alternatives": []})},
             ]}],
         }
         result = openai_vision.classify(Image.new("RGB", (20, 20)), document_type="receipt", admin_category="erasure_chemical")
         self.assertEqual(result["category"], "erasure_chemical")
         self.assertEqual(result["category_label"], "Alteration - Erasure: Chemical")
-        payload = post.call_args.kwargs["json"]
+        payload = post.call_args_list[0].kwargs["json"]
         self.assertFalse(payload["store"])
+        self.assertEqual(payload["text"]["format"]["type"], "json_schema")
+        self.assertTrue(payload["text"]["format"]["strict"])
+        self.assertEqual(payload["text"]["format"]["schema"]["properties"]["category"]["enum"], ["erasure_chemical"])
         self.assertIn("REPORT WRITING RULES", payload["instructions"])
         self.assertIn("Do not invent observations", payload["instructions"])
-        self.assertIn("CLASSIFICATION CONSTRAINT: Use exactly erasure_chemical", payload["instructions"])
+        self.assertIn("Use exactly erasure_chemical", payload["instructions"])
+        self.assertEqual(post.call_count, 1)
         self.assertIn("receipt", payload["input"][0]["content"][0]["text"])
         self.assertTrue(payload["input"][0]["content"][1]["image_url"].startswith("data:image/jpeg;base64,"))
         post.return_value.json.return_value["status"] = "incomplete"
@@ -151,6 +155,23 @@ class OpenAITests(unittest.TestCase):
                 openai_vision.classify(Image.new("RGB", (20, 20)))
             self.assertEqual(caught.exception.status_code, expected)
             self.assertNotIn("secret-key", str(caught.exception))
+
+    def test_response_format_reports_bad_field_without_echoing_value(self):
+        report = {**RESULT, "subtype": None, "anomaly_location": None,
+                  "tools_likely_used": None, "evidence": [], "reasoning_steps": [], "alternatives": []}
+        schema = openai_vision._report_schema()
+        openai_vision._validate_format(report, schema)
+        for field, value in [("confidence", 95), ("confidence", "95%"),
+                             ("tools_likely_used", ["private-value"]),
+                             ("alternatives", [{"category": "other", "reasoning": []}])]:
+            with self.subTest(field=field), self.assertRaises(openai_vision.OpenAIAnalysisError) as caught:
+                openai_vision._validate_format({**report, field: value}, schema)
+            self.assertIn(field, str(caught.exception))
+            self.assertNotIn("private-value", str(caught.exception))
+        missing = dict(report)
+        del missing["explanation"]
+        with self.assertRaisesRegex(openai_vision.OpenAIAnalysisError, "report.explanation"):
+            openai_vision._validate_format(missing, schema)
 
     def test_pipeline_uses_only_openai_and_saves_result(self):
         with ExitStack() as stack:

@@ -12,10 +12,11 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_admin, get_current_super_admin, get_user_from_token, user_has_permission
 from ..config import UPLOAD_DIR
+from ..account_security import archive_account, archive_event
 from ..database import get_db
 from ..models import (
     User, Scan, AdminAuditLog, OperationalEvent, LoginCode, TrustedDevice,
-    UserSession, PasswordResetToken,
+    UserSession, PasswordResetToken, AccountArchiveEvent, AuthChallenge, RecoveryCode,
 )
 from datetime import datetime, timedelta, timezone
 import json
@@ -53,10 +54,10 @@ def _log_admin_action(db: Session, admin_id: str, action: str, target_user_id: s
 
 @router.get("/stats")
 def stats(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    total_users = db.query(func.count(User.id)).scalar() or 0
+    total_users = db.query(func.count(User.id)).filter(User.is_active.is_(True), User.archived_at.is_(None)).scalar() or 0
     total_scans = db.query(func.count(Scan.id)).scalar() or 0
-    admin_count = db.query(func.count(User.id)).filter(User.role == "admin").scalar() or 0
-    super_admin_count = db.query(func.count(User.id)).filter(User.role == "superadmin").scalar() or 0
+    admin_count = db.query(func.count(User.id)).filter(User.role == "admin", User.is_active.is_(True)).scalar() or 0
+    super_admin_count = db.query(func.count(User.id)).filter(User.role == "superadmin", User.is_active.is_(True)).scalar() or 0
     return {
         "total_users": total_users,
         "total_scans": total_scans,
@@ -127,7 +128,7 @@ def list_users(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
-    query = db.query(User)
+    query = db.query(User).filter(User.is_active.is_(True), User.archived_at.is_(None))
     if q:
         like = f"%{q}%"
         query = query.filter(or_(User.email.ilike(like), User.username.ilike(like), User.full_name.ilike(like)))
@@ -165,25 +166,47 @@ def delete_user(
     if user.role == "superadmin":
         raise HTTPException(status_code=403, detail="Cannot delete a super admin. Demote first.")
 
-    snapshot = {"username": user.username, "email": user.email, "role": user.role}
-    user_dir = (UPLOAD_DIR / user.id).resolve()
-    if user_dir.parent == UPLOAD_DIR.resolve() and user_dir.is_dir():
-        shutil.rmtree(user_dir)
+    archive_account(user, db, admin.id)
+    return {"archived": user_id}
 
-    db.query(LoginCode).filter(LoginCode.user_id == user_id).delete()
-    db.query(TrustedDevice).filter(TrustedDevice.user_id == user_id).delete()
-    db.query(UserSession).filter(UserSession.user_id == user_id).delete()
-    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete()
-    db.query(OperationalEvent).filter(OperationalEvent.user_id == user_id).delete()
-    db.query(AdminAuditLog).filter(
-        (AdminAuditLog.admin_id == user_id) | (AdminAuditLog.target_user_id == user_id)
-    ).delete(synchronize_session=False)
-    db.delete(user)
+
+@router.get("/archive")
+def archive_list(_: User = Depends(get_current_admin), db: Session = Depends(get_db), limit: int = Query(100, ge=1, le=500)):
+    users = db.query(User).filter(User.is_active.is_(False)).order_by(User.updated_at.desc()).all()
+    rows = []
+    for user in users:
+        # Old incarnations stay in the permanent history, not the current archive list.
+        if user.email.endswith("@archive.invalid"):
+            continue
+        row = _user_row(user, db)
+        row["status"] = "archived" if user.archived_at else "banned"
+        rows.append(row)
+    events = db.query(AccountArchiveEvent).order_by(AccountArchiveEvent.created_at.desc()).limit(limit).all()
+    return {"accounts": rows, "events": [{"id": e.id, "email": e.email, "action": e.action,
+        "created_at": e.created_at.isoformat() + "Z"} for e in events]}
+
+
+class AssistanceRequest(BaseModel):
+    reason: str
+
+
+@router.post("/users/{user_id}/reset-authenticator")
+def reset_authenticator(user_id: str, body: AssistanceRequest, admin: User = Depends(get_current_super_admin), db: Session = Depends(get_db)):
+    if user_id == admin.id or len(body.reason.strip()) < 10:
+        raise HTTPException(400, "Verify the user's identity and provide a reason (at least 10 characters). Self-reset is not allowed.")
+    user = db.get(User, user_id)
+    if not user or not user.is_active or user.archived_at:
+        raise HTTPException(400, "Active account required")
+    user.totp_secret = None
+    user.totp_last_step = -1
+    user.auth_version += 1
+    db.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).delete()
+    db.query(AuthChallenge).filter(AuthChallenge.user_id == user.id).delete()
+    db.query(UserSession).filter(UserSession.user_id == user.id).update({UserSession.revoked_at: datetime.utcnow()})
+    archive_event(user, "authenticator_reset_by_admin", db, admin.id)
+    _log_admin_action(db, admin.id, "reset_authenticator", user.id, {"reason": body.reason[:1000]})
     db.commit()
-
-    _log_admin_action(db, admin.id, "delete_user", None, snapshot)
-
-    return {"deleted": user_id}
+    return {"success": True}
 
 
 # ============================================
@@ -305,7 +328,9 @@ def ban_user(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="User is already banned")
 
+    archive_event(user, "banned", db, admin.id)
     user.is_active = False
+    user.auth_version += 1
     db.commit()
     db.refresh(user)
 
@@ -325,9 +350,12 @@ def unban_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user.archived_at:
+        raise HTTPException(400, "Archived accounts must register again; this action only lifts bans.")
     if user.is_active:
         raise HTTPException(status_code=400, detail="User is already active")
 
+    archive_event(user, "unbanned", db, admin.id)
     user.is_active = True
     db.commit()
     db.refresh(user)

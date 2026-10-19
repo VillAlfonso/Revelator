@@ -148,7 +148,7 @@ async def get_current_user(
     user = db.query(User).filter(User.id == payload["sub"]).first()
     if user:
         request.state.user_id = user.id
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.archived_at or not user.totp_secret:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     if payload.get("ver", 0) != user.auth_version:
         raise HTTPException(status_code=401, detail="Session has been revoked")
@@ -166,7 +166,9 @@ async def get_current_user(
         )
         if not session:
             raise HTTPException(status_code=401, detail="Session has been revoked or expired")
+        from .device_details import request_ip
         now = datetime.utcnow()
+        session.ip_address = request_ip(request) or session.ip_address
         if not session.last_used_at or now - session.last_used_at >= timedelta(minutes=5):
             session.last_used_at = now
             db.commit()
@@ -228,7 +230,7 @@ def get_user_from_token(token: str, db: Session) -> User:
     if not payload or payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.archived_at or not user.totp_secret:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     if payload.get("ver", 0) != user.auth_version:
         raise HTTPException(status_code=401, detail="Session has been revoked")

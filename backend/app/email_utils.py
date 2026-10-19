@@ -207,3 +207,11 @@ def send_2fa_code_email(to_email: str, code: str, ttl_minutes: int = 10) -> bool
     whether it can require the code (never lock a user out when mail is down)."""
     subject = f"Your {APP_NAME} sign-in code"
     return send_email(to_email, subject, _twofa_html(code, ttl_minutes))
+
+
+def send_registration_code_email(to_email: str, code: str) -> bool:
+    return send_email(to_email, f"Your {APP_NAME} registration code",
+        f"<h2>Verify your email</h2><p>Enter this code to create your {escape(APP_NAME)} account:</p>"
+        f"<p style='font-size:32px;letter-spacing:6px'><strong>{escape(code)}</strong></p>"
+        "<p>This code expires in 10 minutes. Do not share it.</p>"
+        "<p>If you did not register, you can ignore this email.</p>")

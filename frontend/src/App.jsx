@@ -587,12 +587,6 @@ function Layout({ children }) {
               }}>
                 {user?.username || 'OPERATOR'}
               </div>
-              <div className="mono" style={{
-                fontSize: 10, color: '#6dba85', letterSpacing: 1, marginTop: 2,
-                textTransform: 'uppercase',
-              }}>
-                {user?.plan ? `${user.plan} TIER` : 'FREE TIER'}
-              </div>
             </div>
             <button
               onClick={() => setDrawerOpen(false)}

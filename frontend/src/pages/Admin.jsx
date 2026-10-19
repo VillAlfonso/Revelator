@@ -12,6 +12,7 @@ export default function Admin() {
   const isSuperAdmin = me?.role === "superadmin";
   const [tab, setTab] = useState('users'); // 'users', 'logs'
   const [users, setUsers] = useState([]);
+  const [archive, setArchive] = useState({ accounts: [], events: [] });
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
   const [q, setQ] = useState('');
@@ -30,11 +31,13 @@ export default function Admin() {
     setLoading(true);
     setError('');
     try {
-      const [list, s] = await Promise.all([
+      const [list, s, archived] = await Promise.all([
         api.adminListUsers({ q }),
         api.adminStats(),
+        api.adminArchive(),
       ]);
       setUsers(list.users);
+      setArchive(archived);
       setTotal(list.total);
       setStats(s);
     } catch (err) {
@@ -72,6 +75,20 @@ export default function Admin() {
   }, [logsFilter, logFilters]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // Account deletion can happen in another tab or on another device.
+    const refreshUsers = () => {
+      if (document.visibilityState === 'visible' && (tab === 'users' || tab === 'archive')) load();
+    };
+    window.addEventListener('focus', refreshUsers);
+    document.addEventListener('visibilitychange', refreshUsers);
+    const timer = window.setInterval(refreshUsers, 30000);
+    return () => {
+      window.removeEventListener('focus', refreshUsers);
+      document.removeEventListener('visibilitychange', refreshUsers);
+      window.clearInterval(timer);
+    };
+  }, [load, tab]);
   useEffect(() => { if (tab === 'logs') loadLogs(); }, [tab, loadLogs]);
 
   async function confirmDelete() {
@@ -87,7 +104,7 @@ export default function Admin() {
   }
 
   function findUser(userId) {
-    return users.find(u => u.id === userId);
+    return [...users, ...archive.accounts].find(u => u.id === userId);
   }
 
   async function banUser(userId) {
@@ -193,7 +210,23 @@ export default function Admin() {
         >
           Logs
         </button>
+        <button className="mono" onClick={() => { setTab('archive'); load(); }} style={{ background: 'none', border: 'none', color: tab === 'archive' ? '#00ff66' : '#86efac', cursor: 'pointer' }}>Archive</button>
       </div>
+
+      {tab === 'archive' && <div>
+        <h2 className="oswald">Archived and banned accounts</h2>
+        {error && <p role="alert" style={{ color: '#ff8a99' }}>{error}</p>}
+        <button className="btn" onClick={load}>Refresh</button>
+        {archive.accounts.length === 0 && <p>No archived or banned accounts.</p>}
+        {archive.accounts.map(account => <div className="card" key={account.id} style={{ marginTop: 12 }}>
+          <strong>{account.email}</strong><p>{account.status}</p>
+          {isSuperAdmin && account.status === 'banned' && <button className="btn" onClick={() => unbanUser(account.id)}>Unban</button>}
+        </div>)}
+        <h3 className="oswald">Permanent archive history (latest 100 events)</h3>
+        {archive.events.map(event => <div key={event.id} style={{ padding: 10, borderBottom: '1px solid #1d3825' }}>
+          {event.email} · {event.action.replaceAll('_', ' ')} · {new Date(event.created_at).toLocaleString()}
+        </div>)}
+      </div>}
 
       {tab === 'users' && (
       <div>
@@ -224,6 +257,12 @@ export default function Admin() {
             user={u}
             isMe={u.id === me?.id}
             isSuperAdmin={isSuperAdmin}
+            onResetAuthenticator={async () => {
+              const reason = window.prompt('Only continue after independently verifying this user’s identity. Record how identity was verified:');
+              if (!reason) return;
+              try { await api.adminResetAuthenticator(u.id, reason); await load(); }
+              catch (err) { setError(err.message); }
+            }}
             onDelete={() => setDeleteId(u.id)}
             onBan={() => banUser(u.id)}
             onUnban={() => unbanUser(u.id)}
@@ -240,9 +279,9 @@ export default function Admin() {
       {deleteId && (() => {
         const target = users.find(u => u.id === deleteId);
         return (
-          <Modal onClose={() => setDeleteId(null)} title="Delete user?">
+          <Modal onClose={() => setDeleteId(null)} title="Archive user?">
             <p style={{ color: '#e5e5e5', fontSize: 14, marginBottom: 12 }}>
-              You are about to permanently delete:
+              You are about to archive:
             </p>
             <div style={{
               background: 'rgba(255,51,68,0.06)', border: '1px solid #7a1f28',
@@ -259,11 +298,11 @@ export default function Admin() {
               </div>
             </div>
             <p style={{ color: '#ff8a99', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-              This permanently deletes the user, their scan history, uploaded images, and any classroom memberships. This cannot be undone.
+              This disables sign-in and retains the account data and permanent archive history. Bans cannot be bypassed by registering again.
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
               <button className="btn" onClick={() => setDeleteId(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={confirmDelete}>Delete forever</button>
+              <button className="btn btn-danger" onClick={confirmDelete}>Archive account</button>
             </div>
           </Modal>
         );
@@ -313,7 +352,7 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
+function UserRow({ onResetAuthenticator, user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   const targetIsSuperAdmin = user.role === 'superadmin';
   const canMutate = isSuperAdmin && !targetIsSuperAdmin;
@@ -345,6 +384,7 @@ function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote
       </div>
       {canMutate && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {!isMe && <button className="btn" onClick={onResetAuthenticator}>Reset Authenticator</button>}
           {user.role === 'user' && (
             <button
               className="btn"
@@ -415,9 +455,9 @@ function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote
               borderColor: '#7a1f28',
               color: '#ff8a99',
             }}
-            title={isMe ? 'You cannot delete your own account' : 'Delete user'}
+            title={isMe ? 'Use Account settings to archive your own account' : 'Archive user'}
           >
-            Delete
+            Archive
           </button>
         </div>
       )}
@@ -486,7 +526,6 @@ const ACTION_COLORS = {
 
 function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh, logFilters, setLogFilters, logMeta, error }) {
   const [qDraft, setQDraft] = useState(logFilters.q || '');
-  const [detailFormat, setDetailFormat] = useState('readable');
   useEffect(() => { setQDraft(logFilters.q || ''); }, [logFilters.q]);
   const setF = (k, v) => setLogFilters(f => ({ ...f, [k]: v }));
   const clearFilters = () => setLogFilters({ action: '', role: '', verdict: '', category: '', start_date: '', end_date: '', q: '' });
@@ -573,13 +612,13 @@ function LogsView({ logs, logsStats, loading, filter, onFilterChange, onRefresh,
         <div className="card" style={{ textAlign: 'center', color: '#86efac' }}>No log entries match these filters.</div>
       )}
       {logs.map(log => (
-        <LogRow key={log.id} log={log} detailFormat={detailFormat} />
+        <LogRow key={log.id} log={log} />
       ))}
     </div>
   );
 }
 
-function LogRow({ log, detailFormat }) {
+function LogRow({ log }) {
   const [expanded, setExpanded] = useState(false);
   const isScan = log.kind === 'scan';
   const isOperation = log.kind === 'operation';
@@ -651,43 +690,13 @@ function LogRow({ log, detailFormat }) {
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #112418' }}>
           {isScan && log.scan && <ScanImagePreview scan={log.scan} />}
-          {detailFormat === 'json' ? (
-            <pre style={{
-              color: '#86efac', fontSize: 11, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace",
-              background: '#000', padding: 10, borderRadius: 2, border: '1px solid #112418',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, maxHeight: 480, overflow: 'auto',
-            }}>
-              {JSON.stringify(log, null, 2)}
-            </pre>
-          ) : isScan && log.scan ? (
+          {isScan && log.scan ? (
             <ScanJsonDetail scan={log.scan} />
           ) : isOperation && log.operation ? (
             <OperationDetail operation={log.operation} />
           ) : (
             <ReadableAuditDetails details={log.details} />
           )}
-          <div role="group" aria-label="Log detail format" style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 10 }}>
-            {['readable', 'json'].map(format => (
-              <button
-                key={format}
-                type="button"
-                className="mono"
-                aria-pressed={detailFormat === format}
-                onClick={event => {
-                  event.stopPropagation();
-                  setDetailFormat(format);
-                }}
-                style={{
-                  padding: '5px 10px', fontSize: 10, cursor: 'pointer', textTransform: 'uppercase',
-                  background: detailFormat === format ? 'rgba(0,255,102,0.1)' : 'transparent',
-                  border: `1px solid ${detailFormat === format ? '#00ff66' : '#1d3825'}`,
-                  color: detailFormat === format ? '#00ff66' : '#86efac',
-                }}
-              >
-                {format}
-              </button>
-            ))}
-          </div>
         </div>
       )}
     </div>
@@ -935,7 +944,7 @@ function RolesManager({ roles, permissions, onReload, onError }) {
                   disabled={busy}
                   style={{ borderColor: '#ff3344', color: '#ff8a99' }}
                 >
-                  Delete
+                  Archive
                 </button>
               )}
             </div>
@@ -1406,7 +1415,7 @@ function RoomCard({ room, expanded, onToggle, onChange, onDelete, onError }) {
                   }}
                 >
                   <Trash2 size={12} strokeWidth={2.2} />
-                  Delete
+                  Archive
                 </button>
               </>
             )}
