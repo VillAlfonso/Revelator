@@ -30,6 +30,7 @@ export default function Account() {
   const [revealedKeys, setRevealedKeys] = useState({});
 
   const [securityError, setSecurityError] = useState('');
+  const [twoFABusy, setTwoFABusy] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState('');
   const [deleteFieldsOpen, setDeleteFieldsOpen] = useState(false);
   const deleteDialogRef = useRef(null);
@@ -161,6 +162,22 @@ export default function Account() {
 
   function toggleReveal(keyId) {
     setRevealedKeys(prev => ({ ...prev, [keyId]: !prev[keyId] }));
+  }
+
+  async function toggle2FA(next) {
+    setError(''); setMsg('');
+    setTwoFABusy(true);
+    try {
+      await api.setTwoFactor(next);
+      await refreshUser();
+      setMsg(next
+        ? 'Two-factor sign-in is ON. A 6-digit code is emailed when you sign in on a new device.'
+        : 'Two-factor sign-in is OFF.');
+    } catch (err) {
+      setError(err.message || 'Could not update two-factor setting');
+    } finally {
+      setTwoFABusy(false);
+    }
   }
 
   async function changePassword() {
@@ -624,7 +641,31 @@ export default function Account() {
         }}>
           Security
         </h2>
-        <p style={{ color: '#86efac' }}>Google Authenticator verification is required for every sign-in. Keep your one-time recovery codes safe. If your phone and codes are lost, contact an administrator for identity verification.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ fontSize: 14, color: '#d8ffe6', fontWeight: 600, marginBottom: 4 }}>
+              Two-factor sign-in (email code)
+            </div>
+            <div style={{ fontSize: 12, color: '#6dba85', lineHeight: 1.6 }}>
+              When on, signing in on a new device asks for a 6-digit code we email you.
+              Trusted devices skip it for 30 days.
+            </div>
+          </div>
+          <button
+            onClick={() => toggle2FA(!user?.two_factor_enabled)}
+            disabled={twoFABusy}
+            className={user?.two_factor_enabled ? 'btn btn-secondary' : 'btn btn-primary'}
+            style={{ fontSize: 12, padding: '10px 18px', minHeight: 'unset', whiteSpace: 'nowrap' }}
+          >
+            {twoFABusy ? '…' : user?.two_factor_enabled ? 'Turn off' : 'Turn on'}
+          </button>
+        </div>
+        <div className="mono" style={{
+          marginTop: 12, fontSize: 11, letterSpacing: 1,
+          color: user?.two_factor_enabled ? '#00ff66' : '#6b7280',
+        }}>
+          STATUS: {user?.two_factor_enabled ? '● ENABLED' : '○ DISABLED'}
+        </div>
         {user?.has_password && (
           <div style={{ marginTop: 18, borderTop: '1px solid #112418', paddingTop: 16 }}>
             <h3 className="oswald" style={{ fontSize: 13, color: '#d8ffe6', letterSpacing: 1.5, margin: '0 0 10px', textTransform: 'uppercase' }}>Change password</h3>

@@ -186,29 +186,6 @@ def archive_list(_: User = Depends(get_current_admin), db: Session = Depends(get
         "created_at": e.created_at.isoformat() + "Z"} for e in events]}
 
 
-class AssistanceRequest(BaseModel):
-    reason: str
-
-
-@router.post("/users/{user_id}/reset-authenticator")
-def reset_authenticator(user_id: str, body: AssistanceRequest, admin: User = Depends(get_current_super_admin), db: Session = Depends(get_db)):
-    if user_id == admin.id or len(body.reason.strip()) < 10:
-        raise HTTPException(400, "Verify the user's identity and provide a reason (at least 10 characters). Self-reset is not allowed.")
-    user = db.get(User, user_id)
-    if not user or not user.is_active or user.archived_at:
-        raise HTTPException(400, "Active account required")
-    user.totp_secret = None
-    user.totp_last_step = -1
-    user.auth_version += 1
-    db.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).delete()
-    db.query(AuthChallenge).filter(AuthChallenge.user_id == user.id).delete()
-    db.query(UserSession).filter(UserSession.user_id == user.id).update({UserSession.revoked_at: datetime.utcnow()})
-    archive_event(user, "authenticator_reset_by_admin", db, admin.id)
-    _log_admin_action(db, admin.id, "reset_authenticator", user.id, {"reason": body.reason[:1000]})
-    db.commit()
-    return {"success": True}
-
-
 # ============================================
 # Super Admin Endpoints
 # ============================================

@@ -1,41 +1,101 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { useAuth } from '../App';
-import AuthenticatorChallenge from '../components/AuthenticatorChallenge';
-import PasswordStrength, { passwordPolicyError } from '../components/PasswordStrength';
+import Logo from '../components/Logo';
+import { FingerprintWatermark } from '../components/ForensicMotifs';
+
 export default function ForgotPassword() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { loginUser } = useAuth();
-  const email = location.state?.email || '';
-  const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
+  const email = typeof location.state?.email === 'string' ? location.state.email.trim() : '';
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [challenge, setChallenge] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   if (!email) return <Navigate to="/login" replace />;
-  if (challenge) return <AuthenticatorChallenge challenge={challenge} onComplete={data => { loginUser(data); navigate('/scan'); }} onCancel={() => navigate('/login')} />;
-  return <div className="card" style={{ maxWidth: 440, margin: '40px auto' }}>
-    <h2 className="oswald">Recover account</h2>
-    <p>Use one of your saved recovery codes to set a password and enroll Authenticator again. All previous sessions and recovery codes will be revoked.</p>
-    <p>If you lost every recovery code, contact an administrator for identity verification. No recovery email will be sent.</p>
-    <form onSubmit={async event => {
-      event.preventDefault(); setError('');
-      const validation = passwordPolicyError(password);
-      if (validation) { setError(validation); return; }
-      setBusy(true);
-      try { setChallenge(await api.recoverAccount(email, code, password)); }
-      catch (err) { setError(err.message); }
-      finally { setBusy(false); }
-    }}>
-      <label>Email</label><input className="input" value={email} readOnly />
-      <label>Unused recovery code</label><input className="input" required autoComplete="off" value={code} onChange={e => setCode(e.target.value)} />
-      <label>New password</label><input className="input" type="password" required autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} />
-      <PasswordStrength password={password} />
-      {error && <p role="alert" style={{ color: '#ff8a99' }}>{error}</p>}
-      <button className="btn btn-primary" disabled={busy}>Recover and set up Authenticator</button>
-    </form>
-    <Link to="/login">Back to sign in</Link>
-  </div>;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await api.forgotPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block', fontFamily: "'JetBrains Mono', monospace" };
+
+  return (
+    <div style={{ maxWidth: 440, margin: 'clamp(20px, 6vw, 60px) auto', position: 'relative' }}>
+      <FingerprintWatermark size={420} opacity={0.06} style={{ position: 'absolute', top: -40, right: -120, zIndex: 0 }} />
+      <div style={{ textAlign: 'center', marginBottom: 32, position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <Logo size={86} glow animated />
+        </div>
+        <h1 className="oswald glow-strong" style={{ fontSize: 32, color: '#00ff66', letterSpacing: 7, fontWeight: 700 }}>
+          REVELATOR
+        </h1>
+        <p className="mono" style={{ color: '#6dba85', marginTop: 10, fontSize: 11, letterSpacing: 3 }}>
+          [ RECOVER ACCESS ]
+        </p>
+      </div>
+
+      <div className="card">
+        {sent ? (
+          <div style={{ textAlign: 'center' }}>
+            <div className="mono glow" style={{ fontSize: 40, color: '#00ff66', marginBottom: 12 }}>✉</div>
+            <h2 className="oswald" style={{ fontSize: 20, letterSpacing: 2, color: '#d8ffe6', marginBottom: 14 }}>
+              CHECK YOUR EMAIL
+            </h2>
+            <p style={{ fontSize: 14, color: '#86efac', lineHeight: 1.6, marginBottom: 8 }}>
+              If an account exists for <strong style={{ color: '#d8ffe6' }}>{email}</strong>, we’ve sent a password reset link.
+            </p>
+            <p style={{ fontSize: 13, color: '#6dba85', lineHeight: 1.6, marginBottom: 22 }}>
+              The link expires in 1 hour. Check your spam folder if you don’t see it.
+            </p>
+            <p style={{ textAlign: 'center', fontSize: 13, color: '#86efac' }}>
+              <Link to="/login">Back to sign in</Link>
+            </p>
+          </div>
+        ) : (
+          <>
+            <h2 className="oswald" style={{ fontSize: 18, marginBottom: 8, letterSpacing: 3, textTransform: 'uppercase', color: '#d8ffe6' }}>
+              ▸ Forgot Password
+            </h2>
+            <p style={{ fontSize: 13, color: '#6dba85', lineHeight: 1.6, marginBottom: 20 }}>
+              Enter your email and we’ll send you a link to reset your password.
+            </p>
+
+            {error && (
+              <div style={{
+                background: 'rgba(255,51,68,0.1)', border: '1px solid #ff3344', padding: 12,
+                borderRadius: 2, marginBottom: 16, fontSize: 13, color: '#ff8a99',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}>
+                ⚠ {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 24 }}>
+                <label style={labelStyle}>Email</label>
+                <input className="input" type="email" value={email} readOnly placeholder="you@example.com" required />
+              </div>
+              <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
+                {loading ? '◌ Sending…' : '▶ Send Reset Link'}
+              </button>
+            </form>
+
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#86efac' }}>
+              Remembered it? <Link to="/login">Sign in</Link>
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }

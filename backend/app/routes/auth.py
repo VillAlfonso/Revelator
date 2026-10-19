@@ -34,7 +34,8 @@ from ..config import (
     TWO_FACTOR_ENABLED, TWO_FACTOR_CODE_TTL_MINUTES, TWO_FACTOR_MAX_ATTEMPTS,
     TRUSTED_DEVICE_DAYS, REFRESH_TOKEN_EXPIRE_DAYS, UPLOAD_DIR, DATA_DIR,
 )
-from ..account_security import begin_auth, finish_auth, consume_recovery, archive_account, release_archived_identity
+from ..account_security import archive_account, release_archived_identity
+from ..email_utils import send_registration_code_email, send_verification_email, send_reset_email, send_2fa_code_email, _smtp_configured
 from ..operations import enforce_rate_limit
 from ..key_storage import encrypt_api_key, decrypt_api_key
 
@@ -121,8 +122,7 @@ def user_to_dict(user: User, db: Session = None) -> dict:
         "scans_this_month": user.scans_this_month,
         "role": role_name,
         "is_active": bool(user.is_active),
-        "two_factor_enabled": True,
-        "authenticator_enrolled": bool(user.totp_secret),
+        "two_factor_enabled": bool(user.two_factor_enabled) if user.two_factor_enabled is not None else True,
         "has_password": bool(user.hashed_password),
         "created_at": user.created_at.isoformat() if user.created_at else "",
     }
@@ -171,47 +171,226 @@ def _issue_login(
     return resp
 
 
+def _device_is_trusted(user: User, device_token: str | None, db: Session) -> bool:
+    """True if this remembered-device token is valid and unexpired for the user."""
+    if not device_token:
+        return False
+    dev = (
+        db.query(TrustedDevice)
+        .filter(TrustedDevice.user_id == user.id,
+                TrustedDevice.token_hash == hash_token(device_token))
+        .first()
+    )
+    if not dev:
+        return False
+    if dev.expires_at and dev.expires_at < datetime.utcnow():
+        db.delete(dev)
+        db.commit()
+        return False
+    dev.last_used_at = datetime.utcnow()
+    db.commit()
+    return True
+
+
+def _send_login_code(user: User, db: Session) -> bool:
+    """Issue a fresh 6-digit code (replacing any prior one) and email it.
+
+    Returns whether the email was actually sent."""
+    db.query(LoginCode).filter(LoginCode.user_id == user.id).delete()
+    code = generate_otp_code()
+    db.add(LoginCode(
+        user_id=user.id,
+        code_hash=hash_token(code),
+        expires_at=datetime.utcnow() + timedelta(minutes=TWO_FACTOR_CODE_TTL_MINUTES),
+        attempts=0,
+    ))
+    db.commit()
+    return send_2fa_code_email(user.email, code, TWO_FACTOR_CODE_TTL_MINUTES)
+
+
+def _twofa_required_for(user: User) -> bool:
+    """Whether this password account is configured to require the email-code step."""
+    return bool(
+        TWO_FACTOR_ENABLED
+        and user.two_factor_enabled
+        and user.hashed_password
+    )
+
+
+# ── Endpoints ───────────────────────────────────────────
+
 @router.post("/register")
+def register(body: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    email = str(body.email).strip().lower()
+    enforce_rate_limit(request, "register", email, 5, 3600)
+    enforce_rate_limit(request, "register_ip", "all", 20, 3600)
+    if not _password_meets_policy(body.password):
+        raise HTTPException(400, "Password must be at least 12 characters with a letter and a number.")
+    existing = db.query(User).filter(func.lower(User.email) == email).first()
+    if existing and not existing.archived_at:
+        raise HTTPException(400, "Email already registered or account disabled")
+    name_owner = db.query(User).filter(User.username == body.username).first()
+    if name_owner and (not existing or name_owner.id != existing.id):
+        raise HTTPException(400, "Username already taken")
+    code = generate_otp_code()
+    db.query(RegistrationCode).filter((RegistrationCode.email == email) | (RegistrationCode.expires_at <= datetime.utcnow())).delete(synchronize_session=False)
+    db.add(RegistrationCode(email=email, username=body.username, hashed_password=hash_password(body.password),
+        full_name=body.full_name, code_hash=hash_token(code), expires_at=datetime.utcnow() + timedelta(minutes=10)))
+    db.flush()
+    if not send_registration_code_email(email, code):
+        db.rollback()
+        raise HTTPException(503, "Could not send the verification code. Please try again later.")
+    db.commit()
+    return {"email": email, "verification_required": True}
+
+
+class VerifyRegistrationRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 @router.post("/verify-registration")
-def register():
-    raise HTTPException(400, "New accounts must use Google sign-in with an @lspu.edu.ph address.")
+def verify_registration(body: VerifyRegistrationRequest, request: Request, db: Session = Depends(get_db)):
+    email = str(body.email).strip().lower()
+    enforce_rate_limit(request, "verify_registration", email, 10, 600)
+    pending = db.query(RegistrationCode).filter(RegistrationCode.email == email).first()
+    if not pending or pending.expires_at <= datetime.utcnow() or pending.attempts >= 5:
+        raise HTTPException(400, "Code expired or unavailable. Request a new code.")
+    if pending.code_hash != hash_token(body.code):
+        db.query(RegistrationCode).filter(RegistrationCode.id == pending.id).update({RegistrationCode.attempts: RegistrationCode.attempts + 1})
+        db.commit()
+        raise HTTPException(400, "Incorrect verification code.")
+    existing = db.query(User).filter(func.lower(User.email) == email).first()
+    if existing and not existing.archived_at:
+        raise HTTPException(400, "Email already registered or account disabled")
+    if existing:
+        release_archived_identity(existing, db)
+    if db.query(User).filter(User.username == pending.username).first():
+        db.rollback()
+        raise HTTPException(400, "Username already taken")
+    user = User(email=email, username=pending.username, hashed_password=pending.hashed_password,
+        full_name=pending.full_name, is_verified=True, scan_reset_date=datetime.utcnow())
+    consumed = db.query(RegistrationCode).filter(RegistrationCode.id == pending.id,
+        RegistrationCode.attempts < 5, RegistrationCode.expires_at > datetime.utcnow()).delete(synchronize_session=False)
+    if not consumed:
+        db.rollback()
+        raise HTTPException(400, "Code expired or already used")
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Email or username is already registered")
+    return _issue_login(user, db, request=request)
 
 
 @router.post("/login")
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     enforce_rate_limit(request, "login", body.email, 10, 900)
-    user = db.query(User).filter(func.lower(User.email) == body.email.strip().lower()).first()
+    user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
-    return begin_auth(user, db)
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Please verify your email before signing in. Check your inbox or request a new link.")
 
+    # A remembered device skips the code entirely.
+    if _device_is_trusted(user, body.device_token, db):
+        return _issue_login(user, db, request=request)
 
-class AuthenticatorRequest(BaseModel):
-    challenge_token: str = Field(max_length=200)
-    code: str = Field(min_length=6, max_length=64)
+    # Otherwise require an email code when configured. Local development may
+    # fall back if SMTP is unavailable; production fails closed.
+    if _twofa_required_for(user):
+        if _smtp_configured() and _send_login_code(user, db):
+            return {
+                "requires_2fa": True,
+                "email": user.email,
+                "message": f"We emailed a 6-digit code to {user.email}. Enter it to finish signing in.",
+            }
+        if APP_ENV == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Email security verification is temporarily unavailable. Please try again later.",
+            )
+
+    return _issue_login(user, db, request=request)
 
 
 @router.post("/verify-2fa")
-def verify_2fa(body: AuthenticatorRequest, request: Request, db: Session = Depends(get_db)):
-    enforce_rate_limit(request, "authenticator", "all", 30, 900)
-    user, recovery = finish_auth(body.challenge_token, body.code, db)
-    result = _issue_login(user, db, request=request)
-    if recovery:
-        result["recovery_codes"] = recovery
-    return result
+def verify_2fa(body: Verify2FARequest, request: Request, db: Session = Depends(get_db)):
+    """Finish a 2FA login by confirming the emailed 6-digit code."""
+    enforce_rate_limit(request, "verify_2fa", body.email, 10, 900)
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid or expired code")
+
+    rec = (
+        db.query(LoginCode)
+        .filter(LoginCode.user_id == user.id)
+        .order_by(LoginCode.created_at.desc())
+        .first()
+    )
+    if not rec:
+        raise HTTPException(status_code=401, detail="No sign-in code is pending. Please sign in again.")
+
+    if rec.expires_at < datetime.utcnow():
+        db.delete(rec)
+        db.commit()
+        raise HTTPException(status_code=401, detail="That code has expired. Request a new one.")
+
+    if rec.attempts >= TWO_FACTOR_MAX_ATTEMPTS:
+        db.delete(rec)
+        db.commit()
+        raise HTTPException(status_code=429, detail="Too many attempts. Please sign in again for a new code.")
+
+    code = (body.code or "").strip().replace(" ", "")
+    if hash_token(code) != rec.code_hash:
+        rec.attempts += 1
+        db.commit()
+        remaining = max(0, TWO_FACTOR_MAX_ATTEMPTS - rec.attempts)
+        raise HTTPException(status_code=401, detail=f"Incorrect code. {remaining} attempt(s) left.")
+
+    # Correct: consume every pending code for this user.
+    db.query(LoginCode).filter(LoginCode.user_id == user.id).delete()
+
+    device_token = None
+    if body.remember_device:
+        device_token = generate_device_token()
+        db.add(TrustedDevice(
+            user_id=user.id,
+            token_hash=hash_token(device_token),
+            label=request.headers.get("user-agent", "Remembered device")[:200],
+            expires_at=datetime.utcnow() + timedelta(days=TRUSTED_DEVICE_DAYS),
+            last_used_at=datetime.utcnow(),
+        ))
+    db.commit()
+
+    return _issue_login(user, db, device_token=device_token, request=request)
 
 
 @router.post("/resend-2fa")
-@router.post("/resend-verification")
-def no_email_verification():
-    raise HTTPException(400, "Use your Google Authenticator app. Codes are not sent by email.")
+def resend_2fa(body: ResendRequest, request: Request, db: Session = Depends(get_db)):
+    """Re-send the login code. Always 200 so accounts can't be enumerated."""
+    enforce_rate_limit(request, "resend_2fa", body.email, 3, 3600)
+    user = db.query(User).filter(User.email == body.email).first()
+    if user and user.is_active and user.is_verified and _twofa_required_for(user):
+        _send_login_code(user, db)
+    return {"message": "If a sign-in is in progress, a new code has been sent."}
 
 
 @router.put("/2fa")
-def set_two_factor(current_user: User = Depends(get_current_user)):
-    raise HTTPException(400, "Authenticator verification is required for all accounts.")
+def set_two_factor(
+    body: Toggle2FARequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Turn email 2FA on or off for the signed-in account."""
+    current_user.two_factor_enabled = bool(body.enabled)
+    if not body.enabled:
+        db.query(LoginCode).filter(LoginCode.user_id == current_user.id).delete()
+    db.commit()
+    return {"success": True, "two_factor_enabled": bool(current_user.two_factor_enabled)}
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -221,7 +400,7 @@ def refresh_token(body: RefreshRequest, request: Request, db: Session = Depends(
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user or not user.is_active or user.archived_at or not user.totp_secret:
+    if not user or not user.is_active or user.archived_at:
         raise HTTPException(status_code=401, detail="User not found")
     if payload.get("ver", 0) != user.auth_version:
         raise HTTPException(status_code=401, detail="Session has been revoked")
@@ -270,35 +449,151 @@ def logout(
 
 
 @router.get("/verify-email")
-@router.post("/reset-password")
-def retired_email_links():
-    raise HTTPException(410, "Email verification links are no longer supported. Use Google sign-in or a recovery code.")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    """Confirm an email address from the link we sent.
+
+    Two token shapes are accepted:
+      - `signup`: stateless - the registration payload is in the token; create
+        the user row now and mark it verified.
+      - `verify`: legacy - token references an existing unverified row by id.
+        Kept for any in-flight links from before the stateless flow shipped.
+    """
+    payload = decode_token(token)
+    if not payload:
+        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+
+    token_type = payload.get("type")
+
+    if token_type == "signup":
+        email = payload.get("email")
+        username = payload.get("username")
+        hashed_password = payload.get("hashed_password")
+        full_name = payload.get("full_name", "") or ""
+
+        if not email or not username or not hashed_password:
+            return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+
+        # Re-check uniqueness now that we're actually creating the row.
+        # Reclaim any stale unverified row owning the same identifier.
+        existing_email = db.query(User).filter(User.email == email).first()
+        if existing_email:
+            if existing_email.is_verified:
+                return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+            db.delete(existing_email)
+            db.commit()
+
+        existing_username = db.query(User).filter(User.username == username).first()
+        if existing_username:
+            if existing_username.is_verified:
+                return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+            db.delete(existing_username)
+            db.commit()
+
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=hashed_password,
+            full_name=full_name,
+            is_verified=True,
+            scans_this_month=0,
+            scan_reset_date=datetime.utcnow(),
+        )
+        db.add(user)
+        db.commit()
+        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=1")
+
+    if token_type == "verify":
+        user = db.query(User).filter(User.id == payload["sub"]).first()
+        if not user:
+            return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
+        if not user.is_verified:
+            user.is_verified = True
+            db.commit()
+        return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=1")
+
+    return RedirectResponse(url=f"{FRONTEND_URL}/login?verified=0")
 
 
-class RecoverAccountRequest(BaseModel):
-    email: EmailStr
-    recovery_code: str = Field(min_length=6, max_length=64)
-    password: str = Field(max_length=72)
+@router.post("/resend-verification")
+def resend_verification(body: ResendRequest, request: Request, db: Session = Depends(get_db)):
+    """Send a fresh verification link. Always returns success to avoid leaking which emails exist."""
+    enforce_rate_limit(request, "resend_verification", body.email, 3, 3600)
+    user = db.query(User).filter(User.email == body.email).first()
+    if user and not user.is_verified and user.hashed_password:
+        user.verification_sent_at = datetime.utcnow()
+        db.commit()
+        send_verification_email(user.email, create_verification_token(user.id))
+    return {"message": "If that account needs verification, a new link has been sent."}
 
 
 @router.post("/forgot-password")
-def recover_account(body: RecoverAccountRequest, request: Request, db: Session = Depends(get_db)):
-    enforce_rate_limit(request, "account_recovery", "all", 5, 900)
+def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    """Email a password-reset link. Always returns success so emails can't be enumerated."""
+    enforce_rate_limit(request, "forgot_password", body.email, 3, 3600)
+    user = db.query(User).filter(User.email == body.email).first()
+    # An emailed reset link can also establish a password for a Google-only account.
+    if user and user.is_active and not user.archived_at:
+        token = create_reset_token(user.id)
+        payload = decode_token(token)
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        ).update({PasswordResetToken.used_at: datetime.utcnow()})
+        db.add(PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_token(payload["jti"]),
+            expires_at=datetime.utcnow() + timedelta(hours=1),
+        ))
+        db.commit()
+        send_reset_email(user.email, token)
+    return {"message": "If an account exists for that email, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    """Set a new password using a valid reset token from the emailed link."""
+    enforce_rate_limit(request, "reset_password", request.client.host if request.client else "unknown", 5, 3600)
+    payload = decode_token(body.token)
+    if not payload or payload.get("type") != "reset":
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired.")
+
+    user = db.query(User).filter(User.id == payload["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired.")
+
+    reset_id = payload.get("jti")
+    reset_record = (
+        db.query(PasswordResetToken)
+        .filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.token_hash == hash_token(reset_id or ""),
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > datetime.utcnow(),
+        )
+        .first()
+    ) if reset_id else None
+    if not reset_record:
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired.")
     if not _password_meets_policy(body.password):
-        raise HTTPException(400, "Password must be at least 12 characters with a letter and number (maximum 72 bytes).")
-    user = db.query(User).filter(func.lower(User.email) == str(body.email).lower()).first()
-    if not user or not user.is_active or user.archived_at or not consume_recovery(user, body.recovery_code, db):
-        db.rollback()
-        raise HTTPException(400, "Invalid account or recovery code. If all codes are lost, contact an administrator.")
+        raise HTTPException(status_code=400, detail="Password must be at least 12 characters and contain a letter and a number.")
+
     user.hashed_password = hash_password(body.password)
-    user.totp_secret = None
-    user.totp_last_step = -1
+    # Completing a reset proves email ownership, so mark verified too.
+    user.is_verified = True
     user.auth_version += 1
-    db.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).delete()
-    db.query(AuthChallenge).filter(AuthChallenge.user_id == user.id).delete()
-    db.query(UserSession).filter(UserSession.user_id == user.id).update({UserSession.revoked_at: datetime.utcnow()})
+    reset_record.used_at = datetime.utcnow()
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used_at.is_(None),
+    ).update({PasswordResetToken.used_at: datetime.utcnow()})
+    db.query(UserSession).filter(
+        UserSession.user_id == user.id,
+        UserSession.revoked_at.is_(None),
+    ).update({UserSession.revoked_at: datetime.utcnow()})
+    db.query(TrustedDevice).filter(TrustedDevice.user_id == user.id).delete()
+    db.query(LoginCode).filter(LoginCode.user_id == user.id).delete()
     db.commit()
-    return begin_auth(user, db)
+    return {"message": "Password updated. You can now sign in."}
 
 
 def _password_meets_policy(password: str) -> bool:
@@ -372,8 +667,6 @@ def google_login(body: GoogleAuthRequest, request: Request, db: Session = Depend
     if user and not user.is_active and not user.archived_at:
         raise HTTPException(403, "Account banned. Contact an administrator.")
     if not user or user.archived_at:
-        if email.rsplit("@", 1)[-1] != "lspu.edu.ph" or idinfo.get("hd") != "lspu.edu.ph":
-            raise HTTPException(403, "New accounts require an institutional @lspu.edu.ph Google account.")
         if user:
             release_archived_identity(user, db)
         base = email.split("@")[0]
@@ -395,7 +688,7 @@ def google_login(body: GoogleAuthRequest, request: Request, db: Session = Depend
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    return begin_auth(user, db)
+    return _issue_login(user, db, request=request)
 
 
 @router.get("/me")

@@ -206,7 +206,3 @@ def _ensure_columns():
             for name, definition in (("archived_at", "DATETIME"), ("totp_secret", "TEXT"), ("totp_last_step", "INTEGER NOT NULL DEFAULT -1")):
                 if name not in cols:
                     conn.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
-            if "totp_secret" not in cols:
-                # Require fresh primary authentication before mandatory enrollment.
-                conn.execute(text("UPDATE users SET auth_version = auth_version + 1"))
-                conn.execute(text("UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE revoked_at IS NULL"))

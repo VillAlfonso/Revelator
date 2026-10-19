@@ -257,12 +257,6 @@ export default function Admin() {
             user={u}
             isMe={u.id === me?.id}
             isSuperAdmin={isSuperAdmin}
-            onResetAuthenticator={async () => {
-              const reason = window.prompt('Only continue after independently verifying this user’s identity. Record how identity was verified:');
-              if (!reason) return;
-              try { await api.adminResetAuthenticator(u.id, reason); await load(); }
-              catch (err) { setError(err.message); }
-            }}
             onDelete={() => setDeleteId(u.id)}
             onBan={() => banUser(u.id)}
             onUnban={() => unbanUser(u.id)}
@@ -352,7 +346,7 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ onResetAuthenticator, user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
+function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   const targetIsSuperAdmin = user.role === 'superadmin';
   const canMutate = isSuperAdmin && !targetIsSuperAdmin;
@@ -384,7 +378,6 @@ function UserRow({ onResetAuthenticator, user, isMe, isSuperAdmin, onDelete, onB
       </div>
       {canMutate && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {!isMe && <button className="btn" onClick={onResetAuthenticator}>Reset Authenticator</button>}
           {user.role === 'user' && (
             <button
               className="btn"
