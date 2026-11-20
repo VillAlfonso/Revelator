@@ -83,7 +83,10 @@ async function request(path, options = {}) {
     } catch {
       detail = responseText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
-    throw new Error(detail || `Request failed (HTTP ${res.status})`);
+    const error = new Error(detail || `Request failed (HTTP ${res.status})`);
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter;
+    throw error;
   }
 
   return res.json();
@@ -188,16 +191,21 @@ export const api = {
 
   // Finish an email-2FA login. On success the server may return a device_token
   // to remember this browser; stash it so next time skips the code.
-  async verify2fa(email, code, rememberDevice = false) {
-    const data = await request('/auth/verify-2fa', {
-      method: 'POST', noAuth: true,
-      body: JSON.stringify({ email, code, remember_device: rememberDevice }),
-    });
-    if (data && data.device_token) saveDeviceToken(email, data.device_token);
-    return data;
+  verifyAuthenticator(challenge_token, code) {
+    return request('/auth/verify-2fa', { method: 'POST', noAuth: true, body: JSON.stringify({ challenge_token, code }) });
   },
-
+  recoverAccount(email, recovery_code, password) {
+    return request('/auth/forgot-password', { method: 'POST', noAuth: true, body: JSON.stringify({ email, recovery_code, password }) });
+  },
+  adminArchiveHistory(id, kind = 'scans', offset = 0) {
+    return request(`/admin/archive/${encodeURIComponent(id)}/history?kind=${encodeURIComponent(kind)}&offset=${offset}&limit=25`);
+  },
+  adminResetAuthenticator(id, reason) { return request(`/admin/users/${encodeURIComponent(id)}/reset-authenticator`, { method: 'POST', body: JSON.stringify({ reason }) }); },
   adminArchive() { return request('/admin/archive'); },
+  backupDatabase() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return authenticatedDownload('/admin/database-backup', `revelator-database-${timestamp}.sqlite3`);
+  },
 
   resend2fa(email) {
     return request('/auth/resend-2fa', {

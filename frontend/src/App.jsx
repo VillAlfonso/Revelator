@@ -112,9 +112,14 @@ function ScanProvider({ children }) {
 // ── Auth Context ────────────────────────────────────
 
 const AuthContext = createContext(null);
+const AdminSessionCountdownContext = createContext(null);
 
 export function useAuth() {
   return useContext(AuthContext);
+}
+
+function useAdminSessionCountdown() {
+  return useContext(AdminSessionCountdownContext);
 }
 
 function AuthProvider({ children }) {
@@ -171,8 +176,97 @@ function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, loginUser, logout, refreshUser }}>
-      {children}
+      <AdminSessionProvider>{children}</AdminSessionProvider>
     </AuthContext.Provider>
+  );
+}
+
+function AdminSessionProvider({ children }) {
+  const { user } = useAuth();
+  const isAdmin = ["admin", "superadmin"].includes(user?.role);
+  const timeoutMinutes = user?.admin_idle_timeout_minutes || 15;
+  const [secondsRemaining, setSecondsRemaining] = useState(null);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setSecondsRemaining(null);
+      return undefined;
+    }
+
+    const timeoutMs = timeoutMinutes * 60 * 1000;
+    let lastActivityAt = Date.now();
+    let expired = false;
+    setSecondsRemaining(timeoutMinutes * 60);
+
+    function recordActivity() {
+      const now = Date.now();
+      if (now - lastActivityAt < 1000) return;
+      lastActivityAt = now;
+      setSecondsRemaining(timeoutMinutes * 60);
+    }
+
+    const tick = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((lastActivityAt + timeoutMs - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+      if (remaining === 0 && !expired) {
+        expired = true;
+        window.clearInterval(tick);
+        window.clearInterval(heartbeat);
+        const logoutRequest = api.logout();
+        api.clearTokens();
+        window.dispatchEvent(new CustomEvent('fg:session-expired'));
+        logoutRequest.catch(err => console.error('Could not revoke expired admin session:', err.message));
+      }
+    }, 1000);
+
+    const heartbeat = window.setInterval(() => {
+      if (
+        document.visibilityState === 'visible' &&
+        Date.now() - lastActivityAt < 120000
+      ) {
+        api.getMe().catch(err => console.error('Could not record admin session activity:', err.message));
+      }
+    }, 120000);
+
+    const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, recordActivity, { passive: true }));
+
+    return () => {
+      window.clearInterval(tick);
+      window.clearInterval(heartbeat);
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, recordActivity));
+    };
+  }, [isAdmin, timeoutMinutes]);
+
+  return (
+    <AdminSessionCountdownContext.Provider value={secondsRemaining}>
+      {children}
+    </AdminSessionCountdownContext.Provider>
+  );
+}
+
+function AdminSessionStatus() {
+  const seconds = useAdminSessionCountdown();
+  if (seconds === null) return null;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = String(seconds % 60).padStart(2, '0');
+  const warning = seconds <= 60;
+
+  return (
+    <div
+      role="timer"
+      aria-label={`Admin inactivity timeout in ${minutes} minutes and ${remainder} seconds`}
+      aria-live="off"
+      className="mono"
+      style={{
+        position: 'sticky', top: 0, zIndex: 55, textAlign: 'center', padding: '6px 12px',
+        background: warning ? 'rgba(255,51,68,0.12)' : 'rgba(0,255,102,0.06)',
+        borderBottom: `1px solid ${warning ? 'rgba(255,51,68,0.4)' : '#112418'}`,
+        color: warning ? '#ff8a99' : '#6dba85', fontSize: 11, letterSpacing: 1,
+      }}
+    >
+      ADMIN INACTIVITY TIMEOUT · AUTO-LOGOUT IN {minutes}:{remainder}
+    </div>
   );
 }
 
@@ -323,7 +417,7 @@ function Layout({ children }) {
     : Math.max(0, Math.min(1, drawerOffset / DRAWER_WIDTH));
   const isLight = theme === 'light';
 
-  if (location.pathname === '/intercept') return children;
+  if (location.pathname === '/intercept') return <><AdminSessionStatus />{children}</>;
 
   return (
     <div>
@@ -453,6 +547,7 @@ function Layout({ children }) {
             </nav>
           )}
         </div>
+        <AdminSessionStatus />
       </header>
 
       {/* API key tutorial overlay - dims everything below the header */}

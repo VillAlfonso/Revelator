@@ -13,7 +13,10 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
-from .config import SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+from .config import (
+    SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS,
+    ADMIN_SESSION_IDLE_TIMEOUT_MINUTES,
+)
 from .database import get_db
 from .models import User, UserSession
 
@@ -148,11 +151,13 @@ async def get_current_user(
     user = db.query(User).filter(User.id == payload["sub"]).first()
     if user:
         request.state.user_id = user.id
-    if not user or not user.is_active or user.archived_at:
+    if not user or not user.is_active or user.archived_at or not user.totp_secret:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     if payload.get("ver", 0) != user.auth_version:
         raise HTTPException(status_code=401, detail="Session has been revoked")
     session_id = payload.get("sid")
+    if user.role in {"admin", "superadmin"} and not session_id:
+        raise HTTPException(status_code=401, detail="Admin session is unavailable")
     if session_id:
         session = (
             db.query(UserSession)
@@ -169,10 +174,22 @@ async def get_current_user(
         from .device_details import request_ip
         now = datetime.utcnow()
         session.ip_address = request_ip(request) or session.ip_address
-        if not session.last_used_at or now - session.last_used_at >= timedelta(minutes=5):
+        if user.role in {"admin", "superadmin"}:
+            _record_admin_activity(session, db, now)
+        elif not session.last_used_at or now - session.last_used_at >= timedelta(minutes=5):
             session.last_used_at = now
             db.commit()
     return user
+
+
+def _record_admin_activity(session: UserSession, db: Session, now: datetime) -> None:
+    last_activity = session.last_used_at or session.created_at
+    if last_activity and now - last_activity >= timedelta(minutes=ADMIN_SESSION_IDLE_TIMEOUT_MINUTES):
+        session.revoked_at = now
+        db.commit()
+        raise HTTPException(status_code=401, detail="Admin session expired due to inactivity")
+    session.last_used_at = now
+    db.commit()
 
 
 def get_role_permissions(role_name: str, db: Session) -> list:
@@ -230,16 +247,22 @@ def get_user_from_token(token: str, db: Session) -> User:
     if not payload or payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     user = db.query(User).filter(User.id == payload["sub"]).first()
-    if not user or not user.is_active or user.archived_at:
+    if not user or not user.is_active or user.archived_at or not user.totp_secret:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     if payload.get("ver", 0) != user.auth_version:
         raise HTTPException(status_code=401, detail="Session has been revoked")
     session_id = payload.get("sid")
-    if session_id and not db.query(UserSession.id).filter(
-        UserSession.id == session_id,
-        UserSession.user_id == user.id,
-        UserSession.revoked_at.is_(None),
-        UserSession.expires_at > datetime.utcnow(),
-    ).first():
-        raise HTTPException(status_code=401, detail="Session has been revoked or expired")
+    if user.role in {"admin", "superadmin"} and not session_id:
+        raise HTTPException(status_code=401, detail="Admin session is unavailable")
+    if session_id:
+        session = db.query(UserSession).filter(
+            UserSession.id == session_id,
+            UserSession.user_id == user.id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > datetime.utcnow(),
+        ).first()
+        if not session:
+            raise HTTPException(status_code=401, detail="Session has been revoked or expired")
+        if user.role in {"admin", "superadmin"}:
+            _record_admin_activity(session, db, datetime.utcnow())
     return user

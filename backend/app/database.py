@@ -86,6 +86,10 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN NOT NULL DEFAULT 1"))
             if "auth_version" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0"))
+            if "failed_login_attempts" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0"))
+            if "login_locked_until" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN login_locked_until TIMESTAMP"))
 
             # Plan rename migration: legacy 'basic' -> new 'pro' ($5 unlimited);
             # legacy 'pro' (1000-scan tier) -> new 'premium' ($10 unlimited + AI).

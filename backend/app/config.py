@@ -39,6 +39,7 @@ API_KEY_ENCRYPTION_KEY_CONFIGURED = bool(_configured_api_key_encryption_key)
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
+ADMIN_SESSION_IDLE_TIMEOUT_MINUTES = int(os.getenv("ADMIN_SESSION_IDLE_TIMEOUT_MINUTES", "15"))
 
 # When false, registration creates a verified account immediately and returns
 # tokens (no email round-trip). Right for free / laptop-hosted deployments that

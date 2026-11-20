@@ -37,6 +37,8 @@ class User(Base):
     verification_sent_at = Column(DateTime, nullable=True)  # last time a verification email was sent
     two_factor_enabled = Column(Boolean, default=True, nullable=False)  # email-OTP 2FA on password login
     auth_version = Column(Integer, default=0, nullable=False)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    login_locked_until = Column(DateTime, nullable=True)
 
     archived_at = Column(DateTime, nullable=True)
     totp_secret = Column(Text, nullable=True)

@@ -1,17 +1,29 @@
-# Authentication rollback and account archive
+# Authenticator verification and account archive
 
-Authentication has been restored to the email OTP flow:
-- Email/password registration creates an account only after a six-digit emailed code is verified.
-- Sign-in uses the previous email-code two-factor and remembered-browser behavior.
-- Google sign-in works without Authenticator enrollment or a new institutional-domain restriction.
-- Password recovery uses a single-use emailed link, including for Google-only accounts.
-- The forgot-password email comes from the sign-in form.
+## Activation
+Restart the backend and refresh the built frontend. Install backend/requirements.txt on other hosts.
+Existing accounts and records remain. Users without an enrolled Authenticator must sign in again with
+their existing password or Google identity, then enroll before they receive a full login session.
+Existing password lockout and administrator idle-timeout rules remain enabled.
 
-Authenticator setup, app-code verification, recovery-code login, and admin Authenticator reset are disabled.
-Dormant database columns are retained to avoid destructive migration; they do not gate access.
-Restart the backend and refresh the rebuilt frontend to activate the rollback. SMTP settings are unchanged.
+## Registration and sign-in
+New accounts use verified Google sign-in to prove email ownership, then enroll Google Authenticator.
+There is no institutional-domain restriction. Password registration and old email verification links are disabled.
+Authenticator enrollment provides a locally generated QR code and manual setup key, then requires a valid code.
+Secrets are encrypted using the existing API_KEY_ENCRYPTION_KEY configuration (or its SECRET_KEY fallback).
+Keep that encryption key stable and backed up separately from database backups.
+Every sign-in requires an app code or unused recovery code; old remembered-device tokens cannot skip it.
+All authentication routes have stopped calling SMTP; SMTP credentials themselves are unchanged.
 
-Archive remains enabled for both self-service and administrator account removal.
-Archived data and permanent history remain, while eligible re-registration gets a fresh account.
-Banned accounts cannot sign in or register again until the ban is lifted.
-The previous history-only Git merge remains intact.
+## Recovery
+Ten recovery codes are shown once after enrollment. Store them securely.
+Forgot password uses a recovery code to set a password, revoke previous sessions and recovery codes,
+and require fresh Authenticator enrollment. Google-only accounts can establish a password this way too.
+If both phone and recovery codes are lost, a super administrator can reset Authenticator after independently
+verifying the account holder's identity. The action requires a reason and is recorded in the audit history.
+It does not reset an administrator's own account or remove bans.
+
+## Archive and backups
+Account archival, retained scans/errors, ban protection, and permanent archive history are unchanged.
+Database backups are super-admin-only and exclude external image files and server encryption keys.
+The existing Git branch-history integration is unchanged.

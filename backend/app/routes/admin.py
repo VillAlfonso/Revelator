@@ -2,9 +2,9 @@
 Admin CRUD routes - all endpoints require is_admin=True.
 """
 
-from typing import Optional
+from typing import Optional, Literal
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import or_, func
@@ -22,6 +22,26 @@ from datetime import datetime, timedelta, timezone
 import json
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/database-backup")
+def download_database_backup(
+    background_tasks: BackgroundTasks,
+    _: User = Depends(get_current_super_admin),
+    db: Session = Depends(get_db),
+):
+    from ..database_backup import create_database_backup
+    engine = db.get_bind()
+    if engine.dialect.name != "sqlite":
+        raise HTTPException(501, "Database backup download currently supports SQLite only.")
+    try:
+        path = create_database_backup(engine)
+    except Exception:
+        raise HTTPException(500, "Database backup could not be created. Please retry.") from None
+    background_tasks.add_task(path.unlink, missing_ok=True)
+    return FileResponse(path, media_type="application/octet-stream",
+        filename=f"revelator-database-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-UTC.sqlite3",
+        headers={"Cache-Control": "no-store", "Pragma": "no-cache"}, background=background_tasks)
 
 
 def _user_row(u: User, db: Session = None) -> dict:
@@ -182,8 +202,100 @@ def archive_list(_: User = Depends(get_current_admin), db: Session = Depends(get
         row["status"] = "archived" if user.archived_at else "banned"
         rows.append(row)
     events = db.query(AccountArchiveEvent).order_by(AccountArchiveEvent.created_at.desc()).limit(limit).all()
-    return {"accounts": rows, "events": [{"id": e.id, "email": e.email, "action": e.action,
+    return {"accounts": rows, "events": [{"id": e.id, "user_id": e.user_id, "email": e.email, "action": e.action,
         "created_at": e.created_at.isoformat() + "Z"} for e in events]}
+
+
+def _archive_json(value, default):
+    try:
+        return json.loads(value) if value else default
+    except (ValueError, TypeError):
+        return value
+
+
+@router.get("/archive/{user_id}/history")
+def archive_account_history(
+    user_id: str,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+    kind: Literal["scans", "errors", "actions", "archive"] = "scans",
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    user = db.get(User, user_id)
+    if not user or (user.is_active and not user.archived_at):
+        raise HTTPException(404, "Archived or banned account not found")
+    first_event = db.query(AccountArchiveEvent).filter(AccountArchiveEvent.user_id == user_id).order_by(AccountArchiveEvent.created_at).first()
+    identity = _archive_json(first_event.snapshot, {}) if first_event else {}
+    account = _user_row(user, db)
+    if user.email.endswith("@archive.invalid") and isinstance(identity, dict):
+        for field in ("email", "username", "full_name"):
+            account[field] = identity.get(field, account[field])
+    actor = {key: account[key] for key in ("username", "email", "role")}
+    queries = {
+        "scans": db.query(Scan).filter(Scan.user_id == user_id),
+        "errors": db.query(OperationalEvent).filter(or_(OperationalEvent.user_id == user_id,
+            (OperationalEvent.user_id.is_(None) & OperationalEvent.scan_id.in_(db.query(Scan.scan_id).filter(Scan.user_id == user_id)))),
+            ~OperationalEvent.event_type.ilike("%intercept%"),
+            or_(OperationalEvent.path.is_(None), ~OperationalEvent.path.ilike("%/api/intercept%"))),
+        "actions": db.query(AdminAuditLog).filter(or_(AdminAuditLog.admin_id == user_id, AdminAuditLog.target_user_id == user_id),
+            ~AdminAuditLog.action.ilike("%intercept%")),
+        "archive": db.query(AccountArchiveEvent).filter(AccountArchiveEvent.user_id == user_id),
+    }
+    model = {"scans": Scan, "errors": OperationalEvent, "actions": AdminAuditLog, "archive": AccountArchiveEvent}[kind]
+    query = queries[kind]
+    total = query.count()
+    rows = query.order_by(model.created_at.desc(), model.id.desc()).offset(offset).limit(limit).all()
+    items = []
+    for row in rows:
+        entry = {"id": row.id, "created_at": row.created_at.isoformat() + "Z", "actor": actor}
+        if kind == "scans":
+            fields = ("scan_id", "filename", "verdict", "confidence_score", "detected_category", "detected_subtype",
+                "category_confidence", "category_explanation", "llm_explanation", "anomaly_location", "certainty_level",
+                "tools_likely_used", "document_type", "image_width", "image_height", "notes", "training_warning")
+            scan = {field: getattr(row, field) for field in fields}
+            for field in ("category_evidence", "reasoning_steps", "alternatives", "annotations_json"):
+                scan[field] = _archive_json(getattr(row, field), [])
+            scan["user_context"] = {field: getattr(row, field) for field in (
+                "suspicion_reason", "area_of_concern", "image_source", "shot_type", "lighting", "physical_clues", "is_forged_belief")}
+            scan["has_image"] = bool(row.image_path)
+            entry.update(kind="scan", action="user_scan", scan=scan)
+        elif kind == "errors":
+            entry.update(kind="operation", action=row.event_type, operation={field: getattr(row, field) for field in (
+                "event_type", "severity", "message", "path", "status_code", "scan_id", "request_id")})
+        else:
+            entry.update(kind="admin", action=row.action,
+                details=_archive_json(row.details if kind == "actions" else row.snapshot, {}))
+            actor_id = row.admin_id if kind == "actions" else row.actor_id
+            operator = db.get(User, actor_id) if actor_id else None
+            entry["actor"] = {"username": operator.username, "email": operator.email, "role": operator.role} if operator else None
+            entry["target"] = actor
+        items.append(entry)
+    return {"account": account, "items": items, "total": total, "offset": offset, "limit": limit,
+            "counts": {name: q.count() for name, q in queries.items()}}
+
+
+class AssistanceRequest(BaseModel):
+    reason: str
+
+
+@router.post("/users/{user_id}/reset-authenticator")
+def reset_authenticator(user_id: str, body: AssistanceRequest, admin: User = Depends(get_current_super_admin), db: Session = Depends(get_db)):
+    if user_id == admin.id or len(body.reason.strip()) < 10:
+        raise HTTPException(400, "Verify the user's identity and provide a reason (at least 10 characters). Self-reset is not allowed.")
+    user = db.get(User, user_id)
+    if not user or not user.is_active or user.archived_at:
+        raise HTTPException(400, "Active account required")
+    user.totp_secret = None
+    user.totp_last_step = -1
+    user.auth_version += 1
+    db.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).delete()
+    db.query(AuthChallenge).filter(AuthChallenge.user_id == user.id).delete()
+    db.query(UserSession).filter(UserSession.user_id == user.id).update({UserSession.revoked_at: datetime.utcnow()})
+    archive_event(user, "authenticator_reset_by_admin", db, admin.id)
+    _log_admin_action(db, admin.id, "reset_authenticator", user.id, {"reason": body.reason[:1000]})
+    db.commit()
+    return {"success": True}
 
 
 # ============================================

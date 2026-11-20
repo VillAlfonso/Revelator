@@ -10,8 +10,11 @@ const labelStyle = { fontSize: 11, color: '#86efac', textTransform: 'uppercase',
 export default function Admin() {
   const { user: me } = useAuth();
   const isSuperAdmin = me?.role === "superadmin";
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupError, setBackupError] = useState('');
   const [tab, setTab] = useState('users'); // 'users', 'logs'
   const [users, setUsers] = useState([]);
+  const [archiveAccountId, setArchiveAccountId] = useState(null);
   const [archive, setArchive] = useState({ accounts: [], events: [] });
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState(null);
@@ -173,6 +176,16 @@ export default function Admin() {
         }}>
           Admin Panel
         </h1>
+        {isSuperAdmin && <div style={{ marginTop: 12 }}>
+          <button className="btn btn-secondary" disabled={backupBusy} onClick={async () => {
+            setBackupBusy(true); setBackupError('');
+            try { await api.backupDatabase(); }
+            catch (err) { setBackupError(err.message || 'Could not download database backup.'); }
+            finally { setBackupBusy(false); }
+          }}>{backupBusy ? 'Preparing backup…' : 'Save database backup'}</button>
+          <p style={{ color: '#6dba85', fontSize: 12, marginTop: 8 }}>Database only; uploaded images are separate. Keep this file private and retain your server encryption keys for restoration.</p>
+          {backupError && <p role="alert" style={{ color: '#ff8a99', fontSize: 12 }}>{backupError}</p>}
+        </div>}
       </div>
 
       {stats && (
@@ -210,23 +223,31 @@ export default function Admin() {
         >
           Logs
         </button>
-        <button className="mono" onClick={() => { setTab('archive'); load(); }} style={{ background: 'none', border: 'none', color: tab === 'archive' ? '#00ff66' : '#86efac', cursor: 'pointer' }}>Archive</button>
+        <button className="mono" onClick={() => { setTab('archive'); load(); }} style={{
+          padding: '8px 12px', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+          color: tab === 'archive' ? '#00ff66' : '#86efac', textTransform: 'uppercase', letterSpacing: 1,
+          borderBottom: tab === 'archive' ? '2px solid #00ff66' : 'none', marginBottom: '-12px',
+        }}>Archive</button>
       </div>
 
-      {tab === 'archive' && <div>
+      {tab === 'archive' && (archiveAccountId ? <ArchiveAccountHistory key={archiveAccountId} userId={archiveAccountId} onBack={() => setArchiveAccountId(null)} /> : <div>
         <h2 className="oswald">Archived and banned accounts</h2>
         {error && <p role="alert" style={{ color: '#ff8a99' }}>{error}</p>}
         <button className="btn" onClick={load}>Refresh</button>
         {archive.accounts.length === 0 && <p>No archived or banned accounts.</p>}
         {archive.accounts.map(account => <div className="card" key={account.id} style={{ marginTop: 12 }}>
-          <strong>{account.email}</strong><p>{account.status}</p>
+          <button type="button" onClick={() => setArchiveAccountId(account.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 0, padding: 0, color: '#d8ffe6', cursor: 'pointer' }}>
+            <strong>{account.email}</strong><p>{account.status} · View history →</p>
+          </button>
           {isSuperAdmin && account.status === 'banned' && <button className="btn" onClick={() => unbanUser(account.id)}>Unban</button>}
         </div>)}
         <h3 className="oswald">Permanent archive history (latest 100 events)</h3>
         {archive.events.map(event => <div key={event.id} style={{ padding: 10, borderBottom: '1px solid #1d3825' }}>
-          {event.email} · {event.action.replaceAll('_', ' ')} · {new Date(event.created_at).toLocaleString()}
+          <button type="button" onClick={() => setArchiveAccountId(event.user_id)} style={{ background: 'none', border: 0, padding: 0, color: '#86efac', cursor: 'pointer', textAlign: 'left' }}>
+            {event.email} · {event.action.replaceAll('_', ' ')} · {new Date(event.created_at).toLocaleString()}
+          </button>
         </div>)}
-      </div>}
+      </div>)}
 
       {tab === 'users' && (
       <div>
@@ -257,6 +278,12 @@ export default function Admin() {
             user={u}
             isMe={u.id === me?.id}
             isSuperAdmin={isSuperAdmin}
+            onResetAuthenticator={async () => {
+              const reason = window.prompt('Only continue after independently verifying this user’s identity. Record how identity was verified:');
+              if (!reason) return;
+              try { await api.adminResetAuthenticator(u.id, reason); await load(); }
+              catch (err) { setError(err.message); }
+            }}
             onDelete={() => setDeleteId(u.id)}
             onBan={() => banUser(u.id)}
             onUnban={() => unbanUser(u.id)}
@@ -346,7 +373,7 @@ function Badge({ children, color }) {
   );
 }
 
-function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
+function UserRow({ onResetAuthenticator, user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote, onDemote, isBanning }) {
   const planColor = { free: '#86efac', basic: '#00ffaa', pro: '#00ff66' }[user.plan] || '#86efac';
   const targetIsSuperAdmin = user.role === 'superadmin';
   const canMutate = isSuperAdmin && !targetIsSuperAdmin;
@@ -378,6 +405,7 @@ function UserRow({ user, isMe, isSuperAdmin, onDelete, onBan, onUnban, onPromote
       </div>
       {canMutate && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {!isMe && <button className="btn" onClick={onResetAuthenticator}>Reset Authenticator</button>}
           {user.role === 'user' && (
             <button
               className="btn"
@@ -1524,4 +1552,50 @@ function RoomCard({ room, expanded, onToggle, onChange, onDelete, onError }) {
       )}
     </div>
   );
+}
+
+
+function ArchiveAccountHistory({ userId, onBack }) {
+  const [kind, setKind] = useState('scans');
+  const [offset, setOffset] = useState(0);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError('');
+    api.adminArchiveHistory(userId, kind, offset).then(result => {
+      if (!cancelled) setData(result);
+    }).catch(err => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [userId, kind, offset]);
+  return <div>
+    <button className="btn btn-secondary" onClick={onBack}>← Back to Archive</button>
+    <h2 className="oswald" style={{ marginTop: 16 }}>{data?.account.email || 'Account history'}</h2>
+    <p style={{ color: '#86efac', fontSize: 12 }}>Retained records for this account. Errors can only be shown when they were recorded against this user.</p>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+      {[['scans', 'Scans'], ['errors', 'Errors & service events'], ['actions', 'Account actions'], ['archive', 'Archive history']].map(([key, label]) =>
+        <button key={key} className={kind === key ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => { setKind(key); setOffset(0); }}>
+          {label}{data ? ` (${data.counts[key]})` : ''}
+        </button>)}
+    </div>
+    {error && <p role="alert" style={{ color: '#ff8a99' }}>{error}</p>}
+    {loading ? <p role="status">Loading history…</p> : !error && <>
+      {!data?.items.length && <div className="card">No retained records in this section.</div>}
+      {data?.items.map(entry => <div key={entry.id}>
+        {entry.kind === 'scan' ? <details className="card" style={{ marginBottom: 12 }}>
+          <summary style={{ cursor: 'pointer', color: '#d8ffe6' }}>{entry.scan.filename} · {entry.scan.verdict} · {new Date(entry.created_at).toLocaleString()}</summary>
+          <div style={{ marginTop: 14 }}><ScanImagePreview scan={entry.scan} /><ScanJsonDetail scan={entry.scan} />
+            <ReadableAuditDetails details={Object.fromEntries(Object.entries(entry.scan).filter(([key]) => !['has_image', 'image_width', 'image_height'].includes(key)))} />
+          </div>
+        </details> : <LogRow log={entry} />}
+      </div>)}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <button className="btn btn-secondary" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - 25))}>Previous</button>
+        <span>{data?.total ? `${offset + 1}–${Math.min(offset + 25, data.total)} of ${data.total}` : '0 records'}</span>
+        <button className="btn btn-secondary" disabled={!data || offset + 25 >= data.total} onClick={() => setOffset(value => value + 25)}>Next</button>
+      </div>
+    </>}
+  </div>;
 }

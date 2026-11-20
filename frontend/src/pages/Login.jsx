@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
@@ -6,9 +6,10 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { useAuth } from '../App';
 import { api } from '../api/client';
 import Logo from '../components/Logo';
+import AuthenticatorChallenge from '../components/AuthenticatorChallenge';
 import { FingerprintWatermark } from '../components/ForensicMotifs';
 
-export default function Login() {
+export default function Login({ registration = false }) {
   const { loginUser, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -17,22 +18,20 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
-  const [needsResend, setNeedsResend] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState('login');   // 'login' | 'code'
-  const [code, setCode] = useState('');
-  const [rememberDevice, setRememberDevice] = useState(false);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [challenge, setChallenge] = useState(null);
   const [agreed, setAgreed] = useState(false);
 
-  if (user) { navigate('/scan', { replace: true }); return null; }
+  useEffect(() => {
+    if (!lockoutRemaining) return undefined;
+    const timer = window.setTimeout(() => {
+      setLockoutRemaining(remaining => Math.max(0, remaining - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [lockoutRemaining]);
 
-  async function handleResend() {
-    if (!email) { setError('Enter your email above, then tap resend.'); return; }
-    setError('');
-    try { await api.resendVerification(email); } catch {}
-    setInfo('Verification link sent. Check your inbox.');
-    setNeedsResend(false);
-  }
+  if (user) { navigate('/scan', { replace: true }); return null; }
 
   async function handleNativeGoogleSignIn() {
     if (!agreed) { setError('Please agree to the Terms of Service first.'); return; }
@@ -41,8 +40,7 @@ export default function Login() {
     try {
       const result = await GoogleAuth.signIn();
       const data = await api.googleLogin(result.authentication.idToken);
-      loginUser(data);
-      navigate('/scan');
+      setChallenge(data);
     } catch (err) {
       if (err.code !== 'CANCELED') setError('Google sign-in failed');
     } finally {
@@ -58,49 +56,19 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await api.login(email, password);
-      if (data.requires_2fa) {
-        setStage('code');
-        setCode('');
-        setInfo(data.message || `Enter the code we emailed to ${email}.`);
-        return;
+      setChallenge(data);
+    } catch (err) {
+      setError(err.message);
+      if (err.retryAfter && /failed sign-in attempts/i.test(err.message)) {
+        setLockoutRemaining(err.retryAfter);
       }
-      loginUser(data);
-      navigate('/scan');
-    } catch (err) {
-      setError(err.message);
-      if (/verify/i.test(err.message)) setNeedsResend(true);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleVerifyCode(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const data = await api.verify2fa(email, code.trim(), rememberDevice);
-      loginUser(data);
-      navigate('/scan');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleResendCode() {
-    setError('');
-    try { await api.resend2fa(email); } catch {}
-    setInfo('A new code has been sent. Check your inbox.');
-  }
-
-  function backToLogin() {
-    setStage('login');
-    setCode('');
-    setError('');
-    setInfo('');
-  }
+  if (challenge) return <AuthenticatorChallenge key={challenge.challenge_token} challenge={challenge}
+    onComplete={data => { loginUser(data); navigate('/scan'); }} onCancel={() => setChallenge(null)} />;
 
   return (
     <div style={{ maxWidth: 440, margin: 'clamp(20px, 6vw, 60px) auto', position: 'relative' }}>
@@ -130,7 +98,7 @@ export default function Login() {
           fontSize: 18, marginBottom: 20, letterSpacing: 3, textTransform: 'uppercase',
           color: '#d8ffe6',
         }}>
-          {stage === 'code' ? '▸ Verify Sign-In' : '▸ Sign In'}
+          {registration ? '▸ Create an account' : '▸ Sign In'}
         </h2>
 
         {verifiedParam === '1' && (
@@ -167,73 +135,25 @@ export default function Login() {
             fontFamily: "'JetBrains Mono', monospace",
           }}>
             ⚠ {error}
-            {needsResend && (
-              <button
-                type="button"
-                onClick={handleResend}
-                style={{
-                  display: 'block', marginTop: 10, background: 'transparent',
-                  border: '1px solid #ff8a99', color: '#ff8a99', padding: '6px 12px',
-                  borderRadius: 2, fontSize: 12, cursor: 'pointer',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                ↻ Resend verification email
-              </button>
-            )}
+
+          </div>
+        )}
+        {lockoutRemaining > 0 && (
+          <div
+            role="status"
+            style={{
+              background: 'rgba(255,170,0,0.1)', border: '1px solid #ffaa00', padding: 12,
+              borderRadius: 2, marginBottom: 16, fontSize: 13, color: '#ffcf80',
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            Sign-in is temporarily locked. Try again in {Math.floor(lockoutRemaining / 60)}:
+            {String(lockoutRemaining % 60).padStart(2, '0')}.
           </div>
         )}
 
-        {stage === 'code' ? (
-          <form onSubmit={handleVerifyCode}>
-            <div style={{ marginBottom: 16 }}>
-              <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>6-Digit Code</label>
-              <input
-                className="input mono"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="______"
-                autoFocus
-                required
-                style={{ textAlign: 'center', letterSpacing: 12, fontSize: 24 }}
-              />
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, cursor: 'pointer', fontSize: 13, color: '#86efac' }}>
-              <input type="checkbox" checked={rememberDevice} onChange={e => setRememberDevice(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#00ff66' }} />
-              Trust this device for 30 days
-            </label>
-            <button className="btn btn-primary" type="submit" disabled={loading || code.length < 6} style={{ width: '100%' }}>
-              {loading ? '◌ Verifying…' : '▶ Verify & Sign In'}
-            </button>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
-              <button type="button" onClick={backToLogin} style={{ background: 'transparent', border: 'none', color: '#6dba85', fontSize: 12, cursor: 'pointer', padding: 0 }}>
-                ← Back
-              </button>
-              <button type="button" onClick={handleResendCode} style={{ background: 'transparent', border: 'none', color: '#6dba85', fontSize: 12, cursor: 'pointer', padding: 0 }}>
-                ↻ Resend code
-              </button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: 16 }}>
-                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Email</label>
-                <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
-              </div>
-              <div style={{ marginBottom: 8 }}>
-                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Password</label>
-                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" required />
-              </div>
-              <div style={{ textAlign: 'right', marginBottom: 24 }}>
-                {email.trim() ? <Link to="/forgot-password" state={{ email: email.trim() }} style={{ fontSize: 12, color: '#6dba85' }}>Forgot password?</Link>
-                  : <button type="button" disabled title="Enter your email first" style={{ color: '#6b7280', background: 'none', border: 0 }}>Forgot password?</button>}
-              </div>
+        <>
+            {registration && <p style={{ color: '#86efac', marginBottom: 16 }}>Create your account with Google to verify your email, then set up Google Authenticator.</p>}
               <label style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 22,
                 fontSize: 12, color: '#86efac', lineHeight: 1.5, cursor: 'pointer',
@@ -249,10 +169,24 @@ export default function Login() {
                   <Link to="/terms" target="_blank" style={{ color: '#00ff66' }}>Terms of Service &amp; Privacy Policy</Link>.
                 </span>
               </label>
-              <button className="btn btn-primary" type="submit" disabled={loading || !agreed} style={{ width: '100%', opacity: agreed ? 1 : 0.55 }}>
-                {loading ? '◌ Authenticating…' : '▶ Sign In'}
+            {!registration &&             <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 16 }}>
+                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Email</label>
+                <input className="input" type="email" value={email} onChange={e => { setEmail(e.target.value); setLockoutRemaining(0); }} placeholder="you@example.com" required />
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label className="mono" style={{ fontSize: 11, color: '#86efac', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, display: 'block' }}>Password</label>
+                <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Your password" required />
+              </div>
+              <div style={{ textAlign: 'right', marginBottom: 24 }}>
+                {email.trim() ? <Link to="/forgot-password" state={{ email: email.trim() }} style={{ fontSize: 12, color: '#6dba85' }}>Forgot password?</Link>
+                  : <button type="button" disabled title="Enter your email first" style={{ color: '#6b7280', background: 'none', border: 0 }}>Forgot password?</button>}
+              </div>
+
+              <button className="btn btn-primary" type="submit" disabled={loading || !agreed || lockoutRemaining > 0} style={{ width: '100%', opacity: agreed ? 1 : 0.55 }}>
+                {loading ? '◌ Authenticating…' : lockoutRemaining ? '◌ Sign-in temporarily locked' : '▶ Sign In'}
               </button>
-            </form>
+            </form>}
 
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #112418' }}>
               <p className="mono" style={{ fontSize: 10, color: '#3f6e4a', textAlign: 'center', marginBottom: 12, letterSpacing: 1 }}>
@@ -285,8 +219,7 @@ export default function Login() {
                       setLoading(true);
                       try {
                         const data = await api.googleLogin(credentialResponse.credential);
-                        loginUser(data);
-                        navigate('/scan');
+                        setChallenge(data);
                       } catch (err) {
                         setError(err.message);
                       } finally {
@@ -305,10 +238,9 @@ export default function Login() {
             </div>
 
             <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#86efac' }}>
-              New here? <Link to="/register">Create an account</Link>
+              {registration ? <Link to="/login">Already registered? Sign in</Link> : <>New here? <Link to="/register">Create an account</Link></>}
             </p>
           </>
-        )}
       </div>
     </div>
   );

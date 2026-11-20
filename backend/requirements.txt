@@ -31,3 +31,7 @@ requests>=2.32
 
 # Payments
 stripe>=10.0
+
+# Authenticator verification
+pyotp==2.9.0
+qrcode[pil]==8.2
