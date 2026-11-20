@@ -1,0 +1,14 @@
+[
+  {
+    "file": "backend/app/forgery/openai_vision.py",
+    "backup": "openai_vision.py.bak",
+    "before_sha256": "7f8c9b5c1f8e6409e81e06d187b750a23a98486475fff9beec2a32d913594b16",
+    "after_sha256": "adb2c48d88aefdd388aacff7dc6938e1f05c9ab830b0ae61136388002d533fb0"
+  },
+  {
+    "file": "backend/tests/test_intercept_openai.py",
+    "backup": "test_intercept_openai.py.bak",
+    "before_sha256": "6cc9d4b0e0be4e7b42176f88dafc0339c75c7c54bf05a624c455d6b9e0f3aacb",
+    "after_sha256": "8af73a0b71bccaacd3df0fd89b544907ceec8a15e6e9420fbdbf3846031de51c"
+  }
+]
